@@ -17,3 +17,25 @@ $ node server.js
 
 You can then point your browser at http://localhost:3000/
 
+
+## Pi GPO package
+Requiring this line in the server.js file:
+```
+var wpi = require('pi-gpio');
+```
+
+causes the following error when running 'node server.js':
+```
+Error: ENOENT: no such file or directory, open '/proc/cpuinfo'
+```
+
+It's possible on the pi this will not be an issue.
+
+## External Access
+Allowing inbound requests can expose your LAN to external attack, 
+so its safer to use a service like weaved.com. 
+You’ll need to sign up for an account, and install the weaved 
+package on your RPi. Follow the instructions on their RPi page 
+[here](https://developer.weaved.com/portal/members/betapi.php).
+
+
