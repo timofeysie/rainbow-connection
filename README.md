@@ -1,7 +1,10 @@
 # Raspberry Pi Node API
 
-Using [this tutorial](http://www.robert-drummond.com/2013/05/08/how-to-build-a-restful-web-api-on-a-raspberry-pi-in-javascript-2/) 
-as the starting point for a client server app for Raspberry Pi interaction.
+
+The initial example using NodeJS to make the LED blink [can be found here](http://www.instructables.com/id/JavaScript-for-IoT-Blinking-LED-on-Raspberry-Pi-Wi/?ALLSTEPS)
+The initial example for using a RESTful API to expose the pins to the internet [can be found here](http://www.robert-drummond.com/2013/05/08/how-to-build-a-restful-web-api-on-a-raspberry-pi-in-javascript-2/) 
+The second example used Pi GPIO, and old library which no longer works with current Pi's, 
+so the actual GPIO config will be done with WiringPi
 
 The app depends on NodeJS, and other Node libraries.
 The first time you run this app, you will need to install the libs.
