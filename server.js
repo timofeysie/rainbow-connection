@@ -1,7 +1,7 @@
 var http = require('http');
 var express = require('express');
 console.log('wpi');
-var wpi = require('pi-gpio');
+var gpio = require('pi-gpio');
 console.log('wpi',wpi);
 var app = express();
 // an array of objects for the client to query

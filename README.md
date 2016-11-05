@@ -19,7 +19,8 @@ You can then point your browser at http://localhost:3000/
 
 
 ## Pi GPO package
-Requiring this line in the server.js file:
+
+On the mac, this line in the server.js file:
 ```
 var wpi = require('pi-gpio');
 ```
@@ -29,7 +30,15 @@ causes the following error when running 'node server.js':
 Error: ENOENT: no such file or directory, open '/proc/cpuinfo'
 ```
 
-It's possible on the pi this will not be an issue.
+On ths pi, this works fine, but there is another error:
+```
+opening GPIO port 23 on pin 16 as input
+/home/pi/rainbo-connection/server.js:19
+gpio.op(inputs[i].pin, "input", function (err) {
+    ReferenceError: gpio is not defined
+})
+
+
 
 ## External Access
 Allowing inbound requests can expose your LAN to external attack, 
