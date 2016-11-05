@@ -17,6 +17,14 @@ $ node server.js
 
 You can then point your browser at http://localhost:3000/
 
+## Using Webpack with Angular 2
+
+To create a webpage to control the lights we are going to extremes. 
+To make it interesting, we will be using the code from [the officual Angular 2 Webpack tutorial](https://angular.io/docs/ts/latest/guide/webpack.html).
+
+Since we need more experience with Webpack, this will be like killing two birds with one project (no actual birds will be harmed).
+
+
 
 ## Wiring-pi
 
@@ -26,10 +34,12 @@ FATAL: Making libWiringPi failed.
 Please check install.log and fix any problems. If you're still stuck,
 ```
 
-This may be the fact that it is meant to be installed on a rapsberry pi.
+On the pi, npm i comnpletes.  This is becuase wiring-pi is meant to be installed on a rapsberry pi.
 
-But still, we would like to test the API calls on the Mac before tyring it out on the pi.
-So we will create a dev-server without wiring-pi just for testing purposes.
+To test the API calls on the Mac before tyring it out on the pi we have a demo server app.
+This is called dev-server.js 
+It is the same as the server.js but without wiring-pi.
+
 
 
 ## Pi GPO package

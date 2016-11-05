@@ -25,11 +25,12 @@ app.get('/toggle', function (req, res) {
 });
 
 // Old code used to make the light blink continuously
-setInterval(function() {
-	isLedOn = +!isLedOn;
-	//isLedOn = !isLedOn;
-	wpi.digitalWrite(configPin, isLedOn );
-}, configTimeout);
+// uncomment for testing purposes
+// setInterval(function() {
+// 	isLedOn = +!isLedOn;
+// 	//isLedOn = !isLedOn;
+// 	wpi.digitalWrite(configPin, isLedOn );
+// }, configTimeout);
 
 // serve index.html and static pages stored in the home directory,
 // along with the client.js file
