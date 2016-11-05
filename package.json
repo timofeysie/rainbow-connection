@@ -6,7 +6,7 @@
   "dependencies": {
     "express": "^4.14.0",
     "http": "0.0.0",
-    "pi-gpio": "0.0.8"
+    "wiring-pi": ">=2.1.1"
   },
   "devDependencies": {},
   "scripts": {

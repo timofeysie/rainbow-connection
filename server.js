@@ -1,56 +1,38 @@
 var http = require('http');
 var express = require('express');
-console.log('wpi');
-var gpio = require('pi-gpio');
-console.log('gpio',gpio);
+var wpi = require('wiring-pi');
 var app = express();
-// an array of objects for the client to query
-// var inputs = [{ pin: '11', gpio: '17', value: 1 },
-//               { pin: '12', gpio: '18', value: 0 }];
 
 var inputs = [{ pin: '16', gpio: '23', value: null },
               { pin: '22', gpio: '25', value: null }];
 
-// initialise the GPIO and open the ports as inputs
-var i;
-for (i in inputs) {
-  console.log('opening GPIO port ' + inputs[i].gpio 
-    + ' on pin ' + inputs[i].pin + ' as input');
-  gpio.open(inputs[i].pin, "input", function (err) {
-    if (err) {
-      throw err;
-    }
-  });
-}
 
-// add a timer loop to read each GPIO input and store the latest value 
-// in our inputs array. 
-// For this, we use the pi-gpio library function gpio.read.
-// read and store the GPIO inputs twice a second
-setInterval( function () {
-  gpio.read(inputs[0].pin, function (err, value) {
-    if (err) {
-      throw err;
-    }
-    console.log('read pin ' + inputs[0].pin + ' value = ' + value);
-    // update the inputs object
-    inputs[0].value = value.toString(); // store value as a string
-  });
+// GPIO pin of the led
+var configPin = 7;
+// Blinking interval in usec
+var configTimeout = 1000;
 
-  gpio.read(inputs[1].pin, function (err, value) {
-    if (err) {
-      throw err;
-    }
-    console.log('read pin ' + inputs[1].pin + ' value = ' + value);
-    inputs[1].value = value.toString();
-  });
-}, 500); // setInterval
+wpi.setup('wpi');
+wpi.pinMode(configPin, wpi.OUTPUT);
 
+var isLedOn = 0;
 
+// API call to toggle the light on and off
+app.get('/toggle', function (req, res) {
+	isLedOn = +!isLedOn;
+  console.log('change pin to '+isLedOn);
+	wpi.digitalWrite(configPin, isLedOn);
+});
+
+// Old code used to make the light blink continuously
+setInterval(function() {
+	isLedOn = +!isLedOn;
+	//isLedOn = !isLedOn;
+	wpi.digitalWrite(configPin, isLedOn );
+}, configTimeout);
 
 // serve index.html and static pages stored in the home directory,
-// and the myclient.js file
-//app.use(express['static'](__dirname ));
+// along with the client.js file
 app.use(express.static(__dirname));
 
 // define the API for routes to the API calls and/or 
@@ -84,15 +66,15 @@ app.use(function(err, req, res, next) {
   }
 });
 
-process.on('SIGINT', function() {
-  var i;
-  console.log("\nGracefully shutting down from SIGINT (Ctrl+C)");
-  console.log("closing GPIO...");
-  for (i in inputs) {
-    gpio.close(inputs[i].pin);
-  }
-  process.exit();
-});
+// process.on('SIGINT', function() {
+//   var i;
+//   console.log("\nGracefully shutting down from SIGINT (Ctrl+C)");
+//   console.log("closing GPIO...");
+//   for (i in inputs) {
+//     gpio.close(inputs[i].pin);
+//   }
+//   process.exit();
+// });
 
 app.listen(3000);
 console.log('App Server running at port 3000');
