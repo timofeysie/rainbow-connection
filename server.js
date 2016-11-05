@@ -2,7 +2,7 @@ var http = require('http');
 var express = require('express');
 console.log('wpi');
 var gpio = require('pi-gpio');
-console.log('wpi',wpi);
+console.log('gpio',gpio);
 var app = express();
 // an array of objects for the client to query
 // var inputs = [{ pin: '11', gpio: '17', value: 1 },
