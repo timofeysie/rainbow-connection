@@ -18,7 +18,33 @@ Run the application using the following command again from the project directory
 $ node server.js
 ```
 
+To test the app on a non-Rapsberry Pi machine, run:
+```
+$ node dev-server.js
+```
+
 You can then point your browser at http://localhost:3000/
+
+
+To build the project, run:
+```
+$ npm run build
+```
+
+To run the Karma tests, run:
+```
+$ npm test
+```
+
+To run the app using the regular Angular method, try this:
+```
+$ npm start
+```
+
+Then, the app will be availble at:
+```
+http://localhost:8080/
+```
 
 ## Using Webpack with Angular 2
 
