@@ -1,5 +1,6 @@
 var http = require('http');
 var express = require('express');
+
 var app = express();
 
 app.use(express.static(__dirname + '/dist'));
@@ -8,11 +9,12 @@ app.get('/', function(req, res) {
     res.redirect('/dist/index.html');
 });
 
+var isLedOn = 0;
+
 // API call to toggle the light on and off
 app.get('/toggle', function (req, res) {
 	isLedOn = +!isLedOn;
   console.log('change pin to '+isLedOn);
-	wpi.digitalWrite(configPin, isLedOn);
 });
 
 // Express route for any other unrecognised incoming requests
