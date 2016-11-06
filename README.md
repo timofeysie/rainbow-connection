@@ -129,6 +129,7 @@ by building pi-gpio by hand.  Now, I am getting the following error:
 Error when trying to open pin 22
 gpio-admin: failed to change group permissions of /sys/devices/virtual/gpio25/direction: 
 No such file or directory
+```
 
 The [very next search result](https://github.com/mirceageorgescu/raspi-tank-2/issues/1) 
 shows another user having the same problem after making pi-gpio.
