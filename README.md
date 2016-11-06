@@ -27,6 +27,30 @@ To make it interesting, we will be using the code from [the officual Angular 2 W
 
 Since we need more experience with Webpack, this will be like killing two birds with one project (no actual birds will be harmed).
 
+This line was removed from the scripts section of the package.json file:
+```
+"start": "webpack-dev-server --inline --progress --port 8080", // Webpack start script
+```
+We run our server.js instead.  Might need to change that later.
+
+> rimraf dist && webpack --config config/webpack.prod.js --progress --profile --bail
+
+The following command:
+```
+$ npm run build
+```
+fails with the following error:
+```
+  0% compileEntryModuleNotFoundError: Entry module not found: Error: Cannot resolve 'file' or 'directory' ./src/polyfills.ts in /Users/tim/pi/rainbow-connection
+    at Compilation.<anonymous> (/Users/tim/pi/rainbow-connection/node_modules/webpack/lib/Compilation.js:358:28)
+```
+
+We took out our sever start script and re-instated the one above.
+We will have to think of a better way of dealing with this Mac/Raspberry pi build differences.
+```
+    "start": "node server.js"
+```
+
 
 
 ## Wiring-pi
@@ -42,6 +66,14 @@ On the pi, npm i comnpletes.  This is becuase wiring-pi is meant to be installed
 To test the API calls on the Mac before tyring it out on the pi we have a demo server app.
 This is called dev-server.js 
 It is the same as the server.js but without wiring-pi.
+
+Also, if you build using npm install and you are not on the Raspberry Pi, 
+you must remove this from the package.json file:
+```
+"wiring-pi": ">=2.1.1",
+```
+This will faile and break the install procress.
+Not sure how to handle this yet.  Stay tuned.
 
 
 

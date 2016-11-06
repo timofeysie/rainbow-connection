@@ -3,6 +3,15 @@ var express = require('express');
 var wpi = require('wiring-pi');
 var app = express();
 
+// serve index.html and static pages stored in the home directory,
+// along with the client.js file
+
+app.use(express.static(__dirname + '/dist'));
+
+app.get('/', function(req, res) {
+    res.redirect('/dist/index.html');
+});
+
 var inputs = [{ pin: '16', gpio: '23', value: null },
               { pin: '22', gpio: '25', value: null }];
 
@@ -31,10 +40,6 @@ app.get('/toggle', function (req, res) {
 // 	//isLedOn = !isLedOn;
 // 	wpi.digitalWrite(configPin, isLedOn );
 // }, configTimeout);
-
-// serve index.html and static pages stored in the home directory,
-// along with the client.js file
-app.use(express.static(__dirname));
 
 // define the API for routes to the API calls and/or 
 // page requests to our server.
