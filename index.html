@@ -3,12 +3,21 @@
  <head>
    <meta charset="utf-8" />
    <title>Rainbow Serpent Connection</title>
-   <script src="http://code.jquery.com/jquery-latest.js"></script> 
-   <script src="client.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Polyfill(s) for older browsers -->
+    <script src="node_modules/core-js/client/shim.min.js"></script>
+    <script src="node_modules/zone.js/dist/zone.js"></script>
+    <script src="node_modules/reflect-metadata/Reflect.js"></script>
+    <script src="node_modules/systemjs/dist/system.src.js"></script>
+    <script src="systemjs.config.js"></script>
+    <script>
+      System.import('app').catch(function(err){ console.error(err); });
+    </script>
  </head>
  <body>
    <h1>Rainbow Serpent Connection</h2>
    <h2>Using an Express API server to provide access to Rapsberry Pi's GPIO pins</H1>
-   <div id="input"></div>
+   <my-app>Loading...</my-app>
  </body>
 </html>

@@ -20,6 +20,38 @@ $ node server.js
 
 You can then point your browser at http://localhost:3000/
 
+There is a dev-server.js file which removes the wiring-pi stuff for testing on a non-raspi machine.
+Run this command to test:
+```
+$ node dev-server.js
+```
+
+To build the Angular 2 app, we must removed the following from package.json:
+```
+"dependencies": {
+    ...
+    "wiring-pi": ">=2.1.1"
+
+This lib can only be set up on the Raspberry pi.
+So to work on a non raspi device, we have to remeber this lib.
+
+
+## Using the Angular 2 Quickstart
+
+As a simpler approach, we are using the official quick start seed.
+
+The http calls are coming from [this module](https://angular.io/docs/ts/latest/guide/server-communication.html) for now.
+
+There are a lot of questions that need to be asnwered regarding using Angular as a front end for the raspi, so the quickest way to a working demo is in right now.
+
+Currently, some of the calls are getting thru, but there is some delay, and we are getting this error:
+```
+zone.js:1382 POST http://localhost:3000/toggle 404 (Not Found)
+```
+
+Also, we need to run ```$ npm start``` to develop the client, then stop that and run ```$node dev-server.js``` to test the app. 
+This is not ideal.
+
 ## Using Webpack with Angular 2
 
 To create a webpage to control the lights we are going to extremes. 
@@ -27,7 +59,9 @@ To make it interesting, we will be using the code from [the officual Angular 2 W
 
 Since we need more experience with Webpack, this will be like killing two birds with one project (no actual birds will be harmed).
 
-
+Maybe it was a bit ambitious.  Building the project this way created all kinds of issues, and the observable http calls were not working for some reason.
+So this experiment lives in a separate branch.
+It is certainly the way to go, and nice not to have the js files in the project, but to get on with this app, we will try a simpler Anulgar 2 approach.
 
 ## Wiring-pi
 
@@ -116,3 +150,4 @@ package on your RPi. Follow the instructions on their RPi page
 [here](https://developer.weaved.com/portal/members/betapi.php).
 
 
+zone.js:388 Unhandled Promise rejection: Failed to load app.component.html

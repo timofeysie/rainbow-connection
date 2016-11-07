@@ -2,12 +2,13 @@ var http = require('http');
 var express = require('express');
 var app = express();
 
+var isLedOn = 0;
 
 // API call to toggle the light on and off
 app.get('/toggle', function (req, res) {
 	isLedOn = +!isLedOn;
   console.log('change pin to '+isLedOn);
-	wpi.digitalWrite(configPin, isLedOn);
+	//wpi.digitalWrite(configPin, isLedOn);
 });
 
 // serve index.html and static pages stored in the home directory,
