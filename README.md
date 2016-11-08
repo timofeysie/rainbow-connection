@@ -1,9 +1,10 @@
 # Raspberry Pi Node API
 
+Simple project to make an LED toggle on and off via a web page.
 
 The initial example using NodeJS to make the LED blink [can be found here](http://www.instructables.com/id/JavaScript-for-IoT-Blinking-LED-on-Raspberry-Pi-Wi/?ALLSTEPS)
 The initial example for using a RESTful API to expose the pins to the internet [can be found here](http://www.robert-drummond.com/2013/05/08/how-to-build-a-restful-web-api-on-a-raspberry-pi-in-javascript-2/) 
-The second example used Pi GPIO, and old library which no longer works with current Pi's, 
+The first example used Pi GPIO, and old library which no longer works with current Pi's, 
 so the actual GPIO config will be done with WiringPi
 
 The app depends on NodeJS, and other Node libraries.
@@ -25,6 +26,14 @@ Run this command to test:
 ```
 $ node dev-server.js
 ```
+
+The best thing to do duing development is run the server first, then run:
+```
+$ npm start
+```
+This will start the Angular style dev mode with file watch on post 3001 (since the dev-server will be using 3000).
+Then, make sure you are looking at port 3000 in the browser.
+This way you will have live compile, and the working API at the same time.
 
 To build the Angular 2 app, we must removed the following from package.json:
 ```
@@ -51,6 +60,8 @@ zone.js:1382 POST http://localhost:3000/toggle 404 (Not Found)
 
 Also, we need to run ```$ npm start``` to develop the client, then stop that and run ```$node dev-server.js``` to test the app. 
 This is not ideal.
+
+See above for how to handle dev mode.
 
 ## Using Webpack with Angular 2
 

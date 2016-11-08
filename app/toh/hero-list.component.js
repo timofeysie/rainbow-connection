@@ -14,13 +14,15 @@ var hero_service_1 = require('./hero.service');
 var HeroListComponent = (function () {
     function HeroListComponent(heroService) {
         this.heroService = heroService;
-        this.mode = 'Observable';
     }
     HeroListComponent.prototype.ngOnInit = function () { this.getHeroes(); };
     HeroListComponent.prototype.getHeroes = function () {
         var _this = this;
         this.heroService.getHeroes()
-            .subscribe(function (heroes) { return _this.heroes = heroes; }, function (error) { return _this.errorMessage = error; });
+            .subscribe(function (result) {
+            _this.response = result;
+            console.log('result', result);
+        }, function (error) { return _this.errorMessage = error; });
     };
     HeroListComponent.prototype.addHero = function (name) {
         var _this = this;
@@ -28,7 +30,29 @@ var HeroListComponent = (function () {
             return;
         }
         this.heroService.addHero(name)
-            .subscribe(function (hero) { return _this.heroes.push(hero); }, function (error) { return _this.errorMessage = error; });
+            .subscribe(function (result) {
+            _this.response = result;
+            console.log('result', result);
+        }, function (error) { return _this.errorMessage = error; });
+    };
+    HeroListComponent.prototype.toggleGet = function () {
+        var _this = this;
+        this.heroService.toggleGet()
+            .then(function (result) {
+            _this.response = result;
+            console.log('result', result);
+        }, function (error) { return _this.errorMessage = error; });
+    };
+    HeroListComponent.prototype.togglePost = function (name) {
+        var _this = this;
+        if (!name) {
+            return;
+        }
+        this.heroService.togglePost(name)
+            .then(function (result) {
+            _this.response = result;
+            console.log('result', result);
+        }, function (error) { return _this.errorMessage = error; });
     };
     HeroListComponent = __decorate([
         core_1.Component({

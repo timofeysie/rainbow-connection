@@ -15,7 +15,7 @@ var http_2 = require('@angular/http');
 var HeroService = (function () {
     function HeroService(http) {
         this.http = http;
-        this.heroesUrl = 'toggle'; // URL to web API
+        this.heroesUrl = 'toggle';
     }
     HeroService.prototype.addHero = function (name) {
         var headers = new http_2.Headers({ 'Content-Type': 'application/json' });
@@ -24,17 +24,40 @@ var HeroService = (function () {
             .map(this.extractData)
             .catch(this.handleError);
     };
+    HeroService.prototype.togglePost = function (name) {
+        var _this = this;
+        return new Promise(function (resolve, reject) {
+            var headers = new http_2.Headers({ 'Content-Type': 'application/json' });
+            var options = new http_2.RequestOptions({ headers: headers });
+            _this.http.post(_this.heroesUrl, { name: name }, options)
+                .subscribe(function (res) {
+                resolve(res);
+            }, function (err) {
+                reject(err);
+            });
+        });
+    };
     HeroService.prototype.getHeroes = function () {
         return this.http.get(this.heroesUrl)
             .map(this.extractData)
             .catch(this.handleError);
     };
+    HeroService.prototype.toggleGet = function () {
+        var _this = this;
+        return new Promise(function (resolve, reject) {
+            _this.http.get(_this.heroesUrl)
+                .subscribe(function (res) {
+                resolve(res);
+            }, function (err) {
+                reject(err);
+            });
+        });
+    };
     HeroService.prototype.extractData = function (res) {
-        var body = res.json();
-        return body.data || {};
+        console.log('res');
+        return res;
     };
     HeroService.prototype.handleError = function (error) {
-        // In a real world app, we might use a remote logging infrastructure
         var errMsg;
         if (error instanceof http_1.Response) {
             var body = error.json() || '';

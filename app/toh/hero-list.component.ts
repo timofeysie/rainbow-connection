@@ -13,20 +13,37 @@ import { HeroService }       from './hero.service';
 export class HeroListComponent implements OnInit {
   errorMessage: string;
   heroes: Hero[];
-  mode = 'Observable';
+  response: any;
   constructor (private heroService: HeroService) {}
   ngOnInit() { this.getHeroes(); }
   getHeroes() {
     this.heroService.getHeroes()
-                     .subscribe(
-                       heroes => this.heroes = heroes,
-                       error =>  this.errorMessage = <any>error);
+                    .subscribe(
+                      (result) => { this.response = result
+                        console.log('result',result); },
+                      (error) =>  this.errorMessage = <any>error);
   }
   addHero (name: string) {
     if (!name) { return; }
     this.heroService.addHero(name)
                      .subscribe(
-                       hero  => this.heroes.push(hero),
-                       error =>  this.errorMessage = <any>error);
+                       (result)  => {this.response = result
+                         console.log('result',result);},
+                       (error) =>  this.errorMessage = <any>error);
+  }
+  toggleGet() {
+    this.heroService.toggleGet()
+        .then((result) => { 
+          this.response = result;
+          console.log('result',result); 
+        }, (error) =>  this.errorMessage = <any>error);
+  }
+  togglePost (name: string) {
+    if (!name) { return; }
+    this.heroService.togglePost(name)
+        .then((result)  => {
+          this.response = result;
+          console.log('result',result);
+        }, (error) =>  this.errorMessage = <any>error);
   }
 }

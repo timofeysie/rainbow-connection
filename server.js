@@ -22,6 +22,20 @@ app.get('/toggle', function (req, res) {
 	isLedOn = +!isLedOn;
   console.log('change pin to '+isLedOn);
 	wpi.digitalWrite(configPin, isLedOn);
+  res.status(300).send('new pin '+isLedOn);
+});
+
+app.post('/toggle', function (req, res) {
+	isLedOn = +!isLedOn;
+  var jsonString = '';
+  req.on('data', function (data) {
+      jsonString += data;
+  });
+  req.on('end', function () {
+      console.log(JSON.parse(jsonString).name);
+  });
+  res.status(300).send('thanks');
+	//wpi.digitalWrite(configPin, isLedOn);
 });
 
 // Old code used to make the light blink continuously
