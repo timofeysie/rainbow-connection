@@ -16,7 +16,7 @@ $ npm install
 
 Run the application using the following command again from the project directory:
 ```
-$ node server.js
+$ sudo node server.js
 ```
 
 You can then point your browser at http://localhost:3000/
