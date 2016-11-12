@@ -8,7 +8,7 @@ var isLedOn = 0;
 app.get('/toggle', function (req, res) {
 	isLedOn = +!isLedOn;
   console.log('change pin to '+isLedOn);
-  res.status(300).send('new pin '+isLedOn);
+  res.status(200).send('new pin '+isLedOn);
 	//wpi.digitalWrite(configPin, isLedOn);
 });
 
@@ -19,11 +19,15 @@ app.post('/toggle', function (req, res) {
   req.on('data', function (data) {
       jsonString += data;
   });
+  try {
   req.on('end', function () {
     result = JSON.parse(jsonString).name;
       console.log(result);
   });
-  res.status(300).send('thanks, '+JSON.parse(jsonString).name);
+  } catch (error) {
+    console.log('jsonString',jsonString);
+  }
+  res.status(200).send('thanks, '+JSON.parse(jsonString).name);
 	//wpi.digitalWrite(configPin, isLedOn);
 });
 

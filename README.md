@@ -2,6 +2,14 @@
 
 Simple project to make an LED toggle on and off via a web page.
 
+Added the [xAPI wrapper](https://github.com/adlnet/xAPIWrapper) library for 
+communication of the [learning objects](https://en.wikipedia.org/wiki/Learning_object) 
+between the server and the client.
+
+Currently implementing button input to emulate RFID tag contact.
+
+## Set up
+
 The initial example using NodeJS to make the LED blink [can be found here](http://www.instructables.com/id/JavaScript-for-IoT-Blinking-LED-on-Raspberry-Pi-Wi/?ALLSTEPS)
 The initial example for using a RESTful API to expose the pins to the internet [can be found here](http://www.robert-drummond.com/2013/05/08/how-to-build-a-restful-web-api-on-a-raspberry-pi-in-javascript-2/) 
 The first example used Pi GPIO, and old library which no longer works with current Pi's, 
@@ -43,6 +51,22 @@ To build the Angular 2 app, we must removed the following from package.json:
 
 This lib can only be set up on the Raspberry pi.
 So to work on a non raspi device, we have to remeber this lib.
+
+## Npm unable to find angular
+
+That's right, running npm i on the Raspberry Pi failed saying it could not find the registry.
+Specifying the registry did not help the situation.  
+After a while, I simply got rid of the git ignore for the node-modules and commeted them.
+This took a while.  Then the git pull took even longer.
+Then however, we were able to run Angular 2 on the device!
+
+The button on the website works to toggle the light.
+The input sends data to the pi.
+
+We're in business.
+
+Next up, 
+multiple lights, using input (ie. a button) and a RESTful service using the xAPI telling the pi which light to turn on when the button is pressed.
 
 
 ## Using the Angular 2 Quickstart

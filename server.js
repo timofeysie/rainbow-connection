@@ -22,7 +22,7 @@ app.get('/toggle', function (req, res) {
 	isLedOn = +!isLedOn;
   console.log('change pin to '+isLedOn);
 	wpi.digitalWrite(configPin, isLedOn);
-  res.status(300).send('new pin '+isLedOn);
+  res.status(200).send('new pin '+isLedOn);
 });
 
 app.post('/toggle', function (req, res) {
@@ -34,7 +34,7 @@ app.post('/toggle', function (req, res) {
   req.on('end', function () {
       console.log(JSON.parse(jsonString).name);
   });
-  res.status(300).send('thanks');
+  res.status(200).send('thanks');
 	//wpi.digitalWrite(configPin, isLedOn);
 });
 
