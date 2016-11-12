@@ -8,6 +8,41 @@ between the server and the client.
 
 Currently implementing button input to emulate RFID tag contact.
 
+## Toggle
+
+Using the [example here](http://www.instructables.com/id/JavaScript-for-IoT-Blinking-LED-on-Raspberry-Pi-Wi/?ALLSTEPS) 
+by Leon-anavi's instructable, we use pin 7 in the J8 Pin numbering scheme.
+
+This requires pin 6 (0v ground) and the above mentioned pin 7 (GPIO4) to create a circute with an LED.
+
+The api to use is <pi-IP-addr>/toggle
+
+## Toggle 2
+
+Using the example from the Adventures in Rapberry Pi book by Carrie Anne Philpin.
+Her example uses the GPI pin numbering.
+GPIO Pin 24 (J8 Pin 18), as well as the same ground pin as togle 1.
+
+In the diagram, the ground pin goes to the negative (blue) row on the breadboard.
+The GPIO Pin 24 goes straight to the board at the same end of the LED longer leg 
+(ie: the lower end of the circuit).
+
+Since we are using the J8 Pin numbering, in the server.js file, it is set as pin 18.
+The number scheme is set like this:
+```
+wpi.setup('wpi');
+```
+
+
+## Physical pin numvering
+
+In pin charts for the Rapsberry Pi, there are often two numbering systems show.
+The GPIO/Function numbering, and the J8 Pin numbering.
+The J8 Pine count goes across and down from pin 1 at the top left of header P1 
+(nearest to the SD card).
+Example: GPIO port 23 is found on P1 header pin 16.
+
+
 ## Set up
 
 The initial example using NodeJS to make the LED blink [can be found here](http://www.instructables.com/id/JavaScript-for-IoT-Blinking-LED-on-Raspberry-Pi-Wi/?ALLSTEPS)

@@ -1,6 +1,8 @@
-<h3>Toggle</h3>
-<p class="error" *ngIf="errorMessage">{{errorMessage}}</p>
-<button (click)="toggleGet()">Toggle</button>
+<div class="buttonsContainer">
+    <button (click)="toggleGet()">Toggle</button>
+    <button (click)="toggleGet2()">Toggle 2</button>
+</div>
 <p>Pin: {{response}}</p>
 <label>Input: <input #newHeroName /></label>
 <button (click)="togglePost(newHeroName.value); newHeroName.value=''">Send</button>
+<p class="error" *ngIf="errorMessage">{{errorMessage}}</p>

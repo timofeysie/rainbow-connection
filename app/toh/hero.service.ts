@@ -6,6 +6,7 @@ import { Headers, RequestOptions } from '@angular/http';
 @Injectable()
 export class HeroService {
   private heroesUrl = 'toggle'; 
+  private heroesUrl2 = 'toggle2'; 
   constructor (private http: Http) {}
   addHero (name: string): Observable<any> {
     let headers = new Headers({ 'Content-Type': 'application/json' });
@@ -56,5 +57,17 @@ export class HeroService {
     }
     console.error(errMsg);
     return Observable.throw(errMsg);
+  }
+
+  /** Toggle 2 */
+  toggleGet2(): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.http.get(this.heroesUrl2)
+        .subscribe(res => {
+          resolve (res);
+        }, (err) => {
+          reject(err);
+        });
+    });
   }
 }

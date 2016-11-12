@@ -54,13 +54,21 @@ var HeroListComponent = (function () {
             console.log('result', result);
         }, function (error) { return _this.errorMessage = error; });
     };
+    HeroListComponent.prototype.toggleGet2 = function () {
+        var _this = this;
+        this.heroService.toggleGet2()
+            .then(function (result) {
+            _this.response = result;
+            console.log('result', result);
+        }, function (error) { return _this.errorMessage = error; });
+    };
     HeroListComponent = __decorate([
         core_1.Component({
             moduleId: module.id,
             selector: 'hero-list',
             templateUrl: 'hero-list.component.html',
             providers: [hero_service_1.HeroService],
-            styles: ['.error {color:red;}']
+            styleUrls: ['hero-list.component.css']
         }), 
         __metadata('design:paramtypes', [hero_service_1.HeroService])
     ], HeroListComponent);

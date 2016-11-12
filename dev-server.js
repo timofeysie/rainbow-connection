@@ -7,8 +7,17 @@ var isLedOn = 0;
 // API call to toggle the light on and off
 app.get('/toggle', function (req, res) {
 	isLedOn = +!isLedOn;
-  console.log('change pin to '+isLedOn);
+  console.log('toggle: change pin to '+isLedOn);
   res.status(200).send('new pin '+isLedOn);
+	//wpi.digitalWrite(configPin, isLedOn);
+});
+
+// Toggle 2 example
+var configPin_18_isLedOn = 0;
+app.get('/toggle2', function (req, res) {
+	configPin_18_isLedOn = +!configPin_18_isLedOn;
+  console.log('toggle2: change pin to '+configPin_18_isLedOn);
+  res.status(200).send('new pin '+configPin_18_isLedOn);
 	//wpi.digitalWrite(configPin, isLedOn);
 });
 

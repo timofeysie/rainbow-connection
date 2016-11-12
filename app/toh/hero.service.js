@@ -16,6 +16,7 @@ var HeroService = (function () {
     function HeroService(http) {
         this.http = http;
         this.heroesUrl = 'toggle';
+        this.heroesUrl2 = 'toggle2';
     }
     HeroService.prototype.addHero = function (name) {
         var headers = new http_2.Headers({ 'Content-Type': 'application/json' });
@@ -69,6 +70,18 @@ var HeroService = (function () {
         }
         console.error(errMsg);
         return Observable_1.Observable.throw(errMsg);
+    };
+    /** Toggle 2 */
+    HeroService.prototype.toggleGet2 = function () {
+        var _this = this;
+        return new Promise(function (resolve, reject) {
+            _this.http.get(_this.heroesUrl2)
+                .subscribe(function (res) {
+                resolve(res);
+            }, function (err) {
+                reject(err);
+            });
+        });
     };
     HeroService = __decorate([
         core_1.Injectable(), 

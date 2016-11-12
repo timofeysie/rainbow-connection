@@ -8,7 +8,7 @@ import { HeroService }       from './hero.service';
   selector: 'hero-list',
   templateUrl: 'hero-list.component.html',
   providers: [ HeroService ],
-  styles: ['.error {color:red;}']
+  styleUrls: ['hero-list.component.css']
 })
 export class HeroListComponent implements OnInit {
   errorMessage: string;
@@ -44,6 +44,13 @@ export class HeroListComponent implements OnInit {
         .then((result)  => {
           this.response = result;
           console.log('result',result);
+        }, (error) =>  this.errorMessage = <any>error);
+  }
+  toggleGet2() {
+    this.heroService.toggleGet2()
+        .then((result) => { 
+          this.response = result;
+          console.log('result',result); 
         }, (error) =>  this.errorMessage = <any>error);
   }
 }

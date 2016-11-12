@@ -3,10 +3,15 @@ var express = require('express');
 var wpi = require('wiring-pi');
 var app = express();
 
-var inputs = [{ pin: '16', gpio: '23', value: null },
-              { pin: '22', gpio: '25', value: null }];
+// serve index.html and static pages stored in the home directory,
+// along with the client.js file, and set the server to use port 3000.
+app.use(express.static(__dirname));
+app.listen(3000);
+console.log('App Server running at port 3000');
 
-
+/* ----------------------- */
+/* ------- Togle 2 ------- */
+/* The Leon-anavi Example  */
 // GPIO pin of the led
 var configPin = 7;
 // Blinking interval in usec
@@ -25,6 +30,7 @@ app.get('/toggle', function (req, res) {
   res.status(200).send('new pin '+isLedOn);
 });
 
+// Will be used to post a full question learning object
 app.post('/toggle', function (req, res) {
 	isLedOn = +!isLedOn;
   var jsonString = '';
@@ -38,6 +44,20 @@ app.post('/toggle', function (req, res) {
 	//wpi.digitalWrite(configPin, isLedOn);
 });
 
+
+/* ----------------------- */
+/* ------- Togle 2 ------- */
+/* The Python Example Pins */
+var configPin_18 = 18;
+var configPin_18_isLedOn = 0;
+wpi.pinMode(configPin_18, wpi.OUTPUT);
+app.get('/toggle2', function (req, res) {
+	configPin_18_isLedOn = +!configPin_18_isLedOn;
+  console.log('toggle2: change pin to '+configPin_18_isLedOn);
+	wpi.digitalWrite(configPin_18, configPin_18_isLedOn);
+  res.status(200).send('new pin '+configPin_18_isLedOn);
+});
+
 // Old code used to make the light blink continuously
 // uncomment for testing purposes
 // setInterval(function() {
@@ -46,9 +66,8 @@ app.post('/toggle', function (req, res) {
 // 	wpi.digitalWrite(configPin, isLedOn );
 // }, configTimeout);
 
-// serve index.html and static pages stored in the home directory,
-// along with the client.js file
-app.use(express.static(__dirname));
+var inputs = [{ pin: '16', gpio: '23', value: null },
+              { pin: '22', gpio: '25', value: null }];
 
 // define the API for routes to the API calls and/or 
 // page requests to our server.
@@ -90,6 +109,3 @@ app.use(function(err, req, res, next) {
 //   }
 //   process.exit();
 // });
-
-app.listen(3000);
-console.log('App Server running at port 3000');
