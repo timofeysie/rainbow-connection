@@ -34,9 +34,9 @@ wpi.setup('wpi');
 ```
 
 
-## Physical pin numvering
+## Physical pin numbering
 
-In pin charts for the Rapsberry Pi, there are often two numbering systems show.
+In pin charts for the Rapsberry Pi, there are often two numbering systems shown.
 The GPIO/Function numbering, and the J8 Pin numbering.
 The J8 Pine count goes across and down from pin 1 at the top left of header P1 
 (nearest to the SD card).
