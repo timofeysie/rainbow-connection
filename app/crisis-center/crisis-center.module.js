@@ -9,43 +9,42 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var core_1 = require('@angular/core');
-var platform_browser_1 = require('@angular/platform-browser');
 var forms_1 = require('@angular/forms');
-var app_component_1 = require('./app.component');
-var app_routing_module_1 = require('./app-routing.module');
-var heroes_module_1 = require('./heroes/heroes.module');
-var login_routing_module_1 = require('./login-routing.module');
-var login_component_1 = require('./login.component');
-var dialog_service_1 = require('./dialog.service');
-var AppModule = (function () {
-    function AppModule() {
+var common_1 = require('@angular/common');
+var crisis_service_1 = require('./crisis.service');
+var crisis_center_component_1 = require('./crisis-center.component');
+var crisis_list_component_1 = require('./crisis-list.component');
+var crisis_center_home_component_1 = require('./crisis-center-home.component');
+var crisis_detail_component_1 = require('./crisis-detail.component');
+var crisis_center_routing_module_1 = require('./crisis-center-routing.module');
+var CrisisCenterModule = (function () {
+    function CrisisCenterModule() {
     }
-    AppModule = __decorate([
+    CrisisCenterModule = __decorate([
         core_1.NgModule({
             imports: [
-                platform_browser_1.BrowserModule,
+                common_1.CommonModule,
                 forms_1.FormsModule,
-                heroes_module_1.HeroesModule,
-                login_routing_module_1.LoginRoutingModule,
-                app_routing_module_1.AppRoutingModule
+                crisis_center_routing_module_1.CrisisCenterRoutingModule
             ],
             declarations: [
-                app_component_1.AppComponent,
-                login_component_1.LoginComponent
+                crisis_center_component_1.CrisisCenterComponent,
+                crisis_list_component_1.CrisisListComponent,
+                crisis_center_home_component_1.CrisisCenterHomeComponent,
+                crisis_detail_component_1.CrisisDetailComponent
             ],
             providers: [
-                dialog_service_1.DialogService
-            ],
-            bootstrap: [app_component_1.AppComponent]
+                crisis_service_1.CrisisService
+            ]
         }), 
         __metadata('design:paramtypes', [])
-    ], AppModule);
-    return AppModule;
+    ], CrisisCenterModule);
+    return CrisisCenterModule;
 }());
-exports.AppModule = AppModule;
+exports.CrisisCenterModule = CrisisCenterModule;
 /*
 Copyright 2016 Google Inc. All Rights Reserved.
 Use of this source code is governed by an MIT-style license that
 can be found in the LICENSE file at http://angular.io/license
 */ 
-//# sourceMappingURL=app.module.js.map
+//# sourceMappingURL=crisis-center.module.js.map

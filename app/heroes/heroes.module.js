@@ -9,43 +9,38 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var core_1 = require('@angular/core');
-var platform_browser_1 = require('@angular/platform-browser');
+var common_1 = require('@angular/common');
 var forms_1 = require('@angular/forms');
-var app_component_1 = require('./app.component');
-var app_routing_module_1 = require('./app-routing.module');
-var heroes_module_1 = require('./heroes/heroes.module');
-var login_routing_module_1 = require('./login-routing.module');
-var login_component_1 = require('./login.component');
-var dialog_service_1 = require('./dialog.service');
-var AppModule = (function () {
-    function AppModule() {
+var hero_list_component_1 = require('./hero-list.component');
+var hero_detail_component_1 = require('./hero-detail.component');
+var hero_service_1 = require('./hero.service');
+var heroes_routing_module_1 = require('./heroes-routing.module');
+var HeroesModule = (function () {
+    function HeroesModule() {
     }
-    AppModule = __decorate([
+    HeroesModule = __decorate([
         core_1.NgModule({
             imports: [
-                platform_browser_1.BrowserModule,
+                common_1.CommonModule,
                 forms_1.FormsModule,
-                heroes_module_1.HeroesModule,
-                login_routing_module_1.LoginRoutingModule,
-                app_routing_module_1.AppRoutingModule
+                heroes_routing_module_1.HeroRoutingModule
             ],
             declarations: [
-                app_component_1.AppComponent,
-                login_component_1.LoginComponent
+                hero_list_component_1.HeroListComponent,
+                hero_detail_component_1.HeroDetailComponent
             ],
             providers: [
-                dialog_service_1.DialogService
-            ],
-            bootstrap: [app_component_1.AppComponent]
+                hero_service_1.HeroService
+            ]
         }), 
         __metadata('design:paramtypes', [])
-    ], AppModule);
-    return AppModule;
+    ], HeroesModule);
+    return HeroesModule;
 }());
-exports.AppModule = AppModule;
+exports.HeroesModule = HeroesModule;
 /*
 Copyright 2016 Google Inc. All Rights Reserved.
 Use of this source code is governed by an MIT-style license that
 can be found in the LICENSE file at http://angular.io/license
 */ 
-//# sourceMappingURL=app.module.js.map
+//# sourceMappingURL=heroes.module.js.map

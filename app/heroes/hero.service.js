@@ -9,22 +9,41 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var core_1 = require('@angular/core');
-var AppComponent = (function () {
-    function AppComponent() {
+var Hero = (function () {
+    function Hero(id, name) {
+        this.id = id;
+        this.name = name;
     }
-    AppComponent = __decorate([
-        core_1.Component({
-            selector: 'my-app',
-            template: "\n    <h1 class=\"title\">Angular Router</h1>\n    <nav>\n      <a routerLink=\"/crisis-center\" routerLinkActive=\"active\">Crisis Center</a>\n      <a routerLink=\"/heroes\" routerLinkActive=\"active\">Heroes</a>\n      <a routerLink=\"/admin\" routerLinkActive=\"active\">Admin</a>\n      <a routerLink=\"/login\" routerLinkActive=\"active\">Login</a>\n    </nav>\n    <router-outlet></router-outlet>\n  "
-        }), 
-        __metadata('design:paramtypes', [])
-    ], AppComponent);
-    return AppComponent;
+    return Hero;
 }());
-exports.AppComponent = AppComponent;
+exports.Hero = Hero;
+var HEROES = [
+    new Hero(11, 'Mr. Nice'),
+    new Hero(12, 'Narco'),
+    new Hero(13, 'Bombasto'),
+    new Hero(14, 'Celeritas'),
+    new Hero(15, 'Magneta'),
+    new Hero(16, 'RubberMan')
+];
+var heroesPromise = Promise.resolve(HEROES);
+var HeroService = (function () {
+    function HeroService() {
+    }
+    HeroService.prototype.getHeroes = function () { return heroesPromise; };
+    HeroService.prototype.getHero = function (id) {
+        return heroesPromise
+            .then(function (heroes) { return heroes.find(function (hero) { return hero.id === +id; }); });
+    };
+    HeroService = __decorate([
+        core_1.Injectable(), 
+        __metadata('design:paramtypes', [])
+    ], HeroService);
+    return HeroService;
+}());
+exports.HeroService = HeroService;
 /*
 Copyright 2016 Google Inc. All Rights Reserved.
 Use of this source code is governed by an MIT-style license that
 can be found in the LICENSE file at http://angular.io/license
 */ 
-//# sourceMappingURL=app.component.js.map
+//# sourceMappingURL=hero.service.js.map

@@ -9,22 +9,36 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var core_1 = require('@angular/core');
-var AppComponent = (function () {
-    function AppComponent() {
+var router_1 = require('@angular/router');
+var crisis_service_1 = require('./crisis.service');
+var CrisisDetailResolve = (function () {
+    function CrisisDetailResolve(cs, router) {
+        this.cs = cs;
+        this.router = router;
     }
-    AppComponent = __decorate([
-        core_1.Component({
-            selector: 'my-app',
-            template: "\n    <h1 class=\"title\">Angular Router</h1>\n    <nav>\n      <a routerLink=\"/crisis-center\" routerLinkActive=\"active\">Crisis Center</a>\n      <a routerLink=\"/heroes\" routerLinkActive=\"active\">Heroes</a>\n      <a routerLink=\"/admin\" routerLinkActive=\"active\">Admin</a>\n      <a routerLink=\"/login\" routerLinkActive=\"active\">Login</a>\n    </nav>\n    <router-outlet></router-outlet>\n  "
-        }), 
-        __metadata('design:paramtypes', [])
-    ], AppComponent);
-    return AppComponent;
+    CrisisDetailResolve.prototype.resolve = function (route) {
+        var _this = this;
+        var id = +route.params['id'];
+        return this.cs.getCrisis(id).then(function (crisis) {
+            if (crisis) {
+                return crisis;
+            }
+            else {
+                _this.router.navigate(['/crisis-center']);
+                return false;
+            }
+        });
+    };
+    CrisisDetailResolve = __decorate([
+        core_1.Injectable(), 
+        __metadata('design:paramtypes', [crisis_service_1.CrisisService, router_1.Router])
+    ], CrisisDetailResolve);
+    return CrisisDetailResolve;
 }());
-exports.AppComponent = AppComponent;
+exports.CrisisDetailResolve = CrisisDetailResolve;
 /*
 Copyright 2016 Google Inc. All Rights Reserved.
 Use of this source code is governed by an MIT-style license that
 can be found in the LICENSE file at http://angular.io/license
 */ 
-//# sourceMappingURL=app.component.js.map
+//# sourceMappingURL=crisis-detail-resolve.service.js.map

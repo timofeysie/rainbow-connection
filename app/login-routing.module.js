@@ -9,43 +9,36 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var core_1 = require('@angular/core');
-var platform_browser_1 = require('@angular/platform-browser');
-var forms_1 = require('@angular/forms');
-var app_component_1 = require('./app.component');
-var app_routing_module_1 = require('./app-routing.module');
-var heroes_module_1 = require('./heroes/heroes.module');
-var login_routing_module_1 = require('./login-routing.module');
+var router_1 = require('@angular/router');
+var auth_guard_service_1 = require('./auth-guard.service');
+var auth_service_1 = require('./auth.service');
 var login_component_1 = require('./login.component');
-var dialog_service_1 = require('./dialog.service');
-var AppModule = (function () {
-    function AppModule() {
+var LoginRoutingModule = (function () {
+    function LoginRoutingModule() {
     }
-    AppModule = __decorate([
+    LoginRoutingModule = __decorate([
         core_1.NgModule({
             imports: [
-                platform_browser_1.BrowserModule,
-                forms_1.FormsModule,
-                heroes_module_1.HeroesModule,
-                login_routing_module_1.LoginRoutingModule,
-                app_routing_module_1.AppRoutingModule
+                router_1.RouterModule.forChild([
+                    { path: 'login', component: login_component_1.LoginComponent }
+                ])
             ],
-            declarations: [
-                app_component_1.AppComponent,
-                login_component_1.LoginComponent
+            exports: [
+                router_1.RouterModule
             ],
             providers: [
-                dialog_service_1.DialogService
-            ],
-            bootstrap: [app_component_1.AppComponent]
+                auth_guard_service_1.AuthGuard,
+                auth_service_1.AuthService
+            ]
         }), 
         __metadata('design:paramtypes', [])
-    ], AppModule);
-    return AppModule;
+    ], LoginRoutingModule);
+    return LoginRoutingModule;
 }());
-exports.AppModule = AppModule;
+exports.LoginRoutingModule = LoginRoutingModule;
 /*
 Copyright 2016 Google Inc. All Rights Reserved.
 Use of this source code is governed by an MIT-style license that
 can be found in the LICENSE file at http://angular.io/license
 */ 
-//# sourceMappingURL=app.module.js.map
+//# sourceMappingURL=login-routing.module.js.map

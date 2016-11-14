@@ -8,23 +8,35 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+require('rxjs/add/observable/of');
 var core_1 = require('@angular/core');
-var AppComponent = (function () {
-    function AppComponent() {
+var Observable_1 = require('rxjs/Observable');
+var PreloadSelectedModules = (function () {
+    function PreloadSelectedModules() {
+        this.preloadedModules = [];
     }
-    AppComponent = __decorate([
-        core_1.Component({
-            selector: 'my-app',
-            template: "\n    <h1 class=\"title\">Angular Router</h1>\n    <nav>\n      <a routerLink=\"/crisis-center\" routerLinkActive=\"active\">Crisis Center</a>\n      <a routerLink=\"/heroes\" routerLinkActive=\"active\">Heroes</a>\n      <a routerLink=\"/admin\" routerLinkActive=\"active\">Admin</a>\n      <a routerLink=\"/login\" routerLinkActive=\"active\">Login</a>\n    </nav>\n    <router-outlet></router-outlet>\n  "
-        }), 
+    PreloadSelectedModules.prototype.preload = function (route, load) {
+        if (route.data && route.data['preload']) {
+            // add the route path to our preloaded module array
+            this.preloadedModules.push(route.path);
+            // log the route path to the console
+            console.log('Preloaded: ' + route.path);
+            return load();
+        }
+        else {
+            return Observable_1.Observable.of(null);
+        }
+    };
+    PreloadSelectedModules = __decorate([
+        core_1.Injectable(), 
         __metadata('design:paramtypes', [])
-    ], AppComponent);
-    return AppComponent;
+    ], PreloadSelectedModules);
+    return PreloadSelectedModules;
 }());
-exports.AppComponent = AppComponent;
+exports.PreloadSelectedModules = PreloadSelectedModules;
 /*
 Copyright 2016 Google Inc. All Rights Reserved.
 Use of this source code is governed by an MIT-style license that
 can be found in the LICENSE file at http://angular.io/license
 */ 
-//# sourceMappingURL=app.component.js.map
+//# sourceMappingURL=selective-preload-strategy.js.map

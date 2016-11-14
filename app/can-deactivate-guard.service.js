@@ -9,22 +9,22 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var core_1 = require('@angular/core');
-var AppComponent = (function () {
-    function AppComponent() {
+var CanDeactivateGuard = (function () {
+    function CanDeactivateGuard() {
     }
-    AppComponent = __decorate([
-        core_1.Component({
-            selector: 'my-app',
-            template: "\n    <h1 class=\"title\">Angular Router</h1>\n    <nav>\n      <a routerLink=\"/crisis-center\" routerLinkActive=\"active\">Crisis Center</a>\n      <a routerLink=\"/heroes\" routerLinkActive=\"active\">Heroes</a>\n      <a routerLink=\"/admin\" routerLinkActive=\"active\">Admin</a>\n      <a routerLink=\"/login\" routerLinkActive=\"active\">Login</a>\n    </nav>\n    <router-outlet></router-outlet>\n  "
-        }), 
+    CanDeactivateGuard.prototype.canDeactivate = function (component) {
+        return component.canDeactivate ? component.canDeactivate() : true;
+    };
+    CanDeactivateGuard = __decorate([
+        core_1.Injectable(), 
         __metadata('design:paramtypes', [])
-    ], AppComponent);
-    return AppComponent;
+    ], CanDeactivateGuard);
+    return CanDeactivateGuard;
 }());
-exports.AppComponent = AppComponent;
+exports.CanDeactivateGuard = CanDeactivateGuard;
 /*
 Copyright 2016 Google Inc. All Rights Reserved.
 Use of this source code is governed by an MIT-style license that
 can be found in the LICENSE file at http://angular.io/license
 */ 
-//# sourceMappingURL=app.component.js.map
+//# sourceMappingURL=can-deactivate-guard.service.js.map

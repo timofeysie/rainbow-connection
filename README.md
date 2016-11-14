@@ -13,7 +13,8 @@ Currently implementing button input to emulate RFID tag contact.
 Using the [example here](http://www.instructables.com/id/JavaScript-for-IoT-Blinking-LED-on-Raspberry-Pi-Wi/?ALLSTEPS) 
 by Leon-anavi's instructable, we use pin 7 in the J8 Pin numbering scheme.
 
-This requires pin 6 (0v ground) and the above mentioned pin 7 (GPIO4) to create a circute with an LED.
+This requires pin 6 (0v ground) and the above mentioned pin 7 (GPIO4) to 
+create a circute with an LED.
 
 The api to use is <pi-IP-addr>/toggle
 
