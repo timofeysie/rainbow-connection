@@ -43,6 +43,61 @@ The J8 Pine count goes across and down from pin 1 at the top left of header P1
 Example: GPIO port 23 is found on P1 header pin 16.
 
 
+## Angular CLI errors
+
+On a vanilla project started with the CLI on this system, everything works.
+But introducing the CLI generated code here does not work.
+```
+$ ng version/generate or any other cli command give this error:
+```
+
+Trying to run this CLI command gives the following error:
+```
+Cannot find module 'package.json'
+Error: Cannot find module 'package.json'
+    at Function.Module._resolveFilename (module.js:325:15)
+    at Function.Module._load (module.js:276:25)
+    at Module.require (module.js:353:17)
+    at require (internal/module.js:12:17)
+    at AddonDiscovery.discoverAtPath (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/angular-cli/lib/models/addon-discovery.js:205:20)
+    at AddonDiscovery.<anonymous> (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/angular-cli/lib/models/addon-discovery.js:114:26)
+    at Array.map (native)
+    at AddonDiscovery.discoverFromDependencies (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/angular-cli/lib/models/addon-discovery.js:109:68)
+    at AddonDiscovery.discoverProjectAddons (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/angular-cli/lib/models/addon-discovery.js:48:29)
+    at Project.discoverAddons (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/angular-cli/lib/models/project.js:353:40)
+    at Project.initializeAddons (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/angular-cli/lib/models/project.js:372:8)
+    at Project.eachAddonCommand (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/angular-cli/lib/models/project.js:425:10)
+    at module.exports (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/angular-cli/lib/cli/lookup-command.js:33:13)
+    at CLI.<anonymous> (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/angular-cli/lib/cli/cli.js:34:26)
+    at tryCatch (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/rsvp/dist/rsvp.js:538:12)
+    at invokeCallback (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/rsvp/dist/rsvp.js:553:13)
+    at publish (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/rsvp/dist/rsvp.js:521:7)
+    at flush (/Users/tim/.nvm/versions/node/v4.4.3/lib/node_modules/angular-cli/node_modules/rsvp/dist/rsvp.js:2373:5)
+    at nextTickCallbackWith0Args (node.js:420:9)
+    at process._tickCallback (node.js:349:13)
+```
+
+## xAPI
+
+Trying to inlcude the xAPI lib in this project fails with this error in the browser:
+```
+(index):17 Error: (SystemJS) Can't resolve all parameters for XapiComponent: (?).
+(…)(anonymous function) @ 
+(index):17ZoneDelegate.invoke @ 
+zone.js:232Zone.run @ 
+...
+```
+
+## Git Stash Problem
+QuinquenniumF:rainbow-connection tim$ git stash
+Saved working directory and index state WIP on xapi: e37855e Fixed a typo
+fatal: Unable to create '/Users/tim/pi/rainbow-connection/.git/index.lock': File exists.
+
+If no other git process is currently running, this probably means a
+git process crashed in this repository earlier. Make sure no other git
+process is running and remove the file manually to continue.
+
+
 ## Set up
 
 The initial example using NodeJS to make the LED blink [can be found here](http://www.instructables.com/id/JavaScript-for-IoT-Blinking-LED-on-Raspberry-Pi-Wi/?ALLSTEPS)
