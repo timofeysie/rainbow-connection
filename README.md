@@ -8,6 +8,79 @@ between the server and the client.
 
 Currently implementing button input to emulate RFID tag contact.
 
+## xAPI
+
+Trying to inlcude the xAPI lib in this project fails with this error in the browser:
+```
+(index):17 Error: (SystemJS) Can't resolve all parameters for XapiComponent: (?).
+(…)(anonymous function) @ 
+(index):17ZoneDelegate.invoke @ 
+zone.js:232Zone.run @ 
+...
+```
+
+Using the experimental [npm build](https://github.com/zapur1/xAPIWrapper.git)
+Installed like this:
+```
+$ npm install https://github.com/zapur1/xAPIWrapper.git
+api-pi@1.0.0 /Users/tim/pi/rainbow-connection
+└── xAPIWrapper@1.11.0  (git+https://github.com/zapur1/xAPIWrapper.git#ac2f0dd2aabf03c35507c03e161eb3e473506981)
+npm WARN enoent ENOENT: no such file or directory, open '/Users/tim/pi/rainbow-connection/node_modules/bower/package.json'
+npm WARN enoent ENOENT: no such file or directory, open '/Users/tim/pi/rainbow-connection/node_modules/console-control-strings/package.json'
+npm WARN enoent ENOENT: no such file or directory, open '/Users/tim/pi/rainbow-connection/node_modules/execSync/package.json'
+npm WARN enoent ENOENT: no such file or directory, open '/Users/tim/pi/rainbow-connection/node_modules/gauge/package.json'
+npm WARN enoent ENOENT: no such file or directory, open '/Users/tim/pi/rainbow-connection/node_modules/in-publish/package.json'
+npm WARN enoent ENOENT: no such file or directory, open '/Users/tim/pi/rainbow-connection/node_modules/node-gyp/package.json'
+npm WARN enoent ENOENT: no such file or directory, open '/Users/tim/pi/rainbow-connection/node_modules/node-gyp/node_modules/npmlog/package.json'
+npm WARN enoent ENOENT: no such file or directory, open '/Users/tim/pi/rainbow-connection/node_modules/karma/node_modules/base64-arraybuffer/package.json'
+npm WARN api-pi@1.0.0 No repository field.
+$ node -v
+v4.4.3
+$ npm -v
+3.10.7
+```
+
+So did this to make sure xAPI would be happy in its new home:
+```
+$ npm i bower, console-control-strings, execSync, gauge, in-publish, node-gyp, karma
+```
+
+It also requires cryptojs_v3.1.2.js
+I tried this:
+$ npm install cryptojs
+
+But I kept getting the error:
+```
+Error: Cannot find module 'crypto-js'
+    at Function.Module._resolveFilename (module.js:325:15)
+    at Function.Module._load (module.js:276:25)
+    at Module.require (module.js:353:17)
+    at require (internal/module.js:12:17)
+    at Object.<anonymous> (/Users/tim/pi/rainbow-connection/node_modules/xAPIWrapper/src/xapiwrapper.js:3:16)
+```
+
+So I tried this instead:
+```
+$ npm install cryptojs
+```
+
+And then using the require statements:
+```
+var xAPIWrapper = require('./node_modules/xAPIWrapper/src/xapiwrapper');
+var xAPIStatement = require('./node_modules/xAPIWrapper/src/xapistatement');
+var verbs = require('./node_modules/xAPIWrapper/src/verbs');
+var xAPILaunch = require('./node_modules/xAPIWrapper/src/xapi-launch');
+var xapiutil = require('./node_modules/xAPIWrapper/src/xapi-util');
+```
+
+Now we can use the xAPIWrapper in the node server.
+Next, and the more difficult part, is doing the same thing but for the Angular 2 app.
+Since it is written in TypeScript, we will be using import statements, not SystemJS require statements 
+to wire up the dependencies.
+There were problems with the same thing in [another project of ours](https://github.com/timofeysie/tyno-lrs).
+But that was Node with TypeScript.  This will be Anuglar 2 with TypeScipt.
+
+
 ## Toggle
 
 Using the [example here](http://www.instructables.com/id/JavaScript-for-IoT-Blinking-LED-on-Raspberry-Pi-Wi/?ALLSTEPS) 
@@ -77,16 +150,6 @@ Error: Cannot find module 'package.json'
     at process._tickCallback (node.js:349:13)
 ```
 
-## xAPI
-
-Trying to inlcude the xAPI lib in this project fails with this error in the browser:
-```
-(index):17 Error: (SystemJS) Can't resolve all parameters for XapiComponent: (?).
-(…)(anonymous function) @ 
-(index):17ZoneDelegate.invoke @ 
-zone.js:232Zone.run @ 
-...
-```
 
 ## Git Stash Problem
 QuinquenniumF:rainbow-connection tim$ git stash

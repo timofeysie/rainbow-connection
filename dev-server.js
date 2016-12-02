@@ -1,6 +1,14 @@
 var http = require('http');
 var express = require('express');
+var xAPIWrapper = require('./node_modules/xAPIWrapper/src/xapiwrapper');
+var xAPIStatement = require('./node_modules/xAPIWrapper/src/xapistatement');
+var verbs = require('./node_modules/xAPIWrapper/src/verbs');
+var xAPILaunch = require('./node_modules/xAPIWrapper/src/xapi-launch');
+var xapiutil = require('./node_modules/xAPIWrapper/src/xapi-util');
 var app = express();
+
+
+console.log('xAPIWrapper', xAPIWrapper);
 
 var isLedOn = 0;
 
@@ -60,3 +68,21 @@ app.use(function(err, req, res, next) {
 
 app.listen(3000);
 console.log('App Server running at port 3000');
+
+/* xAPI test endpoint */
+app.post('/xapi', function (req, res) {
+  var jsonString = '';
+  var result = '';
+  req.on('data', function (data) {
+      jsonString += data;
+  });
+  try {
+  req.on('end', function () {
+    result = JSON.parse(jsonString).name;
+      console.log(result);
+  });
+  } catch (error) {
+    console.log('jsonString',jsonString);
+  }
+  res.status(200).send('thanks, '+JSON.parse(jsonString).name);
+});
