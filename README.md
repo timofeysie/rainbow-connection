@@ -8,7 +8,173 @@ between the server and the client.
 
 Currently implementing button input to emulate RFID tag contact.
 
-## xAPI
+## xAPI in Angular 2
+
+Using the same paths to the libs that we used in xAPI in NodeJS, like this:
+```
+import { xAPIWrapper } from '../node_modules/xAPIWrapper/src/xapiwrapper';
+```
+
+We get the following hint over the red squigglies that appear under the paths in [VSCode](https://code.visualstudio.com):
+```
+[ts] Cannot find module '../node_modules/xAPIWrapper/src/xapiwrapper'.
+```
+
+Since we are using the [npm branch of the xAPI Wrapper](https://github.com/adlnet/xAPIWrapper/issues/67) 
+by Zac Petterd means is should be a commonjs compatible bundle, no?
+
+Someone suggested using pure JavaScript to include the lib, so we tried this:
+```
+var xAPIWrapper = require('../node_modules/xAPIWrapper/src/xapiwrapper');
+```
+
+The red squiggly is then gone, but it's not time to party. 
+When running the app via npm start, we get a broken app with this in the console:
+```
+http://localhost:3000/node_modules/xAPIWrapper/src/xapiwrapper 
+Failed to load resource: the server responded with a status of 404 (Not Found)
+```
+
+Trying this:
+```
+var xAPIWrapper = require('../../node_modules/xAPIWrapper/src/xapiwrapper');
+```
+
+Changes the error slightly:
+```
+zone.js:1382 
+GET http://localhost:3000/node_modules/xAPIWrapper/src/xapiwrapper 404 (Not Found)
+```
+And indeed if we look in the sources tab of the Chrome inspector, we see only a small list of libs in the node_modules directory.
+Such as @angular, core-js/client, reflect-metadata, systemjs/dist, zone.js/dist.
+
+Well, since we are not using Webpack (remember, we tried that in the webpack branch) 
+because this app will be served from a Raspberry Pi, so should be as lightweight as possible, 
+what do we need to do to insure that our required libs get packaged and sent off to the client?
+
+Trying this in the system.config.js file does not work:
+ 'xAPIWrapper': './node_modules/xAPIWrapper/src/xapiwrapper',
+
+So what's next?  We could include it by hand in a vendor directory.
+But that's not managable as a npm module.  Maybe it doesn't matter,
+as this is not an official distribution anyhow.
+We could link them by hand in the index.html file.
+
+If we put the files in the index.html file like this:
+```
+<script src="node_modules/xAPIWrapper/src/xapiwrapper.js"></script>
+```
+
+Then we get errors like this in the console:
+```
+xapiwrapper.js:3 Uncaught ReferenceError: require is not defined(…)
+...
+zone.js:1382 GET http://localhost:3000/node_modules/xAPIWrapper/src/xapiwrapper 404 (Not Found)
+...
+(index):25 Error: (SystemJS) XHR error (404 Not Found) loading http://localhost:3000/node_modules/xAPIWrapper/src/xapiwrapper(…)
+```
+
+And this is repeated for most of these libs: 
+xapiwrapper, xapistatement, verbs, xapi-launch, and xapi-util
+
+There are six in the sources folder under the xAPIWrapper/src directory, including the index.js file.
+
+Looking at other people who experienced the require is not defined error, someone said this:
+module set as "commonjs" in my tsconfig.json file, changing it to system fixed it
+
+Making that suggested change shows less errors in the console, 
+but the one we tried to fix is still there, as well as this:
+```
+(index):25 Error: (SystemJS) require is not a function(…)
+```
+
+I just noticed that we still have this in the index file and the deployed sources:
+```
+<script src="vendor/xapiwrapper.min.js"></script>  
+```
+
+So really we should have ignored all those attempts before to load the files from the node modules.
+If we try and use the vendor/xapiwrapper.min.js, which should have all we need except for crypto.
+
+Trying just to use this import, we get two errors:
+```
+zone.js:1382 
+GET http://localhost:3000/vendor/xapiwrapper 
+404 (Not Found)scheduleTask 
+ @ zone.js:1382ZoneDelegate.scheduleTask 
+ ...
+ @ system.src.js:1051(anonymous function) 
+ @ system.src.js:1778ZoneAwarePromise 
+ @ zone.js:518(anonymous function) 
+ @ system.src.js:1777(anonymous function) 
+ ...
+ @ zone.js:232Zone.run 
+ ...
+(index):17 Error: (SystemJS) XHR error (404 Not Found) 
+loading http://localhost:3000/vendor/xapiwrapper(…)
+```
+
+However, if you look in the sources tab of the Chrome inspector, 
+localhost:3000/vendor/xapiwrapper is exactly where that file is.
+
+Then I read [this SO answer](http://stackoverflow.com/questions/37179236/angular2-error-at-startup-of-the-app-http-localhost3000-traceur-404-not-fo):
+```
+At the beginning of app.component.ts I had commented an earlier version of the silly AppComponent, something like
+/*
+import { AnotherComponent } from './anotherComponent.component'
+// some other code
+}*/
+import { Component } from '@angular/core';
+...
+Removing the comment at the beginning of the file has solved the problem.
+```
+
+So out of frustration I tried this in the app.components.ts:
+```
+import { xAPIWrapper } from '../../vendor/xapiwrapper';
+```
+
+As usual, there was a long red squiggly under the path to the xapiwrapper.
+Hovering over the red squiggly showed this hint:
+```
+[ts] Cannot find module '../../vendor/xapiwrapper'.
+```
+
+Normally I would keep trying something until the squiggly went away.
+However, just curious, I wanted to see what the error would be now.
+Refreshed the app, and guess what?  It ran without error.
+
+Now let's see if we can actually use this lib!
+
+The bad news is that we still can't.
+
+```
+import { ADL } from '../../vendor/xapiwrapper';
+...
+
+export class AppComponent {
+    adl: ADL;
+    constructor(private adl: ADL) {
+        var conf = this.getConfig();
+        this.adl.XAPIWrapper.changeConfig(conf);
+    }
+```
+This will give us the same errors as above:
+```
+zone.js:1382 
+GET http://localhost:3000/vendor/xapiwrapper 404 (Not Found)
+(index):17 Error: (SystemJS) XHR error (404 Not Found) loading http://localhost:3000/vendor/xapiwrapper(…)
+```
+
+So, any ideas?  Go back to Angular 1 just to use xAPI?
+Create an issue on the ADL GitHub?
+Keep trying to figure out how to fix those errors instead of getting anything done?
+
+Only time will tell.
+
+
+
+## xAPI in NodeJS
 
 Trying to inlcude the xAPI lib in this project fails with this error in the browser:
 ```
