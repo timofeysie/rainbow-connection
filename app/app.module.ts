@@ -5,6 +5,8 @@ import { HttpModule, JsonpModule } from '@angular/http';
 import { AppComponent }  from './app.component';
 import { HeroListComponent }  from './toh/hero-list.component';
 import { LoginComponent } from './login/login.component';
+import { CreateGameComponent } from './create-game/create-game.component';
+import { AddressComponent } from './create-game/address.component';
 declare var ADL: any;
 
 @NgModule({
@@ -17,7 +19,9 @@ declare var ADL: any;
   declarations: [ 
     AppComponent,
     HeroListComponent,
-    LoginComponent ],
+    LoginComponent,
+    CreateGameComponent,
+    AddressComponent ],
   bootstrap: [ AppComponent ]
 })
 export class AppModule { }

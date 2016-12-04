@@ -7,6 +7,10 @@
     position: relative;
     left: 30%;
 }
+.imageLoggedInStyle {
+  width: 10%;
+  left: 0% !important;
+}
 .fontStyle {
     color: white;
 }

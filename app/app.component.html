@@ -1,5 +1,7 @@
 <div class="appContainer">
-    <img class="imagePos" src="../../images/angular.png">
+    <img class="imagePos"
+      [ngClass]="{'imageLoggedInStyle': login.profile}" 
+      src="../../images/angular.png">
       <div class="row">
     <div class="col-sm-6 col-sm-offset-3">
       <login-form #login></login-form>
@@ -8,5 +10,8 @@
     <div *ngIf="login.profile">
       <h4>role: {{login.profile.role}}</h4>
       <hero-list></hero-list>
+      <div *ngIf="login.profile.role === 'admin'">
+      <create-game></create-game>
+    </div>
     </div>
 </div>
