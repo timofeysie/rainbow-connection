@@ -6,13 +6,13 @@
       </div>
       <form [formGroup]="myForm" 
         novalidate (ngSubmit)="save(myForm)">
-        <div class="form-group">
-          <label>Question</label>
+        <div class="flex-grid-thirds">
+          <label class="col">Question</label>
           <input type="text" 
-            class="form-control" 
-            formControlName="question">
-          <small *ngIf="!myForm.controls.question.valid" 
-            class="text-danger">
+            class="col" 
+            formControlName="question">?
+          <small *ngIf="!myForm.controls.question.valid && myForm.controls.question.touched" 
+            class="cole text-danger">
               question is required (minimum 5 characters).
             </small>
         </div>

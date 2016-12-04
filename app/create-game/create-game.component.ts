@@ -5,6 +5,7 @@ import { Customer } from '../models/game.interface';
 @Component({
   moduleId: module.id,
   selector: 'create-game',
+  styleUrls: ['../app.component.css'],
   templateUrl: 'create-game.component.html',
 })
 export class CreateGameComponent implements OnInit {

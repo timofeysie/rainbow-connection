@@ -43,6 +43,7 @@ var CreateGameComponent = (function () {
         core_1.Component({
             moduleId: module.id,
             selector: 'create-game',
+            styleUrls: ['../app.component.css'],
             templateUrl: 'create-game.component.html',
         }), 
         __metadata('design:paramtypes', [forms_1.FormBuilder])

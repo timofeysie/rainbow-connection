@@ -21,6 +21,7 @@ var AnswerComponent = (function () {
         core_1.Component({
             moduleId: module.id,
             selector: 'answer',
+            styleUrls: ['../app.component.css'],
             templateUrl: 'answer.component.html',
         }), 
         __metadata('design:paramtypes', [])

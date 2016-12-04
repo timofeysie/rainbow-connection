@@ -4,6 +4,7 @@ import { FormGroup } from '@angular/forms';
 @Component({
     moduleId: module.id,
     selector: 'answer',
+    styleUrls: ['../app.component.css'],
     templateUrl: 'answer.component.html',
 })
 export class AnswerComponent {
