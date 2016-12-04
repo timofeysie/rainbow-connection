@@ -6,7 +6,7 @@ import { AppComponent }  from './app.component';
 import { HeroListComponent }  from './toh/hero-list.component';
 import { LoginComponent } from './login/login.component';
 import { CreateGameComponent } from './create-game/create-game.component';
-import { AddressComponent } from './create-game/address.component';
+import { AnswerComponent } from './create-game/answer.component';
 declare var ADL: any;
 
 @NgModule({
@@ -21,7 +21,7 @@ declare var ADL: any;
     HeroListComponent,
     LoginComponent,
     CreateGameComponent,
-    AddressComponent ],
+    AnswerComponent ],
   bootstrap: [ AppComponent ]
 })
 export class AppModule { }

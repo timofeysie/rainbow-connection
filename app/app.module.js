@@ -16,7 +16,7 @@ var app_component_1 = require('./app.component');
 var hero_list_component_1 = require('./toh/hero-list.component');
 var login_component_1 = require('./login/login.component');
 var create_game_component_1 = require('./create-game/create-game.component');
-var address_component_1 = require('./create-game/address.component');
+var answer_component_1 = require('./create-game/answer.component');
 var AppModule = (function () {
     function AppModule() {
     }
@@ -33,7 +33,7 @@ var AppModule = (function () {
                 hero_list_component_1.HeroListComponent,
                 login_component_1.LoginComponent,
                 create_game_component_1.CreateGameComponent,
-                address_component_1.AddressComponent],
+                answer_component_1.AnswerComponent],
             bootstrap: [app_component_1.AppComponent]
         }), 
         __metadata('design:paramtypes', [])

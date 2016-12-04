@@ -16,27 +16,27 @@
               Name is required (minimum 5 characters).
             </small>
         </div>
-        <!--addresses-->
-        <div formArrayName="addresses">
-          <div *ngFor="let address of myForm.controls.addresses.controls; let i=index" 
+        <!-- answers -->
+        <div formArrayName="answers">
+          <div *ngFor="let answer of myForm.controls.answers.controls; let i=index" 
             class="panel panel-default">
             <div class="panel-heading">
-              <span>Address {{i + 1}}</span>
+              <span>Answer {{i + 1}}</span>
               <span class="glyphicon glyphicon-remove pull-right" 
-                *ngIf="myForm.controls.addresses.controls.length > 1" 
-                (click)="removeAddress(i)"></span>
+                *ngIf="myForm.controls.answers.controls.length > 1" 
+                (click)="removeAnswer(i)"></span>
             </div>
             <div class="panel-body" 
               [formGroupName]="i">
-              <address [group]="myForm.controls.addresses.controls[i]"></address>
+              <answer [group]="myForm.controls.answers.controls[i]"></answer>
             </div>
           </div>
         </div>
 
         <div class="margin-20">
-          <a (click)="addAddress()" 
+          <a (click)="addAnswer()" 
             style="cursor: default">
-            Add another address +
+            Add another answer +
           </a>
         </div>
 

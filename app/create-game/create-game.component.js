@@ -17,28 +17,26 @@ var CreateGameComponent = (function () {
     CreateGameComponent.prototype.ngOnInit = function () {
         this.myForm = this._fb.group({
             name: ['', [forms_1.Validators.required, forms_1.Validators.minLength(5)]],
-            addresses: this._fb.array([
-                this.initAddress(),
+            answers: this._fb.array([
+                this.initAnswer(),
             ])
         });
     };
-    CreateGameComponent.prototype.initAddress = function () {
+    CreateGameComponent.prototype.initAnswer = function () {
         return this._fb.group({
             street: ['', forms_1.Validators.required],
             postcode: ['']
         });
     };
-    CreateGameComponent.prototype.addAddress = function () {
-        var control = this.myForm.controls['addresses'];
-        control.push(this.initAddress());
+    CreateGameComponent.prototype.addAnswer = function () {
+        var control = this.myForm.controls['answers'];
+        control.push(this.initAnswer());
     };
-    CreateGameComponent.prototype.removeAddress = function (i) {
-        var control = this.myForm.controls['addresses'];
+    CreateGameComponent.prototype.removeAnswer = function (i) {
+        var control = this.myForm.controls['answers'];
         control.removeAt(i);
     };
     CreateGameComponent.prototype.save = function (model) {
-        // call API to save
-        // ...
         console.log(model);
     };
     CreateGameComponent = __decorate([

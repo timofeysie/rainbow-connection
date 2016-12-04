@@ -3,10 +3,10 @@ import { FormGroup } from '@angular/forms';
 
 @Component({
     moduleId: module.id,
-    selector: 'address',
-    templateUrl: 'address.component.html',
+    selector: 'answer',
+    templateUrl: 'answer.component.html',
 })
-export class AddressComponent {
+export class AnswerComponent {
     @Input('group')
-    public adressForm: FormGroup;
+    public answerForm: FormGroup;
 }

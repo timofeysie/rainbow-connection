@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { FormGroup, FormControl, FormBuilder, Validators } from '@angular/forms';
+import { FormGroup, FormControl, FormBuilder, Validators, FormArray } from '@angular/forms';
 import { Customer } from '../models/game.interface';
 
 @Component({
@@ -15,32 +15,30 @@ export class CreateGameComponent implements OnInit {
     ngOnInit() {
         this.myForm = this._fb.group({
             name: ['', [Validators.required, Validators.minLength(5)]],
-            addresses: this._fb.array([
-                this.initAddress(),
+            answers: this._fb.array([
+                this.initAnswer(),
             ])
         });
     }
 
-    initAddress() {
+    initAnswer() {
         return this._fb.group({
             street: ['', Validators.required],
             postcode: ['']
         });
     }
 
-    addAddress() {
-        const control = <FormArray>this.myForm.controls['addresses'];
-        control.push(this.initAddress());
+    addAnswer() {
+        const control = <FormArray>this.myForm.controls['answers'];
+        control.push(this.initAnswer());
     }
 
-    removeAddress(i: number) {
-        const control = <FormArray>this.myForm.controls['addresses'];
+    removeAnswer(i: number) {
+        const control = <FormArray>this.myForm.controls['answers'];
         control.removeAt(i);
     }
 
     save(model: Customer) {
-        // call API to save
-        // ...
         console.log(model);
     }
 }

@@ -1,9 +1,9 @@
 export interface Customer {
     name: string;
-    addresses: Address[];
+    answers: Answer[];
 }
 
-export interface Address {
+export interface Answer {
     street: string;
     postcode: string;
 }
