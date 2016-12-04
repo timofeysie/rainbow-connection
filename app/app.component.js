@@ -9,13 +9,13 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var core_1 = require('@angular/core');
-var xapiwrapper_1 = require('../../vendor/xapiwrapper');
+// import { ADL } from '../../vendor/xapiwrapper';
 require('./rxjs-operators');
 var AppComponent = (function () {
-    function AppComponent(adl) {
-        this.adl = adl;
+    function AppComponent() {
+        // private adl: ADL
         var conf = this.getConfig();
-        this.adl.XAPIWrapper.changeConfig(conf);
+        //this.adl.XAPIWrapper.changeConfig(conf);
     }
     AppComponent.prototype.getConfig = function () {
         var conf = {};
@@ -34,10 +34,9 @@ var AppComponent = (function () {
             styleUrls: ['app/app.component.css'],
             templateUrl: 'app/app.component.html'
         }), 
-        __metadata('design:paramtypes', [(typeof (_a = typeof xapiwrapper_1.ADL !== 'undefined' && xapiwrapper_1.ADL) === 'function' && _a) || Object])
+        __metadata('design:paramtypes', [])
     ], AppComponent);
     return AppComponent;
-    var _a;
 }());
 exports.AppComponent = AppComponent;
 //# sourceMappingURL=app.component.js.map

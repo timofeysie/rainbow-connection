@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
-import { ADL } from '../../vendor/xapiwrapper';
+import { LoginComponent } from './login/login.component';
+// import { ADL } from '../../vendor/xapiwrapper';
 
 import './rxjs-operators';
 @Component({
@@ -8,10 +9,12 @@ import './rxjs-operators';
     templateUrl: 'app/app.component.html'
 })
 export class AppComponent {
-    constructor(private adl: ADL) {
+    constructor() {
+        // private adl: ADL
         var conf = this.getConfig();
-        this.adl.XAPIWrapper.changeConfig(conf);
+        //this.adl.XAPIWrapper.changeConfig(conf);
     }
+    profile: any;
 
     getConfig() {
         var conf = {};
@@ -24,4 +27,4 @@ export class AppComponent {
         }
         return conf;
     }
- }
+}

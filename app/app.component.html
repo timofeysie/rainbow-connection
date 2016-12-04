@@ -1,4 +1,12 @@
 <div class="appContainer">
     <img class="imagePos" src="../../images/angular.png">
-    <hero-list></hero-list>
+      <div class="row">
+    <div class="col-sm-6 col-sm-offset-3">
+      <login-form #login></login-form>
+    </div>
+  </div>
+    <div *ngIf="login.profile">
+      <h4>role: {{login.profile.role}}</h4>
+      <hero-list></hero-list>
+    </div>
 </div>

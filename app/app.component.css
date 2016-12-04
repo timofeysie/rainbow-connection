@@ -7,3 +7,61 @@
     position: relative;
     left: 30%;
 }
+.fontStyle {
+    color: white;
+}
+.flex-grid {
+  display: flex;
+}
+.col {
+  flex: 1;
+}
+.col-1 {
+  flex: 1;
+}
+.col-2 {
+  flex: 1;
+}
+.col-3 {
+  flex: 3;
+}
+.col-4 {
+  flex: 4;
+}
+.col-5 {
+  flex: 5;
+}
+.col-6 {
+  flex: 6;
+}
+.col-7 {
+  flex: 7;
+}
+.col-8 {
+  flex: 8;
+}
+.col-9 {
+  flex: 9;
+}
+.col-10 {
+  flex: 10;
+}
+.flex-grid-thirds {
+  display: flex;
+  justify-content: space-between;
+}
+.flex-grid-thirds .col {
+  width: 32%;
+}
+.flex-grid-half {
+  display: flex;
+  justify-content: space-between;
+}
+.flex-grid-half .col {
+  width: 50%;
+}
+@media (max-width: 400px) {
+     .flex-grid {
+                 display: block;
+     }
+}

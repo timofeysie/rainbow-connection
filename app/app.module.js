@@ -14,6 +14,7 @@ var forms_1 = require('@angular/forms');
 var http_1 = require('@angular/http');
 var app_component_1 = require('./app.component');
 var hero_list_component_1 = require('./toh/hero-list.component');
+var login_component_1 = require('./login/login.component');
 var AppModule = (function () {
     function AppModule() {
     }
@@ -22,11 +23,13 @@ var AppModule = (function () {
             imports: [
                 platform_browser_1.BrowserModule,
                 forms_1.FormsModule,
+                forms_1.ReactiveFormsModule,
                 http_1.HttpModule,
                 http_1.JsonpModule],
             declarations: [
                 app_component_1.AppComponent,
-                hero_list_component_1.HeroListComponent],
+                hero_list_component_1.HeroListComponent,
+                login_component_1.LoginComponent],
             bootstrap: [app_component_1.AppComponent]
         }), 
         __metadata('design:paramtypes', [])
