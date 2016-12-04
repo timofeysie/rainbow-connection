@@ -16,7 +16,7 @@ var CreateGameComponent = (function () {
     }
     CreateGameComponent.prototype.ngOnInit = function () {
         this.myForm = this._fb.group({
-            name: ['', [forms_1.Validators.required, forms_1.Validators.minLength(5)]],
+            question: ['', [forms_1.Validators.required, forms_1.Validators.minLength(5)]],
             answers: this._fb.array([
                 this.initAnswer(),
             ])
@@ -24,8 +24,8 @@ var CreateGameComponent = (function () {
     };
     CreateGameComponent.prototype.initAnswer = function () {
         return this._fb.group({
-            street: ['', forms_1.Validators.required],
-            postcode: ['']
+            answerText: ['', forms_1.Validators.required],
+            correct: [false]
         });
     };
     CreateGameComponent.prototype.addAnswer = function () {

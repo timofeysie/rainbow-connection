@@ -14,7 +14,7 @@ export class CreateGameComponent implements OnInit {
 
     ngOnInit() {
         this.myForm = this._fb.group({
-            name: ['', [Validators.required, Validators.minLength(5)]],
+            question: ['', [Validators.required, Validators.minLength(5)]],
             answers: this._fb.array([
                 this.initAnswer(),
             ])
@@ -23,8 +23,8 @@ export class CreateGameComponent implements OnInit {
 
     initAnswer() {
         return this._fb.group({
-            street: ['', Validators.required],
-            postcode: ['']
+            answerText: ['', Validators.required],
+            correct: [false]
         });
     }
 

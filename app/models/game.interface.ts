@@ -4,6 +4,6 @@ export interface Customer {
 }
 
 export interface Answer {
-    street: string;
-    postcode: string;
+    answerText: string;
+    correct: string;
 }
