@@ -8,7 +8,7 @@ import { HeroService }       from './hero.service';
   selector: 'hero-list',
   templateUrl: 'hero-list.component.html',
   providers: [ HeroService ],
-  styleUrls: ['hero-list.component.css']
+  styleUrls: ['hero-list.component.css', '../app.component.css']
 })
 export class HeroListComponent implements OnInit {
   errorMessage: string;

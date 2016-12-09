@@ -1,15 +1,30 @@
 .appContainer {
     background: #0147A7;
     color: #fff;
-    padding: 10%;
+    padding: 30px;
+}
+.angularBlueLight {
+  color: #1E88E5;
+}
+.angularBlue {
+  color: #1976D2;
+}
+.containerLoggedInStyle {
+  transition: padding 0.5s;
+  float: left;
 }
 .imagePos {
     position: relative;
     left: 30%;
+    width: 150px;
+}
+.roleLoggedInStyle {
+  float: right;
 }
 .imageLoggedInStyle {
-  width: 10%;
-  left: 0% !important;
+  width: 40px;;
+  left: 0%;
+  transition: width .5s, left 1s;
 }
 .fontStyle {
     color: white;
@@ -68,4 +83,44 @@
      .flex-grid {
                  display: block;
      }
+}
+.answerContainer {
+  border: solid gray 1px;
+  padding: 2%;
+}
+.checkboxLabel {
+  margin-left: 20%;
+}
+
+/* --------- forms ---------- */
+select, input[type="text"], textarea, input[type="password"], input[type="checkbox"] {
+  background-color: #1E88E5;
+  color: white;
+}
+button {
+  background-color : #1E88E5; 
+  color: white;
+}
+.text-danger {
+  color: HotPink;
+  text-align: right;
+}
+.angularBlue_bg {
+  background-color: #1E88E5;
+  color: white;
+}
+.DarkOrange_bg {
+  background-color: DarkOrange;
+}
+.LawnGreen_bg {
+  background-color: LawnGreen;
+}
+.LightCoral_bg {
+  background-color: LightCoral;
+}
+.MediumOrchid_bg {
+  background-color: MediumOrchid;
+}
+.SandyBrown_bg {
+  background-color: SandyBrown;
 }

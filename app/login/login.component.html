@@ -15,7 +15,7 @@
       <div class="flex-grid-half" 
         [ngClass]="{'has-error':!loginForm.controls['password'].valid && loginForm.controls['password'].touched}">
         <label class="col">Password</label>
-        <input class="col" 
+        <input class="col Chartreuse_bg" 
           type="password" 
           placeholder="Password" 
           [formControl]="loginForm.controls['password']">
@@ -36,12 +36,12 @@
 
       <div class="form-group">
         <button type="submit" 
-          class="btn btn-primary" 
+          class="btn angularBlue_bg" 
           [disabled]="!loginForm.valid">Login</button>
       </div>
     </form>
 </div>
-<div class="jumbotron text-center" *ngIf="authenticated">
-    <h3 class="fontStyle">{{profile.email}} - role: {{profile.role}}</h3>
-    <button (click)="logout()">Logout</button>
+<div *ngIf="authenticated">
+    <button class="angularBlue_bg"
+      (click)="logout()">Logout</button>
 </div>

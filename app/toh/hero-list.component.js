@@ -68,7 +68,7 @@ var HeroListComponent = (function () {
             selector: 'hero-list',
             templateUrl: 'hero-list.component.html',
             providers: [hero_service_1.HeroService],
-            styleUrls: ['hero-list.component.css']
+            styleUrls: ['hero-list.component.css', '../app.component.css']
         }), 
         __metadata('design:paramtypes', [hero_service_1.HeroService])
     ], HeroListComponent);

@@ -1,18 +1,18 @@
 <div [formGroup]="answerForm">
-    <div class="flex-grid-thirds">
-        <label class="col">Answer text</label>
+    <div class="flex-grid-half answerContainer">
         <input type="text" 
-            class="col" 
+            class="col DarkOrange_bg" 
+            placeholder="answer"
             formControlName="answerText">
+        <label class="col checkboxLabel">correct</label>
+        <input type="checkbox" 
+            class="col checkboxInput" 
+            formControlName="correct">
+    </div>
+    <div class="flex-grid-half">
         <small *ngIf="!answerForm.controls.answerText.valid && answerForm.controls.answerText.touched" 
             class="text-danger col">
-            Answer text is required
+            An answer is required
         </small>
-    </div>
-    <div class="flex-grid-thirds">
-        <label class="col">correct</label>
-        <input type="checkbox" 
-            class="col" 
-            formControlName="correct">
     </div>
 </div>

@@ -3,6 +3,11 @@
     <button (click)="toggleGet2()">Toggle 2</button>
 </div>
 <p>Pin: {{response}}</p>
-<label>Input: <input #newHeroName /></label>
-<button (click)="togglePost(newHeroName.value); newHeroName.value=''">Send</button>
-<p class="error" *ngIf="errorMessage">{{errorMessage}}</p>
+<label>Input: 
+    <input type="text" 
+    #newHeroName />
+</label>
+<button (click)="togglePost(newHeroName.value); newHeroName.value=''">
+    Send</button>
+<p class="error"
+    *ngIf="errorMessage">{{errorMessage}}</p>

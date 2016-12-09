@@ -11,8 +11,10 @@
           <input type="text" 
             class="col" 
             formControlName="question">?
+        </div>
+        <div class="flex-grid-thirds">
           <small *ngIf="!myForm.controls.question.valid && myForm.controls.question.touched" 
-            class="cole text-danger">
+            class="col text-danger">
               question is required (minimum 5 characters).
             </small>
         </div>
@@ -42,7 +44,7 @@
 
         <div class="margin-20">
           <button type="submit" 
-            class="btn btn-primary pull-right" 
+            class="btn pull-right angularBlue_bg" 
             [disabled]="!myForm.valid">
             Submit</button>
         </div>
