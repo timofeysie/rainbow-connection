@@ -1,14 +1,23 @@
 var http = require('http');
+var fs = require('fs');
 var express = require('express');
 var xAPIWrapper = require('./node_modules/xAPIWrapper/src/xapiwrapper');
 var xAPIStatement = require('./node_modules/xAPIWrapper/src/xapistatement');
 var verbs = require('./node_modules/xAPIWrapper/src/verbs');
 var xAPILaunch = require('./node_modules/xAPIWrapper/src/xapi-launch');
 var xapiutil = require('./node_modules/xAPIWrapper/src/xapi-util');
+const crypto = require('crypto');
 var app = express();
-
+var questionsDir = './data/questions';
+var questionsIndexFile = './data/questions.json';
+var encoding = 'utf8';
 //console.log('xAPIWrapper', xAPIWrapper);
 
+
+
+// --------
+// Game API
+// --------
 app.post('/game/question', function (req, res) {
   var jsonString = '';
   req.on('data', function (data) {
@@ -17,6 +26,23 @@ app.post('/game/question', function (req, res) {
   try {
     req.on('end', function () {
       console.log('add question: jsonString',jsonString);
+      const id = crypto.randomBytes(16).toString("hex");
+      console.log('id',id);
+      var newQuestionFile = questionsDir+'/'+id+'.json';
+      fs.writeFile(newQuestionFile, jsonString, encoding, function (err) {
+        console.log(err);
+      });
+      fs.readFile(questionsIndexFile, encoding, function (err, data) {
+            if (err) throw err;
+            var questionObj = JSON.parse(jsonString);
+            var oldData = JSON.parse(data);
+            oldData[id] = {"questions": questionObj.question}
+            var newData = JSON.stringify(oldData);
+            fs.writeFile (questionsIndexFile, newData, function(err) {
+                if (err) throw err;
+                console.log('complete');
+            });
+      });
     });
   } catch (error) {
     console.log('error',error);
@@ -24,6 +50,10 @@ app.post('/game/question', function (req, res) {
   res.status(200).send('{"result": "thanks"}');
 });
 
+
+// ----------------
+// Raspberry Pi API
+// ----------------
 var isLedOn = 0;
 
 // API call to toggle the light on and off
