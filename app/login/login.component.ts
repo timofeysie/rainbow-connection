@@ -1,5 +1,7 @@
 import { Component } from '@angular/core';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { GameService } from '../providers/game.service';
+import { Observable } from 'rxjs/Rx';
 
 @Component({
   moduleId: module.id,
@@ -12,16 +14,18 @@ export class LoginComponent {
   authenticated: boolean
   profile : Object;
 
-  constructor(fb: FormBuilder){
-    if(localStorage.getItem('jwt')){
-      this.authenticated = true;
-      this.profile = JSON.parse(localStorage.getItem('profile'));
-    }
-    this.loginForm = fb.group({
-      'email' : ['test@tim.com', Validators.required],
-      'password': ['asdf', Validators.required],
-      'role': ['admin', Validators.required],
-    })
+  constructor(
+    fb: FormBuilder,
+    private gameService: GameService) {
+      if(localStorage.getItem('jwt')){
+        this.authenticated = true;
+        this.profile = JSON.parse(localStorage.getItem('profile'));
+      }
+      this.loginForm = fb.group({
+        'email' : ['test@tim.com', Validators.required],
+        'password': ['asdf', Validators.required],
+        'role': ['admin', Validators.required],
+      });
   }
 
   submitForm(value: any) {
@@ -32,6 +36,16 @@ export class LoginComponent {
       'role' : value.role
     }
     this.authenticated = true;
+     let questionOperation:Observable<any[]>;
+        questionOperation = this.gameService.getQuestions();
+        questionOperation.subscribe(
+            questions => {
+                console.log('questions',questions);
+            }, 
+            err => {
+                // Log errors if any
+                console.log('save err:',err);
+            });
     if (!savesUser) {
       localStorage.setItem(value.email, JSON.stringify(this.profile));
     }

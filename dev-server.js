@@ -49,6 +49,15 @@ app.post('/game/question', function (req, res) {
   }
   res.status(200).send('{"result": "thanks"}');
 });
+// Get all questions
+app.get('/game/question', function (req, res) {
+    fs.readFile(questionsIndexFile, encoding, function (err, data) {
+      if (err) throw err;
+      var questions = JSON.parse(data);
+      console.log('data',data);
+      res.status(200).send(data);
+    });
+});
 
 
 // ----------------

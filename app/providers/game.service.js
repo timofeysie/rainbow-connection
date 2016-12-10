@@ -27,6 +27,13 @@ var GameService = (function () {
             .map(function (res) { return res.json(); })
             .catch(function (error) { return Rx_1.Observable.throw(error.json().error || 'Server error'); });
     };
+    GameService.prototype.getQuestions = function () {
+        var headers = new http_1.Headers({ 'Content-Type': 'application/json' });
+        var options = new http_1.RequestOptions({ headers: headers });
+        return this.http.get(this.gameUrl + '/question', options)
+            .map(function (res) { return res.json(); })
+            .catch(function (error) { return Rx_1.Observable.throw(error.json().error || 'Server error'); });
+    };
     GameService = __decorate([
         core_1.Injectable(), 
         __metadata('design:paramtypes', [http_1.Http])
