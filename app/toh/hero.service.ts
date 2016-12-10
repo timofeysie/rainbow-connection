@@ -43,7 +43,6 @@ export class HeroService {
     });
   }
   private extractData(res: Response) {
-    console.log('res');
     return res;
   }
   private handleError (error: Response | any) {

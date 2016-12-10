@@ -19,10 +19,7 @@ var HeroListComponent = (function () {
     HeroListComponent.prototype.getHeroes = function () {
         var _this = this;
         this.heroService.getHeroes()
-            .subscribe(function (result) {
-            _this.response = result;
-            console.log('result', result);
-        }, function (error) { return _this.errorMessage = error; });
+            .subscribe(function (result) { _this.response = result; }, function (error) { return _this.errorMessage = error; });
     };
     HeroListComponent.prototype.addHero = function (name) {
         var _this = this;
@@ -30,17 +27,13 @@ var HeroListComponent = (function () {
             return;
         }
         this.heroService.addHero(name)
-            .subscribe(function (result) {
-            _this.response = result;
-            console.log('result', result);
-        }, function (error) { return _this.errorMessage = error; });
+            .subscribe(function (result) { _this.response = result; }, function (error) { return _this.errorMessage = error; });
     };
     HeroListComponent.prototype.toggleGet = function () {
         var _this = this;
         this.heroService.toggleGet()
             .then(function (result) {
             _this.response = result;
-            console.log('result', result);
         }, function (error) { return _this.errorMessage = error; });
     };
     HeroListComponent.prototype.togglePost = function (name) {
@@ -51,7 +44,6 @@ var HeroListComponent = (function () {
         this.heroService.togglePost(name)
             .then(function (result) {
             _this.response = result;
-            console.log('result', result);
         }, function (error) { return _this.errorMessage = error; });
     };
     HeroListComponent.prototype.toggleGet2 = function () {
@@ -59,7 +51,6 @@ var HeroListComponent = (function () {
         this.heroService.toggleGet2()
             .then(function (result) {
             _this.response = result;
-            console.log('result', result);
         }, function (error) { return _this.errorMessage = error; });
     };
     HeroListComponent = __decorate([

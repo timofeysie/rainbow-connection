@@ -19,23 +19,20 @@ export class HeroListComponent implements OnInit {
   getHeroes() {
     this.heroService.getHeroes()
                     .subscribe(
-                      (result) => { this.response = result
-                        console.log('result',result); },
+                      (result) => { this.response = result },
                       (error) =>  this.errorMessage = <any>error);
   }
   addHero (name: string) {
     if (!name) { return; }
     this.heroService.addHero(name)
                      .subscribe(
-                       (result)  => {this.response = result
-                         console.log('result',result);},
+                       (result)  => { this.response = result },
                        (error) =>  this.errorMessage = <any>error);
   }
   toggleGet() {
     this.heroService.toggleGet()
         .then((result) => { 
           this.response = result;
-          console.log('result',result); 
         }, (error) =>  this.errorMessage = <any>error);
   }
   togglePost (name: string) {
@@ -43,14 +40,12 @@ export class HeroListComponent implements OnInit {
     this.heroService.togglePost(name)
         .then((result)  => {
           this.response = result;
-          console.log('result',result);
         }, (error) =>  this.errorMessage = <any>error);
   }
   toggleGet2() {
     this.heroService.toggleGet2()
         .then((result) => { 
           this.response = result;
-          console.log('result',result); 
         }, (error) =>  this.errorMessage = <any>error);
   }
 }

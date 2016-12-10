@@ -4,8 +4,8 @@
       <div class="margin-20">
         <h4>Create round</h4>
       </div>
-      <form [formGroup]="myForm" 
-        novalidate (ngSubmit)="save(myForm)">
+      <form [formGroup]="questionForm" 
+        novalidate (ngSubmit)="save(questionForm)">
         <div class="flex-grid-thirds">
           <label class="col">Question</label>
           <input type="text" 
@@ -13,7 +13,7 @@
             formControlName="question">?
         </div>
         <div class="flex-grid-thirds">
-          <small *ngIf="!myForm.controls.question.valid && myForm.controls.question.touched" 
+          <small *ngIf="!questionForm.controls.question.valid && questionForm.controls.question.touched" 
             class="col text-danger">
               question is required (minimum 5 characters).
             </small>
@@ -21,17 +21,17 @@
         <!-- answers -->
         <div formArrayName="answers"
           class="answerContainer">
-          <div *ngFor="let answer of myForm.controls.answers.controls; let i=index" 
+          <div *ngFor="let answer of questionForm.controls.answers.controls; let i=index" 
             class="panel panel-default">
             <div class="panel-heading">
               <span>Answer {{i + 1}}</span>
               <span class="glyphicon glyphicon-remove pull-right" 
-                *ngIf="myForm.controls.answers.controls.length > 1" 
+                *ngIf="questionForm.controls.answers.controls.length > 1" 
                 (click)="removeAnswer(i)"></span>
             </div>
             <div class="panel-body" 
               [formGroupName]="i">
-              <answer [group]="myForm.controls.answers.controls[i]"></answer>
+              <answer [group]="questionForm.controls.answers.controls[i]"></answer>
             </div>
           </div>
         </div>
@@ -46,7 +46,7 @@
         <div class="margin-20">
           <button type="submit" 
             class="btn pull-right angularBlue_bg" 
-            [disabled]="!myForm.valid">
+            [disabled]="!questionForm.valid">
             Add question</button>
         </div>
         <div class="clearfix"></div>

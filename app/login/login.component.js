@@ -17,15 +17,13 @@ var LoginComponent = (function () {
             this.profile = JSON.parse(localStorage.getItem('profile'));
         }
         this.loginForm = fb.group({
-            'email': [null, forms_1.Validators.required],
-            'password': [null, forms_1.Validators.required],
-            'role': [null, forms_1.Validators.required],
+            'email': ['test@tim.com', forms_1.Validators.required],
+            'password': ['asdf', forms_1.Validators.required],
+            'role': ['admin', forms_1.Validators.required],
         });
     }
     LoginComponent.prototype.submitForm = function (value) {
         var savesUser = localStorage.getItem('value.email');
-        console.log('value', value);
-        console.log('savesUser', savesUser);
         this.profile = {
             'email': value.email,
             'password': value.password,

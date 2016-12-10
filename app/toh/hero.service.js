@@ -55,7 +55,6 @@ var HeroService = (function () {
         });
     };
     HeroService.prototype.extractData = function (res) {
-        console.log('res');
         return res;
     };
     HeroService.prototype.handleError = function (error) {

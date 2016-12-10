@@ -5,5 +5,19 @@ export interface Question {
 
 export interface Answer {
     answerText: string;
-    correct: string;
+    correct: boolean;
+}
+
+export class QuestionObject implements Question {
+    constructor(
+        public name: string, 
+        public answers: AnswerObject[]
+        ){}
+}
+
+export class AnswerObject implements Answer {
+    constructor(
+        public answerText: string,
+        public correct: boolean
+    ) {}
 }

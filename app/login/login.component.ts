@@ -18,17 +18,14 @@ export class LoginComponent {
       this.profile = JSON.parse(localStorage.getItem('profile'));
     }
     this.loginForm = fb.group({
-      'email' : [null, Validators.required],
-      'password': [null, Validators.required],
-      'role': [null, Validators.required],
+      'email' : ['test@tim.com', Validators.required],
+      'password': ['asdf', Validators.required],
+      'role': ['admin', Validators.required],
     })
   }
 
   submitForm(value: any) {
     let savesUser = localStorage.getItem('value.email');
-
-    console.log('value',value);
-    console.log('savesUser',savesUser);
     this.profile = {
       'email' : value.email,
       'password' : value.password,

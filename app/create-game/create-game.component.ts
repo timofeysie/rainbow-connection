@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormGroup, FormControl, FormBuilder, Validators, FormArray } from '@angular/forms';
 import { Observable } from 'rxjs/Rx';
-import { Question } from '../models/game.interface';
+import { QuestionObject } from '../models/game.interface';
 import { GameService } from '../providers/game.service';
 
 @Component({
@@ -11,14 +11,14 @@ import { GameService } from '../providers/game.service';
   templateUrl: 'create-game.component.html',
 })
 export class CreateGameComponent implements OnInit {
-    public myForm: FormGroup;
+    public questionForm: FormGroup;
 
     constructor(
         private _fb: FormBuilder,
         private gameService: GameService) { }
 
     ngOnInit() {
-        this.myForm = this._fb.group({
+        this.questionForm = this._fb.group({
             question: ['', [Validators.required, Validators.minLength(5)]],
             answers: this._fb.array([
                 this.initAnswer(),
@@ -34,20 +34,18 @@ export class CreateGameComponent implements OnInit {
     }
 
     addAnswer() {
-        const control = <FormArray>this.myForm.controls['answers'];
+        const control = <FormArray>this.questionForm.controls['answers'];
         control.push(this.initAnswer());
     }
 
     removeAnswer(i: number) {
-        const control = <FormArray>this.myForm.controls['answers'];
+        const control = <FormArray>this.questionForm.controls['answers'];
         control.removeAt(i);
     }
 
-    save(_questionForm: any) {
-        let question = Object(_questionForm.value);
-        console.log('save',question);
-        let questionOperation:Observable<Comment[]>;
-        questionOperation = this.gameService.add(question);
+    save(_questionForm: FormGroup) {
+        let questionOperation:Observable<QuestionObject[]>;
+        questionOperation = this.gameService.add(_questionForm.value);
         questionOperation.subscribe(
             questions => {
                 console.log('questions',questions);

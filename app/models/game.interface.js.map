@@ -1,1 +1,1 @@
-{"version":3,"file":"game.interface.js","sourceRoot":"","sources":["game.interface.ts"],"names":[],"mappings":""}
+{"version":3,"file":"game.interface.js","sourceRoot":"","sources":["game.interface.ts"],"names":[],"mappings":";AAUA;IACI,wBACW,IAAY,EACZ,OAAuB;QADvB,SAAI,GAAJ,IAAI,CAAQ;QACZ,YAAO,GAAP,OAAO,CAAgB;IAC5B,CAAC;IACX,qBAAC;AAAD,CAAC,AALD,IAKC;AALY,sBAAc,iBAK1B,CAAA;AAED;IACI,sBACW,UAAkB,EAClB,OAAgB;QADhB,eAAU,GAAV,UAAU,CAAQ;QAClB,YAAO,GAAP,OAAO,CAAS;IACxB,CAAC;IACR,mBAAC;AAAD,CAAC,AALD,IAKC;AALY,oBAAY,eAKxB,CAAA"}

@@ -17,7 +17,7 @@ var CreateGameComponent = (function () {
         this.gameService = gameService;
     }
     CreateGameComponent.prototype.ngOnInit = function () {
-        this.myForm = this._fb.group({
+        this.questionForm = this._fb.group({
             question: ['', [forms_1.Validators.required, forms_1.Validators.minLength(5)]],
             answers: this._fb.array([
                 this.initAnswer(),
@@ -31,18 +31,16 @@ var CreateGameComponent = (function () {
         });
     };
     CreateGameComponent.prototype.addAnswer = function () {
-        var control = this.myForm.controls['answers'];
+        var control = this.questionForm.controls['answers'];
         control.push(this.initAnswer());
     };
     CreateGameComponent.prototype.removeAnswer = function (i) {
-        var control = this.myForm.controls['answers'];
+        var control = this.questionForm.controls['answers'];
         control.removeAt(i);
     };
     CreateGameComponent.prototype.save = function (_questionForm) {
-        var question = Object(_questionForm.value);
-        console.log('save', question);
         var questionOperation;
-        questionOperation = this.gameService.add(question);
+        questionOperation = this.gameService.add(_questionForm.value);
         questionOperation.subscribe(function (questions) {
             console.log('questions', questions);
         }, function (err) {

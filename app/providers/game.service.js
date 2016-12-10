@@ -18,8 +18,9 @@ var GameService = (function () {
         this.http = http;
         this.gameUrl = 'game';
     }
-    GameService.prototype.add = function (_question) {
-        var bodyString = JSON.stringify(_question); // Stringify payload
+    GameService.prototype.add = function (body) {
+        console.log('_question', body);
+        var bodyString = JSON.stringify(body); // Stringify payload
         var headers = new http_1.Headers({ 'Content-Type': 'application/json' });
         var options = new http_1.RequestOptions({ headers: headers });
         return this.http.post(this.gameUrl + '/question', bodyString, options)
