@@ -10,9 +10,11 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var core_1 = require('@angular/core');
 var forms_1 = require('@angular/forms');
+var game_service_1 = require('../providers/game.service');
 var CreateGameComponent = (function () {
-    function CreateGameComponent(_fb) {
+    function CreateGameComponent(_fb, gameService) {
         this._fb = _fb;
+        this.gameService = gameService;
     }
     CreateGameComponent.prototype.ngOnInit = function () {
         this.myForm = this._fb.group({
@@ -36,8 +38,17 @@ var CreateGameComponent = (function () {
         var control = this.myForm.controls['answers'];
         control.removeAt(i);
     };
-    CreateGameComponent.prototype.save = function (model) {
-        console.log(model);
+    CreateGameComponent.prototype.save = function (_questionForm) {
+        var question = Object(_questionForm.value);
+        console.log('save', question);
+        var questionOperation;
+        questionOperation = this.gameService.add(question);
+        questionOperation.subscribe(function (questions) {
+            console.log('questions', questions);
+        }, function (err) {
+            // Log errors if any
+            console.log('save err:', err);
+        });
     };
     CreateGameComponent = __decorate([
         core_1.Component({
@@ -46,7 +57,7 @@ var CreateGameComponent = (function () {
             styleUrls: ['../app.component.css'],
             templateUrl: 'create-game.component.html',
         }), 
-        __metadata('design:paramtypes', [forms_1.FormBuilder])
+        __metadata('design:paramtypes', [forms_1.FormBuilder, game_service_1.GameService])
     ], CreateGameComponent);
     return CreateGameComponent;
 }());

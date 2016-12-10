@@ -7,8 +7,25 @@ var xAPILaunch = require('./node_modules/xAPIWrapper/src/xapi-launch');
 var xapiutil = require('./node_modules/xAPIWrapper/src/xapi-util');
 var app = express();
 
-
 console.log('xAPIWrapper', xAPIWrapper);
+
+app.post('/game/question', function (req, res) {
+  console.log('add question',res);
+  var jsonString = '';
+  var result = '';
+  req.on('data', function (data) {
+      jsonString += data;
+  });
+  try {
+  req.on('end', function () {
+    result = JSON.parse(jsonString).name;
+      console.log('add question: result',result);
+  });
+  } catch (error) {
+    console.log('add question: jsonString',jsonString);
+  }
+  res.status(200).send('add question: thanks, '+JSON.parse(jsonString).name);
+});
 
 var isLedOn = 0;
 

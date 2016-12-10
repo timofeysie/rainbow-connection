@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { FormGroup, FormControl, FormBuilder, Validators, FormArray } from '@angular/forms';
-import { Customer } from '../models/game.interface';
+import { Observable } from 'rxjs/Rx';
+import { Question } from '../models/game.interface';
+import { GameService } from '../providers/game.service';
 
 @Component({
   moduleId: module.id,
@@ -11,7 +13,9 @@ import { Customer } from '../models/game.interface';
 export class CreateGameComponent implements OnInit {
     public myForm: FormGroup;
 
-    constructor(private _fb: FormBuilder) { }
+    constructor(
+        private _fb: FormBuilder,
+        private gameService: GameService) { }
 
     ngOnInit() {
         this.myForm = this._fb.group({
@@ -39,7 +43,18 @@ export class CreateGameComponent implements OnInit {
         control.removeAt(i);
     }
 
-    save(model: Customer) {
-        console.log(model);
+    save(_questionForm: any) {
+        let question = Object(_questionForm.value);
+        console.log('save',question);
+        let questionOperation:Observable<Comment[]>;
+        questionOperation = this.gameService.add(question);
+        questionOperation.subscribe(
+            questions => {
+                console.log('questions',questions);
+            }, 
+            err => {
+                // Log errors if any
+                console.log('save err:',err);
+            });
     }
 }

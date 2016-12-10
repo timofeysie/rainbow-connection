@@ -1,4 +1,4 @@
-export interface Customer {
+export interface Question {
     name: string;
     answers: Answer[];
 }

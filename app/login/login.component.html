@@ -7,7 +7,7 @@
         <label class="col">Email</label>
         <input class="col" 
           type="text" 
-          placeholder="John@doe.com" 
+           value="test@tim.com"
           [formControl]="loginForm.controls['email']">
         <div *ngIf="loginForm.controls['email'].hasError('required') && loginForm.controls['email'].touched" 
           class="alert alert-danger">You must add an email.</div>
@@ -17,7 +17,7 @@
         <label class="col">Password</label>
         <input class="col Chartreuse_bg" 
           type="password" 
-          placeholder="Password" 
+          value="asdf"
           [formControl]="loginForm.controls['password']">
         <div *ngIf="loginForm.controls['password'].hasError('required') && loginForm.controls['password'].touched" 
           class="alert alert-danger">You must add a password.</div>

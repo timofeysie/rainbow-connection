@@ -124,3 +124,7 @@ button {
 .SandyBrown_bg {
   background-color: SandyBrown;
 }
+.answerContainer {
+  margin: 5px;
+  border: 1px solid gray;
+}

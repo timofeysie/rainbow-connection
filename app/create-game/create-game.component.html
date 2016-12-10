@@ -19,7 +19,8 @@
             </small>
         </div>
         <!-- answers -->
-        <div formArrayName="answers">
+        <div formArrayName="answers"
+          class="answerContainer">
           <div *ngFor="let answer of myForm.controls.answers.controls; let i=index" 
             class="panel panel-default">
             <div class="panel-heading">
@@ -46,7 +47,7 @@
           <button type="submit" 
             class="btn pull-right angularBlue_bg" 
             [disabled]="!myForm.valid">
-            Submit</button>
+            Add question</button>
         </div>
         <div class="clearfix"></div>
 
