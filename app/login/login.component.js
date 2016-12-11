@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var core_1 = require('@angular/core');
 var forms_1 = require('@angular/forms');
 var game_service_1 = require('../providers/game.service');
+var emitter_service_1 = require('../providers/emitter.service');
 var LoginComponent = (function () {
     function LoginComponent(fb, gameService) {
         this.gameService = gameService;
@@ -25,6 +26,7 @@ var LoginComponent = (function () {
         });
     }
     LoginComponent.prototype.submitForm = function (value) {
+        var _this = this;
         var savesUser = localStorage.getItem('value.email');
         this.profile = {
             'email': value.email,
@@ -36,6 +38,7 @@ var LoginComponent = (function () {
         questionOperation = this.gameService.getQuestions();
         questionOperation.subscribe(function (questions) {
             console.log('questions', questions);
+            emitter_service_1.EmitterService.get(_this.listId).emit(questions);
         }, function (err) {
             // Log errors if any
             console.log('save err:', err);
@@ -47,6 +50,10 @@ var LoginComponent = (function () {
     LoginComponent.prototype.logout = function () {
         this.authenticated = false;
     };
+    __decorate([
+        core_1.Input(), 
+        __metadata('design:type', String)
+    ], LoginComponent.prototype, "listId", void 0);
     LoginComponent = __decorate([
         core_1.Component({
             moduleId: module.id,

@@ -8,6 +8,8 @@ import { LoginComponent } from './login/login.component';
 import { CreateGameComponent } from './create-game/create-game.component';
 import { AnswerComponent } from './create-game/answer.component';
 import { GameService } from './providers/game.service';
+import { EmitterService } from './providers/emitter.service';
+import { QuestionListComponent } from './lists/question-list.component'
 declare var ADL: any;
 
 @NgModule({
@@ -24,7 +26,8 @@ declare var ADL: any;
     CreateGameComponent,
     AnswerComponent ],
   providers: [
-    GameService
+    GameService,
+    EmitterService
   ],
   bootstrap: [ AppComponent ]
 })

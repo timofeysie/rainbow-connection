@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { GameService } from '../providers/game.service';
+import { EmitterService } from '../providers/emitter.service';
 import { Observable } from 'rxjs/Rx';
 
 @Component({
@@ -13,6 +14,7 @@ export class LoginComponent {
   loginForm : FormGroup;
   authenticated: boolean
   profile : Object;
+  @Input() listId: string;
 
   constructor(
     fb: FormBuilder,
@@ -41,6 +43,7 @@ export class LoginComponent {
         questionOperation.subscribe(
             questions => {
                 console.log('questions',questions);
+                EmitterService.get(this.listId).emit(questions);
             }, 
             err => {
                 // Log errors if any

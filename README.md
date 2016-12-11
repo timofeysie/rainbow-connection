@@ -6,7 +6,19 @@ Added the [xAPI wrapper](https://github.com/adlnet/xAPIWrapper) library for
 communication of the [learning objects](https://en.wikipedia.org/wiki/Learning_object) 
 between the server and the client.
 
-Currently implementing button input to emulate RFID tag contact.
+The event emmiter class was added to facilitate communication from different components in the app.
+When a new question is added, we emit the new list so that the question-list.component can update it'self.
+However, currently there is a promlem with the question-list.component.
+Adding it to the declarations array in the app.module.ts file cases this error:
+```
+zone.js:1382 GET http://localhost:3000/question-list.component 404 (Not Found)scheduleTask @ zone.js:1382ZoneDelegate.scheduleTask @ zone.js:245Zone.scheduleMacroTask @ zone.js:171(anonymous function) @ zone.js:1405send @ VM33908:3ResourceLoaderImpl.get @ platform-browser-dynamic.umd.js:55DirectiveNormalizer._fetch @ compiler.umd.js:13661DirectiveNormalizer.normalizeTemplateAsync @ compiler.umd.js:13704DirectiveNormalizer.normalizeDirective @ compiler.umd.js:13679RuntimeCompiler._createCompiledTemplate @ compiler.umd.js:17142(anonymous function) @ compiler.umd.js:17070(anonymous function) @ compiler.umd.js:17066RuntimeCompiler._compileComponents @ compiler.umd.js:17065RuntimeCompiler._compileModuleAndComponents @ compiler.umd.js:17001RuntimeCompiler.compileModuleAsync @ compiler.umd.js:16992PlatformRef_._bootstrapModuleWithZone @ core.umd.js:6684PlatformRef_.bootstrapModule @ core.umd.js:6666(anonymous function) @ main.ts:5(anonymous function) @ main.ts:5(anonymous function) @ main.ts:5__exec @ system.src.js:1555entry.execute @ system.src.js:4035linkDynamicModule @ system.src.js:3300link @ system.src.js:3135execute @ system.src.js:3510doDynamicExecute @ system.src.js:766link @ system.src.js:964doLink @ system.src.js:623updateLinkSetOnLoad @ system.src.js:669(anonymous function) @ system.src.js:485ZoneDelegate.invoke @ zone.js:232Zone.run @ zone.js:114(anonymous function) @ zone.js:502ZoneDelegate.invokeTask @ zone.js:265Zone.runTask @ zone.js:154drainMicroTaskQueue @ zone.js:401ZoneTask.invoke @ zone.js:339
+zone.js:388 Unhandled Promise rejection: Failed to load question-list.component ; Zone: <root> ; Task: Promise.then ; Value: Failed to load question-list.component undefinedconsoleError @ zone.js:388_loop_1 @ zone.js:417drainMicroTaskQueue @ zone.js:421ZoneTask.invoke @ zone.js:339
+zone.js:390 Error: Uncaught (in promise): Failed to load question-list.component(…)
+```
+
+Everything seems wired up correctly.  There appears to be no typo in the config.
+We are able to import it into the app.module.  Not sure what's wrong.
+Will look in to it next time.
 
 ## xAPI in Angular 2
 
