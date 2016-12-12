@@ -24,7 +24,8 @@ declare var ADL: any;
     HeroListComponent,
     LoginComponent,
     CreateGameComponent,
-    AnswerComponent ],
+    AnswerComponent,
+    QuestionListComponent ],
   providers: [
     GameService,
     EmitterService

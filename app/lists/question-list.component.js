@@ -21,8 +21,16 @@ var QuestionListComponent = (function () {
     };
     QuestionListComponent.prototype.loadQuestions = function () {
         var _this = this;
-        this.gameService.getQuestions()
-            .subscribe(function (questions) { return _this.questions = questions; }, function (err) {
+        this.gameService.getQuestions().toArray()
+            .subscribe(function (questions) {
+            var response = Object(questions[0]);
+            _this.questions = [];
+            for (var i in response) {
+                _this.questions.push(response[i]);
+            }
+            console.log('questions', questions);
+            console.log('this.questions', _this.questions);
+        }, function (err) {
             console.log(err);
         });
     };
@@ -34,8 +42,9 @@ var QuestionListComponent = (function () {
     };
     QuestionListComponent = __decorate([
         core_1.Component({
+            moduleId: module.id,
             selector: 'question-list',
-            templateUrl: 'question-list.component'
+            templateUrl: 'question-list.component.html'
         }), 
         __metadata('design:paramtypes', [game_service_1.GameService])
     ], QuestionListComponent);

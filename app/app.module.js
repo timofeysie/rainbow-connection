@@ -19,6 +19,7 @@ var create_game_component_1 = require('./create-game/create-game.component');
 var answer_component_1 = require('./create-game/answer.component');
 var game_service_1 = require('./providers/game.service');
 var emitter_service_1 = require('./providers/emitter.service');
+var question_list_component_1 = require('./lists/question-list.component');
 var AppModule = (function () {
     function AppModule() {
     }
@@ -35,7 +36,8 @@ var AppModule = (function () {
                 hero_list_component_1.HeroListComponent,
                 login_component_1.LoginComponent,
                 create_game_component_1.CreateGameComponent,
-                answer_component_1.AnswerComponent],
+                answer_component_1.AnswerComponent,
+                question_list_component_1.QuestionListComponent],
             providers: [
                 game_service_1.GameService,
                 emitter_service_1.EmitterService

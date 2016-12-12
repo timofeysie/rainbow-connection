@@ -1,3 +1,4 @@
-<div *ngFor="let question of questions">
-    ={{question}}==
+<h4>Questions
+<div *ngFor="let question of questions; let i = index;">
+    <h5>{{i}} - {{question.questions}}</h5>
 </div>
