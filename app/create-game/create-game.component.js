@@ -15,7 +15,11 @@ var CreateGameComponent = (function () {
     function CreateGameComponent(_fb, gameService) {
         this._fb = _fb;
         this.gameService = gameService;
+        this.editing = false;
     }
+    CreateGameComponent.prototype.toggleEditMode = function () {
+        this.editing = !this.editing;
+    };
     CreateGameComponent.prototype.ngOnInit = function () {
         this.questionForm = this._fb.group({
             question: ['', [forms_1.Validators.required, forms_1.Validators.minLength(5)]],

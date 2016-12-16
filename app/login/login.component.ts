@@ -55,6 +55,7 @@ export class LoginComponent {
   }
   
   logout() {
-    this.authenticated = false;
+    console.log('logout');
+    this.authenticated = null;
   }
 }

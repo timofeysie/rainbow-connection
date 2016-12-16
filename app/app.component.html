@@ -13,8 +13,9 @@
       </div>
     </div>
     <div *ngIf="login.profile">
-      <hero-list></hero-list>
+      <!--<hero-list></hero-list>-->
       <div *ngIf="login.profile.role === 'admin' || login.profile.role === 'referee'">
+        <game-control></game-control>
         <question-list></question-list>
       </div>
       <div *ngIf="login.profile.role === 'admin'">

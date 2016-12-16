@@ -12,10 +12,16 @@ import { GameService } from '../providers/game.service';
 })
 export class CreateGameComponent implements OnInit {
     public questionForm: FormGroup;
-
+    editing: boolean;
     constructor(
         private _fb: FormBuilder,
-        private gameService: GameService) { }
+        private gameService: GameService) { 
+            this.editing = false;
+        }
+
+    toggleEditMode() {
+        this.editing = !this.editing;
+    }
 
     ngOnInit() {
         this.questionForm = this._fb.group({

@@ -9,7 +9,8 @@ import { CreateGameComponent } from './create-game/create-game.component';
 import { AnswerComponent } from './create-game/answer.component';
 import { GameService } from './providers/game.service';
 import { EmitterService } from './providers/emitter.service';
-import { QuestionListComponent } from './lists/question-list.component'
+import { QuestionListComponent } from './lists/question-list.component';
+import { GameControlComponent } from './referee/game-control.component';
 declare var ADL: any;
 
 @NgModule({
@@ -25,7 +26,8 @@ declare var ADL: any;
     LoginComponent,
     CreateGameComponent,
     AnswerComponent,
-    QuestionListComponent ],
+    QuestionListComponent,
+    GameControlComponent ],
   providers: [
     GameService,
     EmitterService

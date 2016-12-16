@@ -48,7 +48,8 @@ var LoginComponent = (function () {
         }
     };
     LoginComponent.prototype.logout = function () {
-        this.authenticated = false;
+        console.log('logout');
+        this.authenticated = null;
     };
     __decorate([
         core_1.Input(), 
