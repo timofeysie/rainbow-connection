@@ -6,13 +6,12 @@ import 'rxjs/add/operator/catch';
 import { QuestionObject } from '../models/game.interface';
 
 @Injectable()
-export class GameService{
+export class GameService {
   constructor(private http: Http) {
   }
   private gameUrl = 'game'; 
 
   add(body: Object): Observable<QuestionObject[]> {
-      console.log('_question',body);
     let bodyString = JSON.stringify(body); // Stringify payload
     let headers = new Headers({ 'Content-Type': 'application/json' });
     let options = new RequestOptions({ headers: headers }); 

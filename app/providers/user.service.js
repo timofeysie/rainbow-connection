@@ -13,31 +13,25 @@ var http_1 = require('@angular/http');
 var Rx_1 = require('rxjs/Rx');
 require('rxjs/add/operator/map');
 require('rxjs/add/operator/catch');
-var GameService = (function () {
-    function GameService(http) {
+var UserService = (function () {
+    function UserService(http) {
         this.http = http;
-        this.gameUrl = 'game';
+        this.userUrl = 'user';
     }
-    GameService.prototype.add = function (body) {
-        var bodyString = JSON.stringify(body); // Stringify payload
+    UserService.prototype.login = function (body) {
+        console.log('user', body);
+        var bodyString = body;
         var headers = new http_1.Headers({ 'Content-Type': 'application/json' });
         var options = new http_1.RequestOptions({ headers: headers });
-        return this.http.post(this.gameUrl + '/question', bodyString, options)
+        return this.http.post(this.userUrl + '/login', bodyString, options)
             .map(function (res) { return res.json(); })
             .catch(function (error) { return Rx_1.Observable.throw(error.json().error || 'Server error'); });
     };
-    GameService.prototype.getQuestions = function () {
-        var headers = new http_1.Headers({ 'Content-Type': 'application/json' });
-        var options = new http_1.RequestOptions({ headers: headers });
-        return this.http.get(this.gameUrl + '/question', options)
-            .map(function (res) { return res.json(); })
-            .catch(function (error) { return Rx_1.Observable.throw(error.json().error || 'Server error'); });
-    };
-    GameService = __decorate([
+    UserService = __decorate([
         core_1.Injectable(), 
         __metadata('design:paramtypes', [http_1.Http])
-    ], GameService);
-    return GameService;
+    ], UserService);
+    return UserService;
 }());
-exports.GameService = GameService;
-//# sourceMappingURL=game.service.js.map
+exports.UserService = UserService;
+//# sourceMappingURL=user.service.js.map

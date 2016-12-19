@@ -18,6 +18,7 @@ var login_component_1 = require('./login/login.component');
 var create_game_component_1 = require('./create-game/create-game.component');
 var answer_component_1 = require('./create-game/answer.component');
 var game_service_1 = require('./providers/game.service');
+var user_service_1 = require('./providers/user.service');
 var emitter_service_1 = require('./providers/emitter.service');
 var question_list_component_1 = require('./lists/question-list.component');
 var game_control_component_1 = require('./referee/game-control.component');
@@ -42,6 +43,7 @@ var AppModule = (function () {
                 game_control_component_1.GameControlComponent],
             providers: [
                 game_service_1.GameService,
+                user_service_1.UserService,
                 emitter_service_1.EmitterService
             ],
             bootstrap: [app_component_1.AppComponent]

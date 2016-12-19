@@ -11,10 +11,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var core_1 = require('@angular/core');
 var forms_1 = require('@angular/forms');
 var game_service_1 = require('../providers/game.service');
+var user_service_1 = require('../providers/user.service');
 var emitter_service_1 = require('../providers/emitter.service');
 var LoginComponent = (function () {
-    function LoginComponent(fb, gameService) {
+    function LoginComponent(fb, gameService, userService) {
         this.gameService = gameService;
+        this.userService = userService;
         if (localStorage.getItem('jwt')) {
             this.authenticated = true;
             this.profile = JSON.parse(localStorage.getItem('profile'));
@@ -46,6 +48,9 @@ var LoginComponent = (function () {
         if (!savesUser) {
             localStorage.setItem(value.email, JSON.stringify(this.profile));
         }
+        this.userService.login(this.profile).subscribe(function (resp) {
+            console.log('resp', resp);
+        });
     };
     LoginComponent.prototype.logout = function () {
         console.log('logout');
@@ -62,7 +67,7 @@ var LoginComponent = (function () {
             selector: 'login-form',
             templateUrl: 'login.component.html'
         }), 
-        __metadata('design:paramtypes', [forms_1.FormBuilder, game_service_1.GameService])
+        __metadata('design:paramtypes', [forms_1.FormBuilder, game_service_1.GameService, user_service_1.UserService])
     ], LoginComponent);
     return LoginComponent;
 }());

@@ -10,9 +10,72 @@ const crypto = require('crypto');
 var app = express();
 var questionsDir = './data/questions';
 var questionsIndexFile = './data/questions.json';
+var usersDir = './data/users';
+var usersLoggedIn = './data/users/logged.json';
 var encoding = 'utf8';
 //console.log('xAPIWrapper', xAPIWrapper);
 
+/*
+User API
+--------
+app.post('/user/login // user email and password and id if existing user
+
+Game API
+--------
+app.post('/game/question' // Add a question
+app.get('/game/question' // Get all questions
+
+app.post('/xapi', // xAPI test endpoint
+
+app.get('/toggle', // API call to toggle the light on and off
+var configPin_18_isLedOn = 0;
+app.get('/toggle2' // Toggle 2 example
+app.post('/toggle' // not used
+*/
+
+
+// --------
+// User API
+// --------
+app.post('/user/login', function (req, res) {
+  var jsonString = '';
+  req.on('data', function (data) {
+      jsonString += data;
+  });
+  try {
+    req.on('end', function () {
+      console.log('add question: jsonString',jsonString);
+      let id;
+      if (jsonString.id) {
+        id = jsonString.id;
+      }
+      id = crypto.randomBytes(16).toString("hex");
+      console.log('id',id);
+      
+      var userFile = usersDir+'/'+id+'.json';
+      if (fs.existsSync(userFile)) {
+        console.log('user logged in previously');
+      } else {
+        //create new user file
+        fs.writeFile(userFile, jsonString, encoding, function (err) {
+          console.log(err);
+        });
+      }
+    });
+  } catch (error) {
+    console.log('error',error);
+  }
+  res.status(200).send('{"result": "thanks"}');
+});
+// Get all questions
+app.get('/users', function (req, res) {
+    fs.readFile(questionsIndexFile, encoding, function (err, data) {
+      if (err) throw err;
+      var questions = JSON.parse(data);
+      console.log('data',data);
+      res.status(200).send(data);
+    });
+});
 
 
 // --------
