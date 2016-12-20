@@ -10,6 +10,7 @@ const crypto = require('crypto');
 var app = express();
 var questionsDir = './data/questions';
 var questionsIndexFile = './data/questions.json';
+var usersIndexFile = './data/users.json';
 var usersDir = './data/users';
 var usersLoggedIn = './data/users/logged.json';
 var encoding = 'utf8';
@@ -38,29 +39,57 @@ app.post('/toggle' // not used
 // User API
 // --------
 app.post('/user/login', function (req, res) {
+  console.log('hey there!');
   var jsonString = '';
   req.on('data', function (data) {
       jsonString += data;
   });
   try {
     req.on('end', function () {
-      console.log('add question: jsonString',jsonString);
-      let id;
-      if (jsonString.id) {
-        id = jsonString.id;
-      }
-      id = crypto.randomBytes(16).toString("hex");
-      console.log('id',id);
-      
-      var userFile = usersDir+'/'+id+'.json';
-      if (fs.existsSync(userFile)) {
-        console.log('user logged in previously');
-      } else {
-        //create new user file
-        fs.writeFile(userFile, jsonString, encoding, function (err) {
-          console.log(err);
-        });
-      }
+      console.log('add user: jsonString',jsonString);
+      var user = JSON.parse(jsonString);
+      // load users list and check if user existsSync
+      fs.readFile(usersIndexFile, encoding, function (err, data) {
+        if (err) throw err;
+        console.log('data',data);
+        var users = JSON.parse(data);
+        console.log('users',users);
+        console.log('looking for',user.email);
+        var foundUser;
+        for (var property in users) {
+            if (users.hasOwnProperty(property)) {
+                console.log('property',users[property].email);
+                if (users[property].email === user.email) {
+                  foundUser = { "id": property, "email":users[property].email};
+                  console.log('foundUser',foundUser);
+                  // load the users file, check the password, then
+                  // add login time?  what esle?
+                  break;
+                }
+            }
+        }
+        if (!foundUser) {
+            console.log('new user');
+            var id = crypto.randomBytes(16).toString("hex");
+            // add user to the users.json file
+            users[id] = {id: user.email}
+            var newData = JSON.stringify(users);
+            fs.writeFile (usersIndexFile, newData, function(err) {
+                if (err) throw err;
+                console.log('complete!');
+            });
+            // add user file in the users directory
+            var userFile = usersDir+'/'+id+'.json';
+            if (fs.existsSync(userFile)) {
+              console.log('user logged in previously');
+            } else {
+              //create new user file
+              fs.writeFile(userFile, jsonString, encoding, function (err) {
+                console.log(err);
+              });
+            }
+        }
+      }); 
     });
   } catch (error) {
     console.log('error',error);
