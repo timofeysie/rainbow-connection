@@ -46,15 +46,13 @@ app.post('/user/login', function (req, res) {
   });
   try {
     req.on('end', function () {
-      console.log('add user: jsonString',jsonString);
       var user = JSON.parse(jsonString);
-      // load users list and check if user existsSync
+      // load users list and check if user exists
       fs.readFile(usersIndexFile, encoding, function (err, data) {
         if (err) throw err;
-        console.log('data',data);
         var users = JSON.parse(data);
-        console.log('users',users);
         console.log('looking for',user.email);
+        var userExistsBool = false;
         var foundUser;
         for (var property in users) {
             if (users.hasOwnProperty(property)) {
@@ -62,16 +60,33 @@ app.post('/user/login', function (req, res) {
                 if (users[property].email === user.email) {
                   foundUser = { "id": property, "email":users[property].email};
                   console.log('foundUser',foundUser);
-                  // load the users file, check the password, then
-                  // add login time?  what esle?
+                  userExistsBool = true;
+                  var userFile = usersDir+'/'+property+'.json';
+                  console.log('loading',userFile);
+                  // load the users file, check the password
+                  fs.readFile(userFile, encoding, function (err, userData) {
+                    var userObj = JSON.parse(userData);
+                    if (user.password === userObj.password) {
+                      console.log('match');
+                      // save current time
+                      // return what?
+                    } else {
+                      console.log('no match');
+                      // return rejection
+                    }
+                    , then
+                    // add login time?  what esle?
+                  });
                   break;
                 }
             }
         }
-        if (!foundUser) {
+        // if the user doesn't exist,
+        // add user to the users.json file
+        // and create a file with their email, password, and role, etc.
+        if (!userExistsBool) {
             console.log('new user');
             var id = crypto.randomBytes(16).toString("hex");
-            // add user to the users.json file
             users[id] = {id: user.email}
             var newData = JSON.stringify(users);
             fs.writeFile (usersIndexFile, newData, function(err) {
