@@ -25,8 +25,6 @@ export class QuestionListComponent implements OnInit, OnChanges {
                 for(var i in response) {
                     this.questions.push(response[i]);
                 }
-                console.log('questions',questions);
-                console.log('this.questions',this.questions);
             },
                 err => {
                 console.log(err);

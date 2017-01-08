@@ -35,17 +35,18 @@ app.post('/toggle' // not used
 */
 
 
-// --------
-// User API
-// --------
+// ---------------------------------------- //
+//                 User APIs                // 
+// ---------------------------------------- //
 app.post('/user/login', function (req, res) {
-  console.log('hey there!');
+  var resultCode = 200; // default server error
+  var resultBody = '{"result": "defult"}';
   var jsonString = '';
   req.on('data', function (data) {
       jsonString += data;
   });
-  try {
-    req.on('end', function () {
+  req.on('end', function () {
+    console.log('jsonString',jsonString);
       var user = JSON.parse(jsonString);
       // load users list and check if user exists
       fs.readFile(usersIndexFile, encoding, function (err, data) {
@@ -56,31 +57,35 @@ app.post('/user/login', function (req, res) {
         var foundUser;
         for (var property in users) {
             if (users.hasOwnProperty(property)) {
-                console.log('property',users[property].email);
                 if (users[property].email === user.email) {
                   foundUser = { "id": property, "email":users[property].email};
-                  console.log('foundUser',foundUser);
                   userExistsBool = true;
                   var userFile = usersDir+'/'+property+'.json';
-                  console.log('loading',userFile);
                   // load the users file, check the password
                   fs.readFile(userFile, encoding, function (err, userData) {
                     var userObj = JSON.parse(userData);
                     if (user.password === userObj.password) {
-                      console.log('match');
-                      // save current time
-                      // return what?
+                      console.log('match',userObj);
+                      // TODO: save current time
+                      resultCode = 200;
+                      resultBody = {
+                        'result': 'ok',
+                        'id': property};
+                      console.log('resultBody',resultBody);
+                      res.status(resultCode).send(resultBody);
                     } else {
                       console.log('no match');
-                      // return rejection
+                      // return 401 Unauthenticated request
+                      resultCode = 401;
+                      resultBody = {
+                        'result': 'failed'};
+                      res.status(resultCode).send(resultBody);
                     }
-                    , then
-                    // add login time?  what esle?
                   });
-                  break;
                 }
             }
         }
+        
         // if the user doesn't exist,
         // add user to the users.json file
         // and create a file with their email, password, and role, etc.
@@ -103,17 +108,18 @@ app.post('/user/login', function (req, res) {
                 console.log(err);
               });
             }
+            resultCode = 401;
+            resultBody = {
+              'result': 'added_user'};
+            res.status(resultCode).send(resultBody);
         }
       }); 
     });
-  } catch (error) {
-    console.log('error',error);
-  }
-  res.status(200).send('{"result": "thanks"}');
 });
-// Get all questions
+
+// Get all user
 app.get('/users', function (req, res) {
-    fs.readFile(questionsIndexFile, encoding, function (err, data) {
+    fs.readFile(usersIndexFile, encoding, function (err, data) {
       if (err) throw err;
       var questions = JSON.parse(data);
       console.log('data',data);
@@ -134,7 +140,6 @@ app.post('/game/question', function (req, res) {
     req.on('end', function () {
       console.log('add question: jsonString',jsonString);
       const id = crypto.randomBytes(16).toString("hex");
-      console.log('id',id);
       var newQuestionFile = questionsDir+'/'+id+'.json';
       fs.writeFile(newQuestionFile, jsonString, encoding, function (err) {
         console.log(err);
@@ -147,7 +152,6 @@ app.post('/game/question', function (req, res) {
             var newData = JSON.stringify(oldData);
             fs.writeFile (questionsIndexFile, newData, function(err) {
                 if (err) throw err;
-                console.log('complete');
             });
       });
     });
@@ -161,7 +165,6 @@ app.get('/game/question', function (req, res) {
     fs.readFile(questionsIndexFile, encoding, function (err, data) {
       if (err) throw err;
       var questions = JSON.parse(data);
-      console.log('data',data);
       res.status(200).send(data);
     });
 });

@@ -12,13 +12,12 @@ export class UserService {
   private userUrl = 'user'; 
 
   login(body: Object): Observable<QuestionObject[]> {
-      console.log('user',body);
-    let bodyString = body;
+    let bodyString = JSON.stringify(body); // Stringify payload
     let headers = new Headers({ 'Content-Type': 'application/json' });
     let options = new RequestOptions({ headers: headers }); 
-    return this.http.post(this.userUrl+'/login', bodyString, options) 
+    return this.http.post(this.userUrl+'/login', bodyString, options)  
         .map((res:Response) => res.json()) 
-        .catch((error:any) => Observable.throw(error.json().error || 'Server error')); 
-    }   
+        .catch((error:any) => Observable.throw('what?'+error.json().error || 'Server error')); 
+  }
 
 }

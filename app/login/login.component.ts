@@ -33,12 +33,24 @@ export class LoginComponent {
   }
 
   submitForm(value: any) {
+    this.profile = value;
+    this.userService.login(this.profile).subscribe((resp) => {
+      console.log('resp?',resp);
+      let temp = Object(resp);
+      this.profile['id'] = temp.id;
+      if (resp['result'] === 'added_user') {
+        console.log('new user added');
+      } else if (resp['result'] === 'defult') {
+        console.log('defualt response');
+      }
+    });
     let savesUser = localStorage.getItem('value.email');
-    this.profile = {
-      'email' : value.email,
-      'password' : value.password,
-      'role' : value.role
-    }
+    // in what situation would we need to use this?
+    // this.profile = {
+    //   'email' : value.email,
+    //   'password' : value.password,
+    //   'role' : value.role
+    // }
     this.authenticated = true;
     let questionOperation:Observable<any[]>;
     questionOperation = this.gameService.getQuestions();
@@ -54,13 +66,10 @@ export class LoginComponent {
     if (!savesUser) {
       localStorage.setItem(value.email, JSON.stringify(this.profile));
     }
-    this.userService.login(this.profile).subscribe((resp) => {
-      console.log('resp',resp);
-    });
   }
   
   logout() {
-    console.log('logout');
-    this.authenticated = null;
+    this.authenticated = false;
+    this.profile = null;
   }
 }

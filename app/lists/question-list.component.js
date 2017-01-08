@@ -28,8 +28,6 @@ var QuestionListComponent = (function () {
             for (var i in response) {
                 _this.questions.push(response[i]);
             }
-            console.log('questions', questions);
-            console.log('this.questions', _this.questions);
         }, function (err) {
             console.log(err);
         });

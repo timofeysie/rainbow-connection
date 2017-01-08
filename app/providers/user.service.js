@@ -19,13 +19,12 @@ var UserService = (function () {
         this.userUrl = 'user';
     }
     UserService.prototype.login = function (body) {
-        console.log('user', body);
-        var bodyString = body;
+        var bodyString = JSON.stringify(body); // Stringify payload
         var headers = new http_1.Headers({ 'Content-Type': 'application/json' });
         var options = new http_1.RequestOptions({ headers: headers });
         return this.http.post(this.userUrl + '/login', bodyString, options)
             .map(function (res) { return res.json(); })
-            .catch(function (error) { return Rx_1.Observable.throw(error.json().error || 'Server error'); });
+            .catch(function (error) { return Rx_1.Observable.throw('what?' + error.json().error || 'Server error'); });
     };
     UserService = __decorate([
         core_1.Injectable(), 

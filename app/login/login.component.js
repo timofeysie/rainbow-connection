@@ -29,12 +29,25 @@ var LoginComponent = (function () {
     }
     LoginComponent.prototype.submitForm = function (value) {
         var _this = this;
+        this.profile = value;
+        this.userService.login(this.profile).subscribe(function (resp) {
+            console.log('resp?', resp);
+            var temp = Object(resp);
+            _this.profile['id'] = temp.id;
+            if (resp['result'] === 'added_user') {
+                console.log('new user added');
+            }
+            else if (resp['result'] === 'defult') {
+                console.log('defualt response');
+            }
+        });
         var savesUser = localStorage.getItem('value.email');
-        this.profile = {
-            'email': value.email,
-            'password': value.password,
-            'role': value.role
-        };
+        // in what situation would we need to use this?
+        // this.profile = {
+        //   'email' : value.email,
+        //   'password' : value.password,
+        //   'role' : value.role
+        // }
         this.authenticated = true;
         var questionOperation;
         questionOperation = this.gameService.getQuestions();
@@ -48,13 +61,10 @@ var LoginComponent = (function () {
         if (!savesUser) {
             localStorage.setItem(value.email, JSON.stringify(this.profile));
         }
-        this.userService.login(this.profile).subscribe(function (resp) {
-            console.log('resp', resp);
-        });
     };
     LoginComponent.prototype.logout = function () {
-        console.log('logout');
-        this.authenticated = null;
+        this.authenticated = false;
+        this.profile = null;
     };
     __decorate([
         core_1.Input(), 
