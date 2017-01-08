@@ -1,5 +1,30 @@
 # Notes
 
+## TODO
+
+Player and spectator roles are still not developed.
+The ref role needs to have a list of games to select at control.
+
+### Player roles
+
+A player needs to set their state, from warming up or something to ready. 
+They need to see the current games to join. 
+They need to see their performance in the game and past games. 
+
+## The spectator role
+A spector needs to see the games past, present and future. 
+Leader boards and their own betting controls to let them select winners, 
+andswer their own questions and then get points for correct picks and answers. 
+The spectators are kind of like game contestants.
+
+
+## The referee
+
+The ref needs a list of players and their states.
+The ref needs to be able to take a game created by the admin, 
+control the status and flow of play during the game.
+
+
 ## zone.js:1382 POST http://localhost:3000/user/login 500 (Internal Server Error)
 EXCEPTION: Unexpected end of JSON input
 The service has to be very concise with it's observables. 
