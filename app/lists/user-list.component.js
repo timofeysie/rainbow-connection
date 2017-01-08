@@ -9,45 +9,45 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var core_1 = require('@angular/core');
-var game_service_1 = require('../providers/game.service');
+var user_service_1 = require('../providers/user.service');
 var emitter_service_1 = require('../providers/emitter.service');
-var QuestionListComponent = (function () {
-    function QuestionListComponent(gameService) {
-        this.gameService = gameService;
+var UserListComponent = (function () {
+    function UserListComponent(userService) {
+        this.userService = userService;
         this.listId = 'COMMENT_COMPONENT_LIST';
     }
-    QuestionListComponent.prototype.ngOnInit = function () {
-        this.loadQuestions();
+    UserListComponent.prototype.ngOnInit = function () {
+        this.loadUsers();
     };
-    QuestionListComponent.prototype.loadQuestions = function () {
+    UserListComponent.prototype.loadUsers = function () {
         var _this = this;
-        this.gameService.getQuestions().toArray()
-            .subscribe(function (questions) {
-            var response = Object(questions[0]);
-            _this.questions = [];
+        this.userService.getUsers().toArray()
+            .subscribe(function (users) {
+            var response = Object(users[0]);
+            _this.users = [];
             for (var i in response) {
-                _this.questions.push(response[i]);
+                _this.users.push(response[i]);
             }
         }, function (err) {
             console.log(err);
         });
     };
-    QuestionListComponent.prototype.ngOnChanges = function (changes) {
+    UserListComponent.prototype.ngOnChanges = function (changes) {
         var _this = this;
-        emitter_service_1.EmitterService.get(this.listId).subscribe(function (questions) {
-            _this.loadQuestions();
+        emitter_service_1.EmitterService.get(this.listId).subscribe(function (users) {
+            _this.loadUsers();
         });
     };
-    QuestionListComponent = __decorate([
+    UserListComponent = __decorate([
         core_1.Component({
             moduleId: module.id,
-            selector: 'question-list',
-            templateUrl: 'question-list.component.html',
+            selector: 'user-list',
+            templateUrl: 'user-list.component.html',
             styleUrls: ['../app.component.css']
         }), 
-        __metadata('design:paramtypes', [game_service_1.GameService])
-    ], QuestionListComponent);
-    return QuestionListComponent;
+        __metadata('design:paramtypes', [user_service_1.UserService])
+    ], UserListComponent);
+    return UserListComponent;
 }());
-exports.QuestionListComponent = QuestionListComponent;
-//# sourceMappingURL=question-list.component.js.map
+exports.UserListComponent = UserListComponent;
+//# sourceMappingURL=user-list.component.js.map

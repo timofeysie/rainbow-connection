@@ -11,6 +11,7 @@ import { GameService } from './providers/game.service';
 import { UserService } from './providers/user.service';
 import { EmitterService } from './providers/emitter.service';
 import { QuestionListComponent } from './lists/question-list.component';
+import { UserListComponent } from './lists/user-list.component';
 import { GameControlComponent } from './referee/game-control.component';
 declare var ADL: any;
 
@@ -28,6 +29,7 @@ declare var ADL: any;
     CreateGameComponent,
     AnswerComponent,
     QuestionListComponent,
+    UserListComponent,
     GameControlComponent ],
   providers: [
     GameService,

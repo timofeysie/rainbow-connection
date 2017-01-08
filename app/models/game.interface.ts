@@ -8,6 +8,12 @@ export interface Answer {
     correct: boolean;
 }
 
+export interface User {
+    id: string;
+    email: string;
+    password: string;
+}
+
 export class QuestionObject implements Question {
     constructor(
         public name: string, 
@@ -20,4 +26,12 @@ export class AnswerObject implements Answer {
         public answerText: string,
         public correct: boolean
     ) {}
+}
+
+export class UserObject implements User {
+    constructor(
+        public id: string,
+        public email: string, 
+        public password: string
+        ){}
 }

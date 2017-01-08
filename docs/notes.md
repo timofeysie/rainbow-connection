@@ -2,7 +2,11 @@
 
 ## zone.js:1382 POST http://localhost:3000/user/login 500 (Internal Server Error)
 EXCEPTION: Unexpected end of JSON input
-
+The service has to be very concise with it's observables. 
+Adding extra block of code for example to log out parts of the equation seemed to be causing the problem.
+Also, on the node end, we were returning the response before the files had finished being read.
+Node is tricky like that.  
+None blocking means you really have to be careful when a particular order of executtion is required.
 
 
 ## Argument of type '(resp: any, error: any) => void' is not assignable to 

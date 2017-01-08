@@ -44,6 +44,9 @@ export class LoginComponent {
         console.log('defualt response');
       }
     });
+    this.userService.getUsers().subscribe((resp:any) => {
+      console.log('users resp',resp);
+    });
     let savesUser = localStorage.getItem('value.email');
     // in what situation would we need to use this?
     // this.profile = {

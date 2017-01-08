@@ -6,7 +6,8 @@ import { QuestionObject } from '../models/game.interface';
 @Component({
     moduleId: module.id,
     selector: 'question-list',
-    templateUrl: 'question-list.component.html'
+    templateUrl: 'question-list.component.html',
+    styleUrls: ['../app.component.css']
 })
 export class QuestionListComponent implements OnInit, OnChanges {
     questions: QuestionObject[];

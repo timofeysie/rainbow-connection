@@ -15,4 +15,13 @@ var AnswerObject = (function () {
     return AnswerObject;
 }());
 exports.AnswerObject = AnswerObject;
+var UserObject = (function () {
+    function UserObject(id, email, password) {
+        this.id = id;
+        this.email = email;
+        this.password = password;
+    }
+    return UserObject;
+}());
+exports.UserObject = UserObject;
 //# sourceMappingURL=game.interface.js.map

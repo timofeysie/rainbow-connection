@@ -41,6 +41,9 @@ var LoginComponent = (function () {
                 console.log('defualt response');
             }
         });
+        this.userService.getUsers().subscribe(function (resp) {
+            console.log('users resp', resp);
+        });
         var savesUser = localStorage.getItem('value.email');
         // in what situation would we need to use this?
         // this.profile = {
