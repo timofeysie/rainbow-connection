@@ -16,10 +16,11 @@ var AnswerObject = (function () {
 }());
 exports.AnswerObject = AnswerObject;
 var UserObject = (function () {
-    function UserObject(id, email, password) {
+    function UserObject(id, email, password, role) {
         this.id = id;
         this.email = email;
         this.password = password;
+        this.role = role;
     }
     return UserObject;
 }());

@@ -12,6 +12,7 @@ export interface User {
     id: string;
     email: string;
     password: string;
+    role: string;
 }
 
 export class QuestionObject implements Question {
@@ -32,6 +33,7 @@ export class UserObject implements User {
     constructor(
         public id: string,
         public email: string, 
-        public password: string
+        public password: string,
+        public role: string
         ){}
 }

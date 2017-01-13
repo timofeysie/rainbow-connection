@@ -27,6 +27,7 @@ var UserListComponent = (function () {
             _this.users = [];
             for (var i in response) {
                 _this.users.push(response[i]);
+                console.log('ser', response[i]);
             }
         }, function (err) {
             console.log(err);

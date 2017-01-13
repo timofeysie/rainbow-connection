@@ -133,8 +133,15 @@ button {
   margin-bottom: 5px;
   border: 1px solid gray;
 }
-
 .margin5 {
   margin-left: 5px;
   margin-right: 5px;
+}
+.rightAlign {
+  text-align: right;
+  display: inline-block;
+}
+.leftAlign {
+  text-align: left;
+  display: inline-block;
 }

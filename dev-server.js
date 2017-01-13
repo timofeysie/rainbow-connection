@@ -92,7 +92,8 @@ app.post('/user/login', function (req, res) {
         if (!userExistsBool) {
             console.log('new user');
             var id = crypto.randomBytes(16).toString("hex");
-            users[id] = {id: user.email}
+            users[id] = {'email': user.email,
+              'role': user.role}
             var newData = JSON.stringify(users);
             fs.writeFile (usersIndexFile, newData, function(err) {
                 if (err) throw err;
@@ -117,7 +118,9 @@ app.post('/user/login', function (req, res) {
     });
 });
 
-// Get all user
+/** Get all user.
+ * Return the email and role.
+ */
 app.get('/users', function (req, res) {
     fs.readFile(usersIndexFile, encoding, function (err, data) {
       if (err) throw err;

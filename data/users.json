@@ -1,2 +1,1 @@
-{"2e86ed6ced71d0cd82a4e59625eab936":{"email":"test@tim.com"},
- "7480bef8a27ea35981ff9c786877f4f7":{"email":"test2@tim.com"}}
+{"2e86ed6ced71d0cd82a4e59625eab936":{"email":"test@tim.com","role":"admin"},"7480bef8a27ea35981ff9c786877f4f7":{"email":"test2@tim.com","role":"referee"},"7f1f5cf91336c86417cf94fbd8586b75":{"email":"test3@tim.com","role":"player"},"f6e124569e5a92f25e7ddd5edcaafc2b":{"email":"test4@tim.com","role":"referee"}}

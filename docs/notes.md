@@ -3,7 +3,14 @@
 ## TODO
 
 Player and spectator roles are still not developed.
-The ref role needs to have a list of games to select at control.
+The ref role needs to have a list of games to select and control.
+The new API stuff in dev-server.js needs to be added to server.js.
+
+### Users
+
+The users list from the server needs to have the roles in them so
+the ref knows who to invite to a game.
+Currently there are only emails.
 
 ### Player roles
 

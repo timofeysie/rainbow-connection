@@ -25,6 +25,7 @@ export class UserListComponent implements OnInit, OnChanges {
                 this.users = [];
                 for(var i in response) {
                     this.users.push(response[i]);
+                    console.log('ser',response[i]);
                 }
             },
                 err => {
