@@ -2,9 +2,14 @@
 
 ## TODO
 
+The questions need to be editable after creation.  
+How about using the question with an action and populate the create question form with that question for editing?
+
 Player and spectator roles are still not developed.
 The ref role needs to have a list of games to select and control.
 The new API stuff in dev-server.js needs to be added to server.js.
+
+The create-game component has an extra border on the top and bottom left of the container.
 
 ### Users
 

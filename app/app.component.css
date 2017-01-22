@@ -145,3 +145,7 @@ button {
   text-align: left;
   display: inline-block;
 }
+
+.marginBottom5 {
+    margin-bottom: 5px;
+}

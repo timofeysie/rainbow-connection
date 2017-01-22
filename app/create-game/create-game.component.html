@@ -1,64 +1,60 @@
-<div class="container">
-  <div class="row">
-    <div class="col-xs-12">
-      <div class="margin-20">
-        <h4>Create question &nbsp;
-          <span *ngIf="editing"
-            (click)="toggleEditMode()">-</span>
-          <span *ngIf="!editing"
-            (click)="toggleEditMode()">+</span>
-        </h4>
-      </div>
-      <form [formGroup]="questionForm" 
-        novalidate 
-        (ngSubmit)="save(questionForm)"
-        *ngIf="editing">
-        <div class="flex-grid-thirds">
-          <label class="col">Question</label>
-          <input type="text" 
-            class="col" 
-            formControlName="question">?
-        </div>
-        <div class="flex-grid-thirds">
-          <small *ngIf="!questionForm.controls.question.valid && questionForm.controls.question.touched" 
-            class="col text-danger">
-              question is required (minimum 5 characters).
-            </small>
-        </div>
-        <!-- answers -->
-        <div formArrayName="answers"
-          class="answerContainer">
-          <div *ngFor="let answer of questionForm.controls.answers.controls; let i=index" 
-            class="panel panel-default">
-            <div class="panel-heading">
-              <span>Answer {{i + 1}}</span>
-              <span class="glyphicon glyphicon-remove pull-right" 
-                *ngIf="questionForm.controls.answers.controls.length > 1" 
-                (click)="removeAnswer(i)"></span>
-            </div>
-            <div class="panel-body" 
-              [formGroupName]="i">
-              <answer [group]="questionForm.controls.answers.controls[i]"></answer>
-            </div>
-          </div>
-        </div>
-
-        <div class="margin-20">
-          <a (click)="addAnswer()" 
-            style="cursor: default">
-            Add another answer +
-          </a>
-        </div>
-
-        <div class="margin-20">
-          <button type="submit" 
-            class="btn pull-right angularBlue_bg" 
-            [disabled]="!questionForm.valid">
-            Add question</button>
-        </div>
-        <div class="clearfix"></div>
-
-      </form>
-    </div>
+<div class="margin5">
+  <div class="">
+    <h4>Create question &nbsp;
+      <span *ngIf="editing"
+        (click)="toggleEditMode()">-</span>
+      <span *ngIf="!editing"
+        (click)="toggleEditMode()">+</span>
+    </h4>
   </div>
+  <form [formGroup]="questionForm" 
+    novalidate 
+    (ngSubmit)="save(questionForm)"
+    *ngIf="editing">
+    <div class="flex-grid-thirds">
+      <label class="col">Question</label>
+      <input type="text" 
+        class="col" 
+        formControlName="question">?
+    </div>
+    <div class="flex-grid-thirds">
+      <small *ngIf="!questionForm.controls.question.valid && questionForm.controls.question.touched" 
+        class="col text-danger">
+          question is required (minimum 5 characters).
+        </small>
+    </div>
+    <!-- answers -->
+    <div formArrayName="answers"
+      class="answerContainer">
+      <div *ngFor="let answer of questionForm.controls.answers.controls; let i=index" 
+        class="panel panel-default">
+        <div class="panel-heading">
+          <span>Answer {{i + 1}}</span>
+          <span class="glyphicon glyphicon-remove pull-right" 
+            *ngIf="questionForm.controls.answers.controls.length > 1" 
+            (click)="removeAnswer(i)"></span>
+        </div>
+        <div class="panel-body" 
+          [formGroupName]="i">
+          <answer [group]="questionForm.controls.answers.controls[i]"></answer>
+        </div>
+      </div>
+    </div>
+
+    <div class="margin-20">
+      <a (click)="addAnswer()" 
+        style="cursor: default">
+        Add another answer +
+      </a>
+    </div>
+
+    <div class="margin-20">
+      <button type="submit" 
+        class="btn pull-right angularBlue_bg" 
+        [disabled]="!questionForm.valid">
+        Add question</button>
+    </div>
+    <div class="clearfix"></div>
+
+  </form>
 </div>
