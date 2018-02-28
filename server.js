@@ -1,6 +1,6 @@
 var http = require('http');
 var express = require('express');
-var wpi = require('wiring-pi');
+var wpi = require('node-wiring-pi');
 var app = express();
 
 // serve index.html and static pages stored in the home directory,
@@ -60,11 +60,11 @@ app.get('/toggle2', function (req, res) {
 
 // Old code used to make the light blink continuously
 // uncomment for testing purposes
-// setInterval(function() {
-// 	isLedOn = +!isLedOn;
-// 	//isLedOn = !isLedOn;
-// 	wpi.digitalWrite(configPin, isLedOn );
-// }, configTimeout);
+setInterval(function() {
+ 	isLedOn = +!isLedOn;
+ 	//isLedOn = !isLedOn;
+ 	wpi.digitalWrite(configPin, isLedOn );
+}, configTimeout);
 
 var inputs = [{ pin: '16', gpio: '23', value: null },
               { pin: '22', gpio: '25', value: null }];
