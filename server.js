@@ -64,6 +64,7 @@ setInterval(function() {
  	isLedOn = +!isLedOn;
  	//isLedOn = !isLedOn;
  	wpi.digitalWrite(configPin, isLedOn );
+ 	console.log('toggle',isLedOn);
 }, configTimeout);
 
 var inputs = [{ pin: '16', gpio: '23', value: null },
