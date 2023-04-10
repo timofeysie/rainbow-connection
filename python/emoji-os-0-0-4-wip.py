@@ -1,6 +1,7 @@
 import glowbit
 from machine import Pin
 import time
+from emojis import *
 
 matrix = glowbit.matrix8x8()
 matrix.pixelsFill(matrix.black())
@@ -112,27 +113,7 @@ def draw_emoji():
     # regular
     if (menu == 0 and pos == 1):
         print("menu 0 pos 1 normal")
-        T = [[0, 0, 1, 1, 1, 1, 0, 0],
-             [0, 1, 0, 0, 0, 0, 1, 0],
-             [1, 0, 1, 0, 0, 1, 0, 1],
-             [1, 0, 0, 0, 0, 0, 0, 1],
-             [1, 0, 1, 1, 1, 1, 0, 1],
-             [1, 0, 0, 0, 0, 0, 0, 1],
-             [0, 1, 0, 0, 0, 0, 1, 0],
-             [0, 0, 1, 1, 1, 1, 0, 0]]
-        row = 0
-        col = 0
-        for r in T:
-            for c in r:
-                color = matrix.black()
-                if (c > 0):
-                    color = matrix.white()
-                matrix.pixelSetXY(col, row, color)
-                col += 1
-                if (col > 7):
-                    col = 0
-            row += 1
-        matrix.pixelsShow()
+        regular()
         time.sleep(0.5)
         reset_state()
 
