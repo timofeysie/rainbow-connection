@@ -14,6 +14,11 @@ menu = 0
 pos = 0
 neg = 0
 state = "none" # start end or none
+# preserve the previous state for pos/neg flipping
+prev_menu = 0
+prev_pos = 0
+prev_neg = 0
+prev_state = "none" # or done
 pause = 0.2
 
 def check_menu():
@@ -99,11 +104,29 @@ def reset_state():
     global menu
     global pos
     global neg
+    global prev_state
+    global prev_menu
+    global prev_pos
+    global prev_neg
+    prev_state = "done"
+    prev_menu = menu
+    prev_pos = pos
+    prev_neg = neg
     state = "none"
     menu = 0
     pos = 0
     neg = 0
 
+def reset_prev():
+    global prev_state
+    global prev_menu
+    global prev_pos
+    global prev_neg
+    prev_state = "none"
+    prev_menu = 0
+    prev_pos = 0
+    prev_neg = 0
+    
 def buzz():
     buzzer.value(1)
     time.sleep(0.1)
@@ -115,7 +138,7 @@ def draw_emoji():
     global menu
     global pos
     global neg
-    print ("draw emoji menu at", menu, "pos at", pos, "neg at", neg, "state", reset_state)
+    print ("draw emoji menu at", menu, "pos at", pos, "neg at", neg, "state", state)
     matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond = 0.7)
     #==========
     #POSITIVE 0
@@ -258,6 +281,7 @@ def draw_emoji():
 while True:
     # blocks need to be in reverse order to stop the cascade throguh the conditions
     if button1.value():
+        print('debug btn 1 menu ', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
         if state == "choosing":
             buzz()
             # increment positive choice
@@ -278,12 +302,28 @@ while True:
             matrix.pixelsFill(matrix.black())
             draw_menu()
             draw_pos()
-        if state == "done":
-            buzz()
-            matrix.pixelsFill(matrix.black())
-            print('button 3 pressed, menu ', menu, "neg", neg, "state", state)
-            draw_emoji()
+        if prev_state == "done":
+            if (prev_neg > 0):
+                # reverse previous neg choice
+                buzz()
+                matrix.pixelsFill(matrix.black())
+                pos = prev_neg
+                neg = 0
+                menu = prev_menu
+                print('button 1 pressed again, menu ', menu, "pos", pos, "neg", neg, "state", state)
+                draw_emoji()
+            if (prev_pos > 0):
+                # play last pos
+                buzz()
+                matrix.pixelsFill(matrix.black())
+                pos = prev_pos
+                neg = 0
+                menu = prev_menu
+                print('button 3 pressed again, menu ', menu, "pos", pos, "neg", neg, "state", state)
+                draw_emoji()
     if button2.value():
+        reset_prev()
+        print('debug btn 2 menu ', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
         buzz()
         if state == "start":
             # start or increment main menu
@@ -307,6 +347,7 @@ while True:
             matrix.pixelsFill(matrix.black())
             draw_emoji()
     if button3.value():
+        print('debug btn 3 menu ', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
         buzz()
         if state == "choosing":
             # increment negative choice
@@ -324,12 +365,26 @@ while True:
             neg = neg + 1
             check_neg()
             print('button 3 pressed, menu ', menu, "neg", neg, "state", state)
-            matrix.pixelsFill(matrix.black())
+            matrix.pixelsFill(matrix.black())            
             draw_menu()
             draw_neg()
-        if state == "done":
-            buzz()
-            matrix.pixelsFill(matrix.black())
-            print('button 3 pressed, menu ', menu, "neg", neg, "state", state)
-            draw_emoji()
-
+        if prev_state == "done":
+            print("prev_pos", prev_pos)
+            if (prev_pos > 0):
+                # toggle pos to neg response
+                buzz()
+                matrix.pixelsFill(matrix.black())
+                neg = prev_pos
+                pos = 0
+                menu = prev_menu
+                print('button 3 pressed again, menu ', menu, "pos", pos, "neg", neg, "state", state)
+                draw_emoji()
+            if (prev_neg > 0):
+                # play last neg
+                buzz()
+                matrix.pixelsFill(matrix.black())
+                neg = prev_neg
+                pos = 0
+                menu = prev_menu
+                print('button 3 pressed again, menu ', menu, "pos", pos, "neg", neg, "state", state)
+                draw_emoji()
