@@ -1,4 +1,6 @@
-# How to setup a Raspberry Pi Zero W
+# Raspberry Pi Zero timelapse camera project
+
+## How to setup a Raspberry Pi Zero W with Headless setup
 
 [This article](https://www.techcoil.com/blog/how-to-host-a-static-website-on-your-raspberry-pi-zero-w-with-raspbian-stretch-lite-and-nginx-web-server/) links to other detail offshoot articles that drill down into the steps.
 
@@ -13,6 +15,51 @@ Notes for how to use the nano editor are also included.
 - create an empty file named as "ssh" and copy it to the root directory of the SD card
 
 - wpa_supplicant.conf file that contains your WiFi network configuration
+
+## The wpa_supplicant.conf file
+
+This is the format of the file from the video in the link above:
+
+```conf
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=US
+
+network={
+	ssid="your_wifi_network_name"
+	psk="your_wifi_network_password"
+	key_mgmt=WPA-PSK
+}
+```
+
+### Setup a user
+
+As shown in this [new login method](https://www.raspberrypi.com/news/raspberry-pi-bullseye-update-april-2022/), there are various ways to set up a user to use on first boot.
+
+To set up a user on first boot and bypass the wizard completely, create a file called userconf.txt with a single line in the format name:password-hash
+
+To create a password has, run this command:
+
+```sh
+echo 'mypassword' | openssl passwd -6 -stdin
+```
+
+Then, after you boot up, you can ping the zero until you see a valid response.
+
+```sh
+ping raspberrypi
+Pinging raspberrypi.modem [192.168.0.49] with 32 bytes of data:
+Reply from 192.168.0.49: bytes=32 time=298ms TTL=64
+...
+```
+
+Then you can login with the credentials you setup.
+
+```sh
+ssh name@raspberrypi
+```
+
+It was taking a long time for the zero to respond to the pings.  I think it was too far away from the wifi, as possibly it's as powerful as my laptop wifi which will connect immediately.  I moved the zero closer to where the wifi router is and then it would connect quickly.
 
 ## Setup Nginx
 
@@ -43,9 +90,9 @@ Sep 01 07:21:55 raspberrypi systemd[1]: nginx.service: Failed to parse PID from 
 Sep 01 07:21:55 raspberrypi systemd[1]: Started A high performance web server and a reverse proxy server.
 ```
 
-The address: 192.168.0.49
+After the server starts, you can visit 192.168.0.49 and see the default site.
 
-Configure dns
+The article shows instructions on how to configure a domain name.
 
 sudo nano /etc/nginx/sites-enabled/yourdomain.com.conf
 
@@ -58,95 +105,122 @@ server {
 }
 ```
 
-Ctrl-X followed by Y to save the configuration file.
+However, I want to create a static site to serve all the images in a directory on the device to the local network only for now.
 
-```sh
-sudo systemctl restart nginx.service
-```
+I actually couldn't get it to configure my own site, so I ended up using the default site created by nginx.
 
-I have a raspberry pi zero W and I want to create a static site to serve all the images in a directory on the device.
-I have nginx running already.  I can configure a domain in a file like this:
-/etc/nginx/sites-enabled/yourdomain.com.conf
-server {
-        server_name yourdomain.com www.yourdomain.com;
-        listen 80;
-        root /var/www/yourdomain.com;
-        index index.html;
-}
-Can you please show me the code for an index page that will include all the images in a directory  /var/www/yourdomain.com/images
-
-sudo mkdir /var/www/timelapse.local
-sudo nano /var/www/timelapse.local/index.html
-
-server {
-    listen 80;
-    server_name timelapse.local;
-    root /var/www/timelapse.local;
-    index index.html;
-}
-
-sudo mkdir -p /var/www/timelapse.local/images
-sudo chmod 755 /var/www/timelapse.local/images
-
-libcamera-jpeg -o /var/www/timelapse.local/images/test-1.jpg
-
-sudo libcamera-jpeg -o /var/www/timelapse.local/images/image-1.jpg
-
-I actually couldn't get it to configure my own site, so I ended up using the default site created by nginx.  That is in this location: /var/www/html/index.html
+That is in this location: /var/www/html/index.html
 
 sudo nano /etc/nginx/sites-available/default
 
-http://192.168.0.49/
+create your configuration file:
 
-http://192.168.0.49/images/image-1.jpg
+sudo nano /etc/nginx/sites-available/
 
-http://192.168.0.49/images/test-2.jpg
+sudo nano /etc/nginx/sites-enabled/default
+
+```sh
+    location /images/ {
+        alias /var/www/html/images/;
+        autoindex on;
+    }
+```
+
+Save the file and then restart the server:
+
+sudo systemctl restart nginx.service
+
+or
+
+sudo service nginx restart
+
+There is a special command to determine if the file is valid:
+
+sudo nginx -t
 
 ## The website code
 
 I like to separate code by type, so will have separate javascript, css and html files.
 
-script.js
+Create a script.js file:
 
+```bash
 sudo nano /var/www/html/script.js
+```
 
 ```js
-// JavaScript to list and display images in the gallery
-document.addEventListener("DOMContentLoaded", function() {
-    const imageList = document.getElementById("image-list");
+document.addEventListener("DOMContentLoaded", function () {
+    const imageContainer = document.getElementById("displayed-image");
+    const imageSelect = document.getElementById("image-select");
+    const playButton = document.getElementById("play-button");
+    let imageList = [];
 
-    fetch("/images/") // Use the correct path to your images directory
-        .then(response => response.text())
-        .then(data => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(data, "text/html");
-            const links = doc.querySelectorAll("a");
+    // Function to fetch the list of images from the /images directory
+    function fetchImagesList() {
+        fetch("/images/") // Use the correct path to your images directory
+            .then((response) => response.text())
+            .then((data) => {
+                console.log('data', data)
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data, "text/html");
+                const links = doc.querySelectorAll("a");
 
-            links.forEach(link => {
-                const href = link.getAttribute("href");
-                if (href.endsWith(".jpg") || href.endsWith(".jpeg")) {
-                    const listItem = document.createElement("li");
-                    const imageLink = document.createElement("a"); // Create an anchor element
-                    imageLink.href = `/images/${href}`; // Set the href attribute to the image path
+                imageList = Array.from(links)
+                    .map((link) => link.getAttribute("href"))
+                    .filter((href) => href.endsWith(".jpg") || href.endsWith(".jpeg"));
 
-                    // Create the thumbnail image element
-                    const imageElement = document.createElement("img");
-                    imageElement.src = `/images/${href}`;
-                    imageElement.alt = href;
+                // Populate the select element with image options
+                populateImageSelect();
 
-                    // Set max width and max height for the thumbnail image
-                    imageElement.style.maxWidth = "200px";
-                    imageElement.style.maxHeight = "200px";
-
-                    imageLink.appendChild(imageElement); // Append the image to the anchor element
-                    listItem.appendChild(imageLink); // Append the anchor element to the list item
-                    listItem.appendChild(document.createElement("br")); // Add a line break
-                    listItem.appendChild(document.createTextNode(href)); // Add the filename as text
-                    imageList.appendChild(listItem);
+                // Set the default image to the last image in the list
+                if (imageList.length > 0) {
+                    updateDisplayedImage(imageList[imageList.length - 1]);
                 }
-            });
-        })
-        .catch(error => console.error("Error fetching images:", error));
+            })
+            .catch((error) => console.error("Error fetching images:", error));
+    }
+
+    // Function to populate the select element with image options
+    function populateImageSelect() {
+        imageList.forEach((image) => {
+            const option = document.createElement("option");
+            option.value = image;
+            option.text = image;
+            imageSelect.appendChild(option);
+        });
+        console.log('imageList', imageList)
+    }
+
+    // Function to update the displayed image
+    function updateDisplayedImage(imagePath) {
+        imageContainer.src = `/images/${imagePath}`;
+        console.log('imageContainer.src', imageContainer.src)
+    }
+
+    // Event listener for the select element
+    imageSelect.addEventListener("change", function () {
+        const selectedImage = imageSelect.value;
+        console.log('selectedImage', selectedImage)
+        updateDisplayedImage(selectedImage);
+    });
+
+    // Event listener for the "Play" button
+    playButton.addEventListener("click", function () {
+        let currentIndex = 0;
+        const playInterval = setInterval(function () {
+            if (currentIndex >= imageList.length) {
+                clearInterval(playInterval); // Stop playing when all images are displayed
+            } else {
+                const currentImage = imageList[currentIndex];
+                updateDisplayedImage(currentImage);
+                currentIndex++;
+            }
+            console.log('currentIndex', currentIndex)
+        }, 1000); // Change images every 1 second
+    });
+
+    // Fetch the list of images when the page loads
+    fetchImagesList();
 });
 ```
 
@@ -155,122 +229,253 @@ document.addEventListener("DOMContentLoaded", function() {
 sudo nano /var/www/html/style.css
 
 ```css
-/* Add your CSS styles here */
-ul {
-    list-style-type: none;
-    padding: 0;
+.gallery-container {
+    display: flex;
+    flex-direction: column;
 }
 
-li {
-    display: inline-block;
-    margin: 10px;
-    text-align: center;
+.image-container {
+    max-width: 95vh;
 }
 
 img {
-    max-width: 200px;
-    max-height: 200px;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+select {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+#controls-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.7); /* Optional: Add a background color with transparency */
+}
+
+/* Style the "Play" button */
+#play-button {
+    margin-bottom: 10px;
 }
 ```
 
+If the changes don't show, restart nginx:
+
+sudo service nginx reload
 
 ### The index.html file
 
-nano /var/www/html/index.html
+sudo nano /var/www/html/index.html
+
+Also could be: sudo nano /var/www/html/index.nginx-debian.html
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
     <title>Image Gallery</title>
-    <link rel="stylesheet" type="text/css" href="/path/to/style.css">
+    <link rel="stylesheet" type="text/css" href="/style.css">
 </head>
 <body>
-    <h1>Image Gallery</h1>
-    <ul id="image-list">
-        <!-- Images will be listed here -->
-    </ul>
-    <button id="capture-button">Capture</button>
-    <script src="/path/to/script.js"></script>
-    <script src="/capture.js"></script>
+    <h3>Image Gallery</h3>
+    
+    <div id="image-display">
+        <img id="displayed-image" src="" alt="Displayed Image" style="max-height: 90vh;">
+    </div>
+    
+    <div id="controls-container">
+        <button id="play-button">Play</button>
+        <select id="image-select" size="10" style="max-height: 90vh;">
+        </select>
+    </div>
+    
+    <script src="/script.js"></script>
 </body>
 </html>
 ```
 
-### Capture button
+After editing the files, you need to restart nginx
+
+## Taking pictures
+
+The libcamera-jpeg command is one way to take pictures.  It is used like this:
+
+libcamera-jpeg -o test-1.jpg
+
+However, we want to put those pictures in the directory served by the html.
 
 ```sh
-sudo apt-get update
-sudo apt-get install raspistill
+sudo mkdir -p /var/www/html/images
+sudo chmod 755 /var/www/html/images
+sudo libcamera-jpeg -o /var/www/html/images/image-1.jpg
 ```
 
-nano /var/www/html/capture.js
+## Taking time lapse pictures
 
-```js
-const { exec } = require("child_process");
+sudo nano /home/tim/python/capture_image.py
 
-// Function to capture an image with a timestamp-based filename
-function captureImage() {
-    const timestamp = new Date().toISOString().replace(/[-:.]/g, "");
-    const fileName = `/var/www/html/images/image_${timestamp}.jpg`; // Modify the path as needed
+```py
+import os
+import picamera
+from time import sleep
+from datetime import datetime
 
-    const captureCommand = `raspistill -o ${fileName}`;
+# Function to capture an image and save it with a timestamp-based filename
+def capture_image():
+    # Get the current date and time
+    current_time = datetime.now().time()
+    
+    # Check if the current time is between 9 AM and 5 PM
+    if current_time >= datetime.strptime("09:00:00", "%H:%M:%S").time() and current_time <= datetime.strptime("17:00:00", "%H:%M:%S").time():
+        # Define the image file path
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        image_path = "/var/www/html/images/image_{}.jpg".format(timestamp)
+        
+        # Capture an image and save it
+        with picamera.PiCamera() as camera:
+            camera.resolution = (1024, 768)  # Set the resolution (adjust as needed)
+            camera.capture(image_path)
 
-    exec(captureCommand, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error capturing image: ${error.message}`);
-            return;
-        }
-        console.log(`Image captured: ${fileName}`);
-    });
-}
-
-// Capture button click event handler
-document.addEventListener("DOMContentLoaded", function() {
-    const captureButton = document.getElementById("capture-button");
-
-    captureButton.addEventListener("click", function() {
-        // Call the captureImage function when the button is clicked
-        captureImage();
-    });
-});
-
+# Main program loop
+while True:
+    capture_image()  # Capture an image if the time is between 9 AM and 5 PM
+    sleep(60)  # Wait for 60 seconds before checking the time again
 ```
 
-## Commands
+Open the crontab configuration:
 
+```bash
+crontab -e
+```
+
+```bash
+@reboot /usr/bin/python3 /path/to/your/python/script.py &
+```
+
+Save and exit the crontab editor.
+
+Reboot your Raspberry Pi:
+
+```bash
+sudo reboot
+```
+
+Check Script Execution
+
+```bash
+ps aux | grep python
+```
+
+Check for Errors
+
+```bash
+python3 /path/to/your/python/script.py
+```
+
+For me this is:
+
+```bash
+sudo python3 /home/tim/python/capture_image.py
+```
+
+Monitor the output
+
+```bash
+tail -f /home/tim/python/capture_image.log
+```
+
+## Setting the time
+
+```bash
+sudo apt install ntp
+sudo nano /etc/ntp.conf
+```
+
+Verify that the configuration file points to valid NTP servers like this:
+
+```bash
+server pool.ntp.org
+server 0.debian.pool.ntp.org iburst
+
+sudo systemctl restart ntp
+```
+
+Set Timezone (optional):
+
+You can also set the timezone for your Raspberry Pi using the timedatectl command. Replace Your_Timezone with your desired timezone (e.g., America/New_York):
+
+bash
+```bash
+sudo timedatectl set-timezone Your_Timezone
+```
+
+bash
+```bash
+timedatectl list-timezones
+```
+
+```bash
+sudo timedatectl set-timezone Australia/Sydney
+sudo timedatectl set-timezone Asia/Seoul
+```
+
+Enable NTP sync on boot
+
+```bash
+sudo systemctl enable ntp
+```
+
+## Workflow Commands
+
+```bash
 ping raspberrypi
 Pinging raspberrypi.modem [192.168.0.49] with 32 bytes of data:
 Reply from 192.168.0.49: bytes=32 time=14ms TTL=64
 
 ssh tim@raspberrypi
-
-enter a password
-
-### The site
-
-sudo nano /var/www/html/index.nginx-debian.html
-
-sudo nano /var/www/html/images.json
+```
 
 ### Restart nginx
 
+```bash
 sudo systemctl restart nginx.service
+```
+
+### Start the time-lapse script manually
+
+```bash
+sudo python3 /home/tim/python/capture_image.py
+```
 
 ### Check syntax
 
+```bash
 sudo nginx -t
 sudo tail -f /var/log/nginx/error.log
 sudo service nginx reload
+```
 
 ## Nano commands
 
-Ctrl + Shift + 6 to start selecting and  
-Ctrl + K to cut), press  
-Ctrl + U to paste the cut text. This will paste the previously cut text back into the file. 
-Shift + Insert keyboard shortcut in nano. This should paste the text you copied from your To save the changes, press  
-Ctrl + O then press Enter
+```bash
+Ctrl + Shift + 6 to start selecting
+Ctrl + K to cut
+Ctrl + U to paste the cut text
+Shift + Insert paste text copied from computer
+Ctrl + O then press Enter to save the file
 Ctrl + X to exit nano
+```
+
+To find the Zero's IP address on the local network:
+
+```bash
+hostname -I
+```
 
 ## Ping raspberry pi
 
@@ -322,3 +527,73 @@ When I insert the SD card into the laptop, it says it has a problem and wants to
 Might also need a micro-b adapter to access the USB port on the Pi Zero for keyboards and mice: *it is recommended that you use a powered USB hub. Wireless keyboard and mouse combos work best as they have one USB dongle for both devices.*
 
 Great, more things to buy.  My equipment all have cables and are un-powered.  I do think I have a wireless mac keyboard somewhere.
+
+I did some more googling, and found [this](https://social.technet.microsoft.com/wiki/contents/articles/861.clearing-name-and-web-caches-host-dns-and-netbios-wins-and-ie-caches.aspx): *When you are having trouble connecting to a network resource, your local computer will often cache the error condition in one or more places. Common troubleshooting steps to resolve cached error conditions include clearing your NetBIOS and host name caches.*
+
+```sh
+ipconfig /flushdns
+nbtstat –R
+```
+
+The second command just shows options.  I don't think it did anything.
+
+Anyhow, now we are back in business!
+
+```sh
+> ping raspberrypi
+
+Pinging raspberrypi.modem [192.168.0.49] with 32 bytes of data:
+Reply from 192.168.0.164: Destination host unreachable.
+Reply from 192.168.0.164: Destination host unreachable.
+Reply from 192.168.0.164: Destination host unreachable.
+Reply from 192.168.0.164: Destination host unreachable.
+Ping statistics for 192.168.0.49:
+    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
+```
+
+That's slightly better than the "Ping request could not find host raspberrypi. Please check the name and try again." message.  I remember I would get this first, and then it would start responding after a little while.
+
+Still however, can't ssh into it.
+
+```sh
+ssh tim@raspberrypi
+ssh: connect to host raspberrypi port 22: Connection timed out
+```
+
+So it's not over yet.
+
+I leave it on all night and check in the morning, and viola!
+
+```sh
+ ping raspberrypi
+
+Pinging raspberrypi.modem [192.168.0.49] with 32 bytes of data:
+Reply from 192.168.0.49: bytes=32 time=692ms TTL=64
+Reply from 192.168.0.49: bytes=32 time=10ms TTL=64
+Reply from 192.168.0.49: bytes=32 time=7ms TTL=64
+Reply from 192.168.0.49: bytes=32 time=8ms TTL=64
+
+Ping statistics for 192.168.0.49:
+    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
+Approximate round trip times in milli-seconds:
+    Minimum = 7ms, Maximum = 692ms, Average = 179ms
+```
+
+When I try to log in, it's a strange message:
+
+```sh
+ ssh tim@raspberrypi
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the ED25519 key sent by the remote host is
+SHA256:wfaGos2CpuZ8ZEXqxTGF/4LcqT6xR9uQCoWCrfuciH4.
+Please contact your system administrator.
+Add correct host key in C:\\Users\\timof/.ssh/known_hosts to get rid of this message.
+Offending ECDSA key in C:\\Users\\timof/.ssh/known_hosts:22
+Host key for raspberrypi has changed and you have requested strict checking.
+Host key verification failed.
+```

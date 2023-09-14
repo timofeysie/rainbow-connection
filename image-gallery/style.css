@@ -1,0 +1,33 @@
+.gallery-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.image-container {
+    max-height: 90vh; /* Set the max height to 90% of the viewport height */
+}
+
+img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+select {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+#controls-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.7); /* Optional: Add a background color with transparency */
+}
+
+/* Style the "Play" button */
+#play-button {
+    margin-bottom: 10px;
+}
