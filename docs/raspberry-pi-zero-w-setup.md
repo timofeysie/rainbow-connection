@@ -1,4 +1,67 @@
-# Raspberry Pi Zero timelapse camera project
+# Raspberry Pi Zero time lapse camera project
+
+The "Workflow Commands" section is for reference after the project is setup.
+
+For the full tutorial of how to set up the zero from the beginning, start at the "How to setup a Raspberry Pi Zero W with Headless setup" section.
+
+## Workflow Commands
+
+```bash
+ping raspberrypi
+Pinging raspberrypi.modem [192.168.0.49] with 32 bytes of data:
+Reply from 192.168.0.49: bytes=32 time=14ms TTL=64
+
+ssh tim@raspberrypi
+```
+
+### Restart nginx
+
+```bash
+sudo systemctl restart nginx.service
+```
+
+### Start the time-lapse script manually
+
+```bash
+sudo python3 /home/tim/python/capture_image.py
+```
+
+### Check syntax
+
+```bash
+sudo nginx -t
+sudo tail -f /var/log/nginx/error.log
+sudo service nginx reload
+```
+
+### Nano commands
+
+```bash
+Ctrl + Shift + 6 to start selecting
+Ctrl + K to cut
+Ctrl + U to paste the cut text
+Shift + Insert paste text copied from computer
+Ctrl + O then press Enter to save the file
+Ctrl + X to exit nano
+```
+
+### Find the Zero's IP address on the local network
+
+```bash
+hostname -I
+```
+
+### Copy files from Zero to PC
+
+```bash
+scp tim@192.168.45.194:/var/www/html/images/*.jpg C:\Users\timof\OneDrive\Pictures\zero\
+```
+
+Remove the files on the zero:
+
+```bash
+rm /var/www/html/images/*
+```
 
 ## How to setup a Raspberry Pi Zero W with Headless setup
 
@@ -344,7 +407,7 @@ def capture_image():
 # Main program loop
 while True:
     capture_image()  # Capture an image if the time is between 9 AM and 5 PM
-    sleep(60)  # Wait for 60 seconds before checking the time again
+    sleep(60)  # Wait for 60 seconds before checking the time again, this will include the time it takes to take the picture which is about 8 seconds.
 ```
 
 Open the crontab configuration:
@@ -430,51 +493,20 @@ Enable NTP sync on boot
 sudo systemctl enable ntp
 ```
 
-## Workflow Commands
+## Copy images to the PC
+
+Option one is to copy all the images to the boot dir, take out the memory card and copy the files onto the PC.  However, this will double the amount of files on the zero which maxed out the memory on my SD card the first time I tried it.
+
+Option 2 was to do it all from the command line first from the PC (which requires login):
 
 ```bash
-ping raspberrypi
-Pinging raspberrypi.modem [192.168.0.49] with 32 bytes of data:
-Reply from 192.168.0.49: bytes=32 time=14ms TTL=64
-
-ssh tim@raspberrypi
+scp tim@192.168.45.194:/var/www/html/images/*.jpg C:\Users\timof\OneDrive\Pictures\zero\
 ```
 
-### Restart nginx
+Remove the files on the zero after logging in to the zero:
 
 ```bash
-sudo systemctl restart nginx.service
-```
-
-### Start the time-lapse script manually
-
-```bash
-sudo python3 /home/tim/python/capture_image.py
-```
-
-### Check syntax
-
-```bash
-sudo nginx -t
-sudo tail -f /var/log/nginx/error.log
-sudo service nginx reload
-```
-
-## Nano commands
-
-```bash
-Ctrl + Shift + 6 to start selecting
-Ctrl + K to cut
-Ctrl + U to paste the cut text
-Shift + Insert paste text copied from computer
-Ctrl + O then press Enter to save the file
-Ctrl + X to exit nano
-```
-
-To find the Zero's IP address on the local network:
-
-```bash
-hostname -I
+rm /var/www/html/images/*
 ```
 
 ## Ping raspberry pi
