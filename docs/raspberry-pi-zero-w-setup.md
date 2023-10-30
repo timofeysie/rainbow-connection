@@ -79,6 +79,8 @@ Notes for how to use the nano editor are also included.
 
 - wpa_supplicant.conf file that contains your WiFi network configuration
 
+Some sample files are in the python\utils directory of this repo, as well as available for download in the link above with a bit of searching.
+
 ## The wpa_supplicant.conf file
 
 This is the format of the file from the video in the link above:
@@ -104,7 +106,7 @@ To set up a user on first boot and bypass the wizard completely, create a file c
 To create a password has, run this command:
 
 ```sh
-echo 'mypassword' | openssl passwd -6 -stdin
+echo 'password' | openssl passwd -6 -stdin
 ```
 
 Then, after you boot up, you can ping the zero until you see a valid response.
@@ -597,7 +599,7 @@ So it's not over yet.
 I leave it on all night and check in the morning, and viola!
 
 ```sh
- ping raspberrypi
+ping raspberrypi
 
 Pinging raspberrypi.modem [192.168.0.49] with 32 bytes of data:
 Reply from 192.168.0.49: bytes=32 time=692ms TTL=64
@@ -622,10 +624,55 @@ IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
 Someone could be eavesdropping on you right now (man-in-the-middle attack)!
 It is also possible that a host key has just been changed.
 The fingerprint for the ED25519 key sent by the remote host is
-SHA256:wfaGos2CpuZ8ZEXqxTGF/4LcqT6xR9uQCoWCrfuciH4.
+SHA256:wf ... 4.
 Please contact your system administrator.
 Add correct host key in C:\\Users\\timof/.ssh/known_hosts to get rid of this message.
 Offending ECDSA key in C:\\Users\\timof/.ssh/known_hosts:22
 Host key for raspberrypi has changed and you have requested strict checking.
 Host key verification failed.
+```
+
+How to add correct host key in user/.ssh/known_hosts to get rid of this message?
+
+ChatGPT: *This error message typically appears when the SSH client detects a change in the host key of the server you’re trying to connect to. This could happen if you’ve reinstalled the operating system on your Raspberry Pi or made some other significant change.*
+
+ChatGPT gave me two methods for resolving this issue.
+
+### Method 1
+
+1. Open the known_hosts file: The file is located at C:\\Users\\timof/.ssh/known_hosts. You can open it with any text editor.
+2. Remove the offending key: Look for the line in the file that corresponds to your Raspberry Pi’s IP address or hostname and delete it. Be careful not to change any other lines.
+
+Save and close the file: After deleting the line, save and close the file.
+
+Reconnect to your Raspberry Pi: When you try to connect again, you should be prompted to add the new host key1.
+
+### Method 2
+
+Alternatively, you can use this command in PowerShell to remove the old key and update it in one go:
+
+ssh-keygen -R your.pi.hostname && ssh -o StrictHostKeyChecking=no your.pi.hostname
+
+Replace your.pi.hostname with the hostname or IP address of your Raspberry Pi1. This command will remove the old key for your Raspberry Pi from the known_hosts file and then attempt to connect to your Raspberry Pi, which will add the new host key.
+
+raspberrypi ssh-ed25519 AAA...v9c
+
+Following the first method, the line I removed to fix the issue was something like this:
+
+```txt
+raspberrypi ssh-rsa AAAAB3Nz ... ABDyWXVjuTuq+1mM=
+```
+
+## Multiple devices
+
+The above solution enabled me to login to my old raspberry pi with it's touch screen
+
+However, now when I try to login to the time-lapse camera zero, I see the above message.
+
+```txt
+The fingerprint for the ED25519 key sent by the remote host is
+SHA256:wfaGos2CpuZ8ZEXqxTGF/4LcqT6xR9uQCoWCrfuciH4.
+Please contact your system administrator.
+Add correct host key in C:\\Users\\timof/.ssh/known_hosts to get rid of this message.
+Offending ECDSA key in C:\\Users\\timof/.ssh/known_hosts:26
 ```
