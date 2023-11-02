@@ -22,7 +22,7 @@ def get_rgb_values(image_path):
     return pixel_data
 
 # Use the function to get the RGB values from an image
-rgb_values = get_rgb_values('image.png')
+rgb_values = get_rgb_values('large-image-3.jpg')
 
 # Print out the RGB values in a format that can be used in MicroPython
 print("large_image = [")
