@@ -4,9 +4,32 @@ matrix = glowbit.matrix8x8()
 from large_image import large_image
 from large_image_2 import large_image_2
 from cloud_landscape  import cloud_landscape
+from cloud_landscape_2  import cloud_landscape_2
 
 def scroll_cloud_landscape():
     transposed_image = list(map(list, zip(*cloud_landscape)))
+    # Function to draw a section of the large image on the matrix
+    def draw_section(section): 
+        matrix.pixelsFill(matrix.black())
+        row = 0
+        col = 0
+        for r in section:
+            for c in r:
+                matrix.pixelSetXY(col, row, c)
+                col += 1
+                if (col > 7):
+                    col = 0
+            row += 1
+        matrix.pixelsShow()
+
+    # Scroll through the large image one row at a time
+    for i in range(len(transposed_image[0]) - 7):
+        section = [row[i:i+8] for row in transposed_image]
+        draw_section(section)
+        time.sleep(0.6) # Add a delay of 0.1 seconds
+
+def scroll_cloud_landscape_2():
+    transposed_image = list(map(list, zip(*cloud_landscape_2)))
     # Function to draw a section of the large image on the matrix
     def draw_section(section): 
         matrix.pixelsFill(matrix.black())

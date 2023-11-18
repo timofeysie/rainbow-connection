@@ -676,3 +676,35 @@ Please contact your system administrator.
 Add correct host key in C:\\Users\\timof/.ssh/known_hosts to get rid of this message.
 Offending ECDSA key in C:\\Users\\timof/.ssh/known_hosts:26
 ```
+
+### Method 3: Use host aliases
+
+Instead of connecting to the Raspberry Pi using its hostname (raspberrypi in your case), you can create host aliases in your SSH configuration file (~/.ssh/config on Linux/macOS or C:\Users\your_username\.ssh\config on Windows). This allows you to assign a unique alias to each Raspberry Pi device and specify the corresponding hostname, IP address, user, and other connection parameters.
+
+```sh
+Host pi1
+    Hostname 192.168.45.240
+    User tim
+```
+
+Then instead of the normal login method, use the alias:
+
+```sh
+ssh pi1
+```
+
+If when you do this:
+
+```sh
+ping raspberrypi
+Pinging raspberrypi.local [fe80::70cb:83de:f42b:d8c%11] with 32 bytes of data:
+Reply from fe80::70cb:83de:f42b:d8c%11: time=6ms
+```
+
+In this case it's a link-local IPv6 address.
+
+You may need to get the IPv4 address by logging in to the pi using the interface and then running this:
+
+```sh
+hostname -I
+```
