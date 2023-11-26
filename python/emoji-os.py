@@ -1,4 +1,4 @@
-# emoji os v 0.1.3
+# emoji os v0.1.3
 import glowbit
 from machine import Pin
 import time
