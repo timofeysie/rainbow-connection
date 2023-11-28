@@ -1,4 +1,4 @@
-# emoji os v0.1.3
+# emoji os v0.1.4
 import glowbit
 from machine import Pin
 import time
@@ -188,14 +188,15 @@ def draw_emoji():
         print("menu 1 pos 2 circularRainbow")
         matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond = 20)
         matrix.circularRainbow()
-    # ???
+    # scroll_large_image
     if (menu == 1 and pos == 3):
-        print("menu 1 pos 3 ")
-        # wry()
-    # ???
+        print("menu 1 pos 3 scroll_large_image")
+        print("scrolling")
+        scroll_large_image()
+    # chakana
     if (menu == 1 and pos == 4):
-        print("menu 1 pos 4 ")
-        # heartBounce()
+        print("menu 1 pos 4 chacana")
+        chakana()
     # NEGATIVE 1
     # rain
     if (menu == 1 and neg == 1):
