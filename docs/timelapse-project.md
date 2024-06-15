@@ -19,7 +19,12 @@ Add the following lines to the script:
 ```sh
 #!/bin/bash
 while true; do
-    vlc --fullscreen --loop /home/tim/Videos/filename.ext
+    vlc --fullscreen --loop /home/tim/Videos/human-as-nature-scale.mp4
+    # Check for a specific key press to interrupt video and launch desktop
+    read -rsn1 -t 1 key
+    if [[ $key == "q" ]]; then
+        break
+    fi
 done
 ```
 
@@ -65,4 +70,3 @@ Test the speaker:
 ```sh
 speaker-test -t wav -c 2
 ```
-
