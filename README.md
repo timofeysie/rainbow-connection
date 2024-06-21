@@ -9,4 +9,6 @@ Currently it has a few Raspberry Pi Pico projects, such as Emoji Badge variation
 
 The most recent work is going into a Pico game medallion which can bring all the above projects together as one system to be used with the proposed learning sport.
 
+This will require an external React webapp to let users register for a game with their medallion and act as the referee during the game.
+
 See the docs directory for details about these projects.

@@ -7,8 +7,8 @@ import urequests # handles making and servicing network requests
 import time
 
 # Fill in your network name (ssid) and password here:
-ssid = 'TelstraDD62EB'
-password = '49s3zs5y4h'
+ssid = '***'
+password = '***'
 
 # Connect to network
 wlan = network.WLAN(network.STA_IF)
