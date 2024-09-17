@@ -1,5 +1,7 @@
 # Raspberry Pi Zero time lapse camera project
 
+This document details how to setup a Raspberry Pi Zero in headless mode for taking time lapse images.
+
 The "Workflow Commands" section is for reference after the project is setup.
 
 For the full tutorial of how to set up the zero from the beginning, start at the "How to setup a Raspberry Pi Zero W with Headless setup" section.
@@ -10,8 +12,10 @@ For the full tutorial of how to set up the zero from the beginning, start at the
 ping raspberrypi
 Pinging raspberrypi.modem [192.168.0.49] with 32 bytes of data:
 Reply from 192.168.0.49: bytes=32 time=14ms TTL=64
-
 ssh tim@raspberrypi
+libcamera-jpeg -o /var/www/html/images/test4.jpg # take a test image
+sudo nano /home/tim/python/capture_image.py # open the image capture script
+sudo nano /var/www/html/script.js # open the image gallery script
 ```
 
 ### Restart nginx
@@ -54,7 +58,7 @@ hostname -I
 ### Copy files from Zero to PC
 
 ```bash
-scp tim@192.168.45.194:/var/www/html/images/*.jpg C:\Users\timof\OneDrive\Pictures\zero\
+scp tim@192.168.200.166:/var/www/html/images/*.jpg C:\Users\timof\OneDrive\Pictures\zero\
 ```
 
 Remove the files on the zero:
@@ -382,7 +386,13 @@ sudo libcamera-jpeg -o /var/www/html/images/image-1.jpg
 
 ## Taking time lapse pictures
 
+Open the image capture script with the following command:
+
+```sh
 sudo nano /home/tim/python/capture_image.py
+```
+
+This is an early version:
 
 ```py
 import os
@@ -424,19 +434,19 @@ crontab -e
 
 Save and exit the crontab editor.
 
-Reboot your Raspberry Pi:
+Reboot the Raspberry Pi Zero:
 
 ```bash
 sudo reboot
 ```
 
-Check Script Execution
+Check Script Execution:
 
 ```bash
 ps aux | grep python
 ```
 
-Check for Errors
+Check for Errors:
 
 ```bash
 python3 /path/to/your/python/script.py
@@ -448,7 +458,7 @@ For me this is:
 sudo python3 /home/tim/python/capture_image.py
 ```
 
-Monitor the output
+Monitor the output:
 
 ```bash
 tail -f /home/tim/python/capture_image.log
@@ -474,12 +484,10 @@ Set Timezone (optional):
 
 You can also set the timezone for your Raspberry Pi using the timedatectl command. Replace Your_Timezone with your desired timezone (e.g., America/New_York):
 
-bash
 ```bash
 sudo timedatectl set-timezone Your_Timezone
 ```
 
-bash
 ```bash
 timedatectl list-timezones
 ```
