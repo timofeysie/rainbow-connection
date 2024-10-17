@@ -9,10 +9,8 @@ For the full tutorial of how to set up the zero from the beginning, start at the
 ## Workflow Commands
 
 ```bash
-ping raspberrypi
-Pinging raspberrypi.modem [192.168.0.49] with 32 bytes of data:
-Reply from 192.168.0.49: bytes=32 time=14ms TTL=64
-ssh tim@raspberrypi
+ping raspberrypi # confirm the zero is online and get the IP address
+ssh tim@raspberrypi # login to the zero via secure shell
 libcamera-jpeg -o /var/www/html/images/test4.jpg # take a test image
 sudo nano /home/tim/python/capture_image.py # open the image capture script
 sudo nano /var/www/html/script.js # open the image gallery script
@@ -420,6 +418,7 @@ def capture_image():
 while True:
     capture_image()  # Capture an image if the time is between 9 AM and 5 PM
     sleep(60)  # Wait for 60 seconds before checking the time again, this will include the time it takes to take the picture which is about 8 seconds.
+    # 30 minutes (1800 seconds)
 ```
 
 Open the crontab configuration:
@@ -715,4 +714,36 @@ You may need to get the IPv4 address by logging in to the pi using the interface
 
 ```sh
 hostname -I
+```
+
+## Deleting files
+
+To delete a range of images within a certain date, this could be useful:
+
+```sh
+Navigate to the Trash directory: For the current user:
+cd ~/.local/share/Trash/files
+For the root user:
+sudo rm -rf /root/.local/share/Trash/files
+
+Delete all files in the Trash directory:
+rm -rf ~/.local/share/Trash/files/*
+```
+
+After saving the file, run it like this:
+
+```sh
+sudo chmod +x delete_images.sh
+./delete_images.sh
+```
+
+In the end I actually just connect the zero to my monitor and deleted them with the mouse.  I forgot to empty the waste basket however, so to do this the next login, do this:
+
+Navigate to the Trash directory: For the current user:
+
+```sh
+cd ~/.local/share/Trash/files
+or
+sudo rm -rf /root/.local/share/Trash/files
+rm -rf ~/.local/share/Trash/files/*
 ```
