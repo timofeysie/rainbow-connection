@@ -75,11 +75,9 @@ Notes for how to use the nano editor are also included.
 
 ## Setup a new SD card
 
-- use Pi Imager to flash the OS.  Details [here](https://www.techcoil.com/blog/how-to-prepare-the-operating-system-to-run-your-raspberry-pi-with-your-windows-machine/)
-
-- create an empty file named as "ssh" and copy it to the root directory of the SD card
-
-- wpa_supplicant.conf file that contains your WiFi network configuration
+1. use Pi Imager to flash the OS.  Details [here](https://www.techcoil.com/blog/how-to-prepare-the-operating-system-to-run-your-raspberry-pi-with-your-windows-machine/) or [here](https://www.raspberrypi.com/software/)
+2. create an empty file named as "ssh" and copy it to the root directory of the SD card
+3. create a wpa_supplicant.conf file that contains your WiFi network configuration
 
 Some sample files are in the python\utils directory of this repo, as well as available for download in the link above with a bit of searching.
 
