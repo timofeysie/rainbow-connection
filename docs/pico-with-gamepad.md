@@ -264,3 +264,98 @@ I see this output:
 
 ❌ Receiver not ready - connection failed```
 ```
+
+I think  I will actually need two computers so I can have each pico connected to Thonny so see the logging and confirm what is happening in detail to sort this out.  The gamepad would be ideal, as it is a stylish little thing.  The Waveshare display hat with two buttons and joystick looks custom yet cumbersome as it would require its own power source and a case to house that - a lot more work.
+
+## Pico 2 W
+
+The above was all using the Pico W.  However, I finally found my Pico 2 W, so will give that a try again with the gamepad.
+
+Using the The 8BitDo Zero 2 Bluetooth Gamepad to connect to the Pico 2 W in central mode, which binding method should I use?
+
+This method will require the aioble lib.  When trying to install it, I get this message: *This doesn't look like MicroPython/CircuiPython package.  Are you sure you want to install it?*
+
+With the Pico W version 1, this actually caused some errors, but on the Pico 2 W, it seems to complete without issue despite the message.
+
+### Binding Method for 8BitDo Zero 2
+
+- Power on the gamepad (it should be in normal mode, not pairing mode initially)
+- Press and hold Start + Y for 3 seconds - this puts it in BLE mode
+- The LED should flash slowly (not rapidly like Classic Bluetooth mode)
+
+### Why This Matters
+
+- Start + Y (3 seconds) = BLE mode ✅
+- Start + Right Shoulder = Classic Bluetooth mode ❌ (won't work with Pico 2 W)
+- The Pico 2 W supports BLE much better than the original Pico W, so the 8BitDo Zero 2 should work in BLE mode.
+
+Cursor says The Pico 2 W supports BLE much better than the original Pico W, so the 8BitDo Zero 2 should work in BLE mode.
+
+However, the first attempt shows this output:
+
+```txt
+>>> %Run -c $EDITOR_CONTENT
+�� 8BitDo Zero 2 Gamepad Reader for Pico 2 W
+==================================================
+🔍 Scanning for 8BitDo Zero 2...
+💡 Make sure gamepad is in BLE mode (Start + Y for 3 seconds)
+   LED should flash slowly, not rapidly
+❌ 8BitDo Zero 2 not found
+💡 Check:
+   - Gamepad is powered on
+   - Gamepad is in BLE mode (Start + Y)
+   - Gamepad is nearby
+✅ Disconnected
+```
+
+Adding more logging to the script, I see this output:
+
+```txt
+🎮 8BitDo Zero 2 Gamepad Reader for Pico 2 W
+==================================================
+Updated for actual manual pairing modes
+==================================================
+🔧 Initializing BLE system...
+📱 BLE active state: False
+🔧 Activating BLE...
+📱 BLE active state after activation: True
+🔧 Setting up BLE IRQ handler...
+🔧 Resetting BLE state...
+✅ BLE system initialized successfully
+🔍 Scanning for 8BitDo Zero 2...
+
+💡 Pairing Instructions (from manual):
+1. Power on with one of these combinations:
+   - B + Start (Android mode) - LED blinks once per cycle
+   - X + Start (Windows mode) - LED blinks twice per cycle
+   - A + Start (macOS mode) - LED blinks 3 times per cycle
+   - R + Start (Keyboard mode) - LED blinks 5 times per cycle
+2. Press SELECT for 3 seconds to enter pairing mode
+   LED should start rapidly blinking
+3. Keep gamepad close to Pico 2 W
+
+🔍 Starting scan...
+🔧 Starting BLE scan for 10000ms...
+🔧 Scan parameters: interval=30000, window=30000, active=False
+✅ BLE scan started successfully
+⏳ Waiting for scan results...
+🔔 BLE IRQ Event: 5
+🔔 BLE IRQ Event: 5
+🔔 BLE IRQ Event: 5
+...
+🔔 BLE IRQ Event: 5
+🔔 BLE IRQ Event: 6
+⏱️ Scan wait completed. Time elapsed: 12001ms
+❌ 8BitDo Zero 2 not found
+📊 Scan results: 0 devices found
+✅ Disconnected
+```
+
+## Raspberry Pi Zero W as Controller to work as a controller
+
+How can we setup Raspberry Pi Zero W as Controller to work as a controller?
+
+Raspberry Pi Zero W (or Zero 2 W)
+Small display (1.44" or 2.4" TFT, or even just an OLED)
+Buttons and joystick (GPIO connected)
+Power supply (USB power bank works great)
