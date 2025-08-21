@@ -145,3 +145,41 @@ The categories are
 Each category has a range of images to draw.  The first category, emojis, has four positive emojis like a smiley face, and the negative emojis has four negative emojis like a frowning face.
 
 The new emoji-os-zero.py file will use a similar setup, but the menu can go up or down with the joystick instead of just one direction.
+
+## Menu Structure and Options
+
+The Emoji OS Zero provides a hierarchical menu system with 4 main categories, each containing multiple positive and negative options:
+
+### Menu Categories:
+1. **Emojis** - Basic facial expressions and emotions
+2. **Animations** - Dynamic patterns and visual effects  
+3. **Characters** - Character-based designs and creatures
+4. **Symbols** - Simple geometric shapes and text
+
+### Complete Menu Options Chart:
+
+| Menu | Category | Positive Options | Negative Options |
+|------|----------|------------------|------------------|
+| 0 | **Emojis** | 1. Regular (smiley) | 1. Thick Lips |
+| | | 2. Happy | 2. Sad |
+| | | 3. Wry | 3. Angry |
+| | | 4. Heart Bounce | 4. Green Monster |
+| 1 | **Animations** | 1. Fireworks | 1. Rain |
+| | | 2. Circular Rainbow | 2. (None) |
+| | | 3. Scroll Large Image | 3. (None) |
+| | | 4. Chakana | 4. (None) |
+| 2 | **Characters** | 1. Finn | 1. Bald |
+| | | 2. Pikachu | 2. Surprise |
+| | | 3. Crab | 3. (None) |
+| | | 4. Frog | 4. (None) |
+| 3 | **Symbols** | 1. Circle | 1. X |
+| | | 2. YES | 2. NO |
+| | | 3. Somi | 3. (None) |
+
+### Navigation Controls:
+- **Joystick Up/Down**: Navigate between menu categories (0-3)
+- **Joystick Left/Right**: Select negative/positive options within a category
+- **Joystick Center Press**: Confirm selection and display emoji
+- **KEY1**: Quick positive selection
+- **KEY2**: Menu navigation and confirmation
+- **KEY3**: Quick negative selection
