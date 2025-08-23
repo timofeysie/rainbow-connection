@@ -1,8 +1,9 @@
 # -*- coding:utf-8 -*-
-# emoji_key_working.py - Emoji OS Zero using working key_demo.py approach
+# emoji_key_working.py 7 - Emoji OS Zero using working key_demo.py approach
 # This version follows the exact same pattern as key_demo.py to avoid GPIO conflicts
 
 import LCD_1in44
+import LCD_Config
 import RPi.GPIO as GPIO
 import time
 from PIL import Image, ImageDraw, ImageFont, ImageColor
@@ -19,6 +20,7 @@ KEY3_PIN       = 16
 
 # Initialize GPIO FIRST (like key_demo.py does)
 GPIO.setmode(GPIO.BCM) 
+GPIO.cleanup()
 GPIO.setup(KEY_UP_PIN,      GPIO.IN, pull_up_down=GPIO.PUD_UP)    # Input with pull-up
 GPIO.setup(KEY_DOWN_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
 GPIO.setup(KEY_LEFT_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
