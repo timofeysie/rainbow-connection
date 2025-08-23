@@ -18,14 +18,9 @@ KEY1_PIN       = 21
 KEY2_PIN       = 20
 KEY3_PIN       = 16
 
-# Initialize LCD display FIRST (like key_demo.py does)
-disp = LCD_1in44.LCD()
-Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  # SCAN_DIR_DFT = D2U_L2R
-disp.LCD_Init(Lcd_ScanDir)
-disp.LCD_Clear()
-
-# NOW initialize GPIO (after LCD is set up)
+# Initialize GPIO FIRST (like key_demo.py does)
 GPIO.setmode(GPIO.BCM) 
+GPIO.cleanup()  # This is crucial - clears any existing GPIO claims
 GPIO.setup(KEY_UP_PIN,      GPIO.IN, pull_up_down=GPIO.PUD_UP)    # Input with pull-up
 GPIO.setup(KEY_DOWN_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
 GPIO.setup(KEY_LEFT_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
@@ -34,6 +29,12 @@ GPIO.setup(KEY_PRESS_PIN,   GPIO.IN, pull_up_down=GPIO.PUD_UP) # Input with pull
 GPIO.setup(KEY1_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
 GPIO.setup(KEY2_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
 GPIO.setup(KEY3_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
+
+# NOW initialize LCD display (after GPIO is set up)
+disp = LCD_1in44.LCD()
+Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  # SCAN_DIR_DFT = D2U_L2R
+disp.LCD_Init(Lcd_ScanDir)
+disp.LCD_Clear()
 
 # Create blank image for drawing
 width = 128
