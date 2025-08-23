@@ -1,11 +1,9 @@
 # -*- coding:utf-8 -*-
 import LCD_1in44
 import LCD_Config
-
 import RPi.GPIO as GPIO
-
 import time
-from PIL import Image,ImageDraw,ImageFont,ImageColor
+from PIL import Image, ImageDraw, ImageFont, ImageColor
 
 KEY_UP_PIN     = 6 
 KEY_DOWN_PIN   = 19

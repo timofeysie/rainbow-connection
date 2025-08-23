@@ -1,4 +1,6 @@
-# emoji os zero v0.1.0 Adapted for Raspberry Pi Zero 2 W with Waveshare 1.44inch LCD HAT
+# -*- coding:utf-8 -*-
+# emoji_key.py - Emoji OS Zero using working key_demo.py structure
+# Adapted for Raspberry Pi Zero 2 W with Waveshare 1.44inch LCD HAT
 import LCD_1in44
 import LCD_Config
 import RPi.GPIO as GPIO
