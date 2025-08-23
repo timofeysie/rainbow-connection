@@ -233,3 +233,5 @@ lgpio.error: 'GPIO busy'
 ```
 
 Both libraries are trying to use the same GPIO pin (in your case, GPIO 6, 19, etc.), and this causes a conflict?  Since our demo code runs which is seen in the key_demo.py script, how about we apply our menu and emoji selection code to the working wy_demo.py so that we can proceed from a working standpoint?
+
+But I still see the runtime error: "Please set pin numbering mode using GPIO.setmode(GPIO.BOARD) or GPIO.setmode(GPIO.BCM)" at line 24.

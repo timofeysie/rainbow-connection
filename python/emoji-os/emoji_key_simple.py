@@ -1,16 +1,13 @@
 # -*- coding:utf-8 -*-
-# emoji_key.py - Emoji OS Zero using working key_demo.py structure
+# emoji_key_simple.py - Emoji OS Zero using working key_demo.py structure
 # Adapted for Raspberry Pi Zero 2 W with Waveshare 1.44inch LCD HAT
-
-# Set GPIO mode FIRST - before any other imports that might use GPIO
-import RPi.GPIO as GPIO
-GPIO.setmode(GPIO.BCM)
+# This version avoids GPIO library conflicts by using only RPi.GPIO
 
 import LCD_1in44
 import LCD_Config
+import RPi.GPIO as GPIO
 import time
 from PIL import Image, ImageDraw, ImageFont, ImageColor
-from emojis_zero import *
 
 # GPIO pin definitions for Waveshare LCD HAT
 KEY_UP_PIN     = 6 
@@ -22,7 +19,8 @@ KEY1_PIN       = 21
 KEY2_PIN       = 20
 KEY3_PIN       = 16
 
-# Initialize GPIO pins
+# Initialize GPIO FIRST - before any LCD operations
+GPIO.setmode(GPIO.BCM) 
 GPIO.setup(KEY_UP_PIN,      GPIO.IN, pull_up_down=GPIO.PUD_UP)    # Input with pull-up
 GPIO.setup(KEY_DOWN_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
 GPIO.setup(KEY_LEFT_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
@@ -32,7 +30,7 @@ GPIO.setup(KEY1_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with
 GPIO.setup(KEY2_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
 GPIO.setup(KEY3_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
 
-# Now initialize LCD display AFTER GPIO is set up
+# Initialize LCD display
 disp = LCD_1in44.LCD()
 Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  # SCAN_DIR_DFT = D2U_L2R
 disp.LCD_Init(Lcd_ScanDir)
@@ -43,9 +41,6 @@ width = 128
 height = 128
 image = Image.new('RGB', (width, height))
 draw = ImageDraw.Draw(image)
-
-# Set up the display context for the emojis module
-set_display_context(disp, image, draw)
 
 # Menu state variables
 menu = 0
@@ -179,43 +174,85 @@ def draw_emoji():
     # regular
     if (menu == 0 and pos == 1):
         print("menu 0 pos 1 normal")
-        regular()
+        # Draw a simple smiley face
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0)  # Face outline
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.arc((50, 50, 78, 70), 0, 180, fill=255, width=3)  # Smile
+        disp.LCD_ShowImage(image, 0, 0)
         
     # happy
     elif (menu == 0 and pos == 2):
         print("menu 0 pos 2 happy")
-        happy()
+        # Draw a happy face
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0)  # Face outline
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.arc((50, 40, 78, 80), 0, 180, fill=255, width=3)  # Big smile
+        disp.LCD_ShowImage(image, 0, 0)
         
     # wry
     elif (menu == 0 and pos == 3):
         print("menu 0 pos 3 wry")
-        wry()
+        # Draw a wry face
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0)  # Face outline
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.arc((50, 50, 78, 70), 0, 180, fill=255, width=3)  # Wry smile
+        draw.line((50, 60, 60, 70), fill=255, width=2)  # Wry eyebrow
+        disp.LCD_ShowImage(image, 0, 0)
         
     # heart bounce
     elif (menu == 0 and pos == 4):
         print("menu 0 pos 4 heart bounce")
-        heartBounce()
+        # Draw a heart
+        draw.ellipse((50, 40, 70, 60), outline=255, fill=255)  # Left heart lobe
+        draw.ellipse((70, 40, 90, 60), outline=255, fill=255)  # Right heart lobe
+        draw.polygon([(50, 50), (90, 50), (70, 80)], outline=255, fill=255)  # Heart point
+        disp.LCD_ShowImage(image, 0, 0)
         
     # NEGATIVE 0
     # thick lips
     elif (menu == 0 and neg == 1):
         print("menu 0 neg 1 thick lips")
-        thickLips()
+        # Draw a face with thick lips
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0)  # Face outline
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.rectangle((50, 60, 78, 70), outline=255, fill=255)  # Thick lips
+        disp.LCD_ShowImage(image, 0, 0)
         
     # sad
     elif (menu == 0 and neg == 2):
         print("menu 0 neg 2 sad")
-        sad()
+        # Draw a sad face
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0)  # Face outline
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.arc((50, 60, 78, 80), 180, 360, fill=255, width=3)  # Sad mouth
+        disp.LCD_ShowImage(image, 0, 0)
         
     # angry
     elif (menu == 0 and neg == 3):
         print("menu 0 neg 3 angry")
-        angry()
+        # Draw an angry face
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0)  # Face outline
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.line((45, 35, 55, 45), fill=255, width=2)  # Angry eyebrow
+        draw.line((73, 35, 83, 45), fill=255, width=2)  # Angry eyebrow
+        draw.arc((50, 60, 78, 80), 180, 360, fill=255, width=3)  # Angry mouth
+        disp.LCD_ShowImage(image, 0, 0)
         
     # monster
     elif (menu == 0 and neg == 4):
         print("menu 0 neg 4 green monster")
-        greenMonster()
+        # Draw a monster face
+        draw.ellipse((40, 30, 88, 78), outline=0x00ff00, fill=0x00ff00)  # Green face
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.rectangle((50, 60, 78, 70), outline=255, fill=255)  # Monster mouth
+        disp.LCD_ShowImage(image, 0, 0)
         
     #==========
     # POSITIVE 1
@@ -243,12 +280,18 @@ def draw_emoji():
     # scroll_large_image
     elif (menu == 1 and pos == 3):
         print("menu 1 pos 3 scroll_large_image")
-        scroll_large_image()
+        # Placeholder for scroll_large_image
+        draw.text((40, 50), "Scroll", fill=255)
+        disp.LCD_ShowImage(image, 0, 0)
         
     # chakana
     elif (menu == 1 and pos == 4):
         print("menu 1 pos 4 chacana")
-        chakana()
+        # Draw chakana symbol
+        draw.rectangle((50, 40, 78, 68), outline=255, fill=0)
+        draw.line((50, 54), (78, 54), fill=255, width=2)  # Horizontal line
+        draw.line((64, 40), (64, 68), fill=255, width=2)  # Vertical line
+        disp.LCD_ShowImage(image, 0, 0)
         
     # NEGATIVE 1
     # rain
@@ -266,33 +309,61 @@ def draw_emoji():
     # finn
     elif (menu == 2 and pos == 1):
         print("menu 2 pos 1 finn")
-        finn()
+        # Draw Finn character
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0xffcc99)  # Face
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.arc((50, 50, 78, 70), 0, 180, fill=255, width=3)  # Smile
+        disp.LCD_ShowImage(image, 0, 0)
         
     # pikachu
     elif (menu == 2 and pos == 2):
         print("menu 2 pos 2 pikachu")
-        pikachu()
+        # Draw Pikachu
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0xffff00)  # Yellow face
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=0)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=0)  # Right eye
+        draw.ellipse((55, 60, 73, 68), outline=255, fill=0xff6600)  # Red cheeks
+        disp.LCD_ShowImage(image, 0, 0)
         
     # crab
     elif (menu == 2 and pos == 3):
         print("menu 2 pos 3 crab")
-        crab()
+        # Draw crab
+        draw.ellipse((40, 50, 88, 70), outline=255, fill=0xff0000)  # Body
+        draw.line((30, 60), (40, 60), fill=255, width=3)  # Left claw
+        draw.line((88, 60), (98, 60), fill=255, width=3)  # Right claw
+        disp.LCD_ShowImage(image, 0, 0)
         
     # frog
     elif (menu == 2 and pos == 4):
         print("menu 2 pos 4 frog")
-        frog()
+        # Draw frog
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0x00ff00)  # Green face
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.ellipse((55, 60, 73, 68), outline=255, fill=0x00ff00)  # Mouth
+        disp.LCD_ShowImage(image, 0, 0)
         
     # NEGATIVE 2
     # bald
     elif (menu == 2 and neg == 1):
         print("menu 2 neg 1 bald")
-        bald()
+        # Draw bald head
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0xffcc99)  # Head
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        disp.LCD_ShowImage(image, 0, 0)
         
     # surprise
     elif (menu == 2 and neg == 2):
         print("menu 2 neg 2 surprise")
-        surprise()
+        # Draw surprised face
+        draw.ellipse((40, 30, 88, 78), outline=255, fill=0)  # Face outline
+        draw.ellipse((50, 45, 60, 55), outline=255, fill=255)  # Left eye
+        draw.ellipse((68, 45, 78, 55), outline=255, fill=255)  # Right eye
+        draw.ellipse((55, 60, 73, 68), outline=255, fill=255)  # O mouth
+        disp.LCD_ShowImage(image, 0, 0)
         
     #==========
     # POSITIVE 3
