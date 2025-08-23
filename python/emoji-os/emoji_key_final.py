@@ -1,6 +1,4 @@
 # -*- coding:utf-8 -*-
-# emoji_key_clean.py - Clean version that exactly matches key_demo.py structure
-
 import LCD_1in44
 import LCD_Config
 import RPi.GPIO as GPIO
@@ -16,7 +14,7 @@ KEY1_PIN       = 21
 KEY2_PIN       = 20
 KEY3_PIN       = 16
 
-#init GPIO - EXACTLY like key_demo.py
+#init GPIO
 GPIO.setmode(GPIO.BCM) 
 GPIO.cleanup()
 GPIO.setup(KEY_UP_PIN,      GPIO.IN, pull_up_down=GPIO.PUD_UP)    # Input with pull-up
@@ -28,19 +26,21 @@ GPIO.setup(KEY1_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with
 GPIO.setup(KEY2_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
 GPIO.setup(KEY3_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
 
-# 128x128 display with hardware SPI - EXACTLY like key_demo.py
+# 128x128 display with hardware SPI:
 disp = LCD_1in44.LCD()
 Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
 disp.LCD_Init(Lcd_ScanDir)
 disp.LCD_Clear()
 
-# Create blank image for drawing - EXACTLY like key_demo.py
+# Create blank image for drawing.
 width = 128
 height = 128
 image = Image.new('RGB', (width, height))
+
+# Get drawing object to draw on image.
 draw = ImageDraw.Draw(image)
 
-# Draw a black filled box to clear the image - EXACTLY like key_demo.py
+# Draw a black filled box to clear the image.
 draw.rectangle((0,0,width,height), outline=0, fill=0)
 disp.LCD_ShowImage(image,0,0)
 
@@ -92,7 +92,11 @@ def draw_emoji():
 print("Emoji OS Zero started!")
 print("Use joystick to navigate, buttons to select")
 
-while True:
+# Initial display
+draw_menu()
+disp.LCD_ShowImage(image,0,0)
+
+while 1:
     # Check joystick inputs - EXACTLY like key_demo.py
     if GPIO.input(KEY_UP_PIN) == 0:  # Up pressed
         if state == "none":
