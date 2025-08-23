@@ -3,7 +3,6 @@
 # This version follows the exact same pattern as key_demo.py to avoid GPIO conflicts
 
 import LCD_1in44
-import LCD_Config
 import RPi.GPIO as GPIO
 import time
 from PIL import Image, ImageDraw, ImageFont, ImageColor
