@@ -88,3 +88,31 @@ Save and exit by pressing Ctrl + X, then Y and Enter.
 ps aux | grep key_demo.py
 
 python smiley-matrix-4.py <- emoji, menu emojis and menu text
+
+## Implementing the main menu
+
+I have a Waveshare 1.44inch LCD display HAT for Raspberry Pi.
+It is connected to my Raspberry pi 5 B.
+
+I have followed the instruction in this wiki to set it up:
+https://www.waveshare.com/wiki/1.44inch_LCD_HAT which include doing this:
+
+```sh
+sudo apt-get install python3-pip
+sudo apt-get install python3-pil
+sudo apt-get install python3-numpy
+sudo pip3 install spidev
+```
+
+The code we are working on shows a main emoji on the bottom of the screen, and a menu at the top with 4 options on the left and 4 options on the right.
+
+Is there a way to simulate this code when its on my laptop instead of on the zero?
+
+The code fore smiley-matrix-4.py looks like this:
+
+```python
+
+```
+
+emoji, menu emojis and menu text
+needs menu navigation and emoji select  and update options
