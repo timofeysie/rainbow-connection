@@ -91,6 +91,8 @@ python smiley-matrix-4.py <- emoji, menu emojis and menu text
 
 ## Implementing the main menu
 
+### Prompt start
+
 I have a Waveshare 1.44inch LCD display HAT for Raspberry Pi.
 It is connected to my Raspberry pi 5 B.
 
@@ -106,13 +108,14 @@ sudo pip3 install spidev
 
 The code we are working on shows a main emoji on the bottom of the screen, and a menu at the top with 4 options on the left and 4 options on the right.
 
-Is there a way to simulate this code when its on my laptop instead of on the zero?
+## The laptop simulation
 
-The code fore smiley-matrix-4.py looks like this:
+First I had to install Pillow.
 
-```python
-
+```sh
+pip install Pillow
 ```
 
-emoji, menu emojis and menu text
-needs menu navigation and emoji select  and update options
+I created a new version with a show_simulation function to show the lcd display on the laptop.
+
+New script: python\zero\smiley-matrix-4b.py
