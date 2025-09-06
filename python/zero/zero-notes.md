@@ -119,3 +119,37 @@ pip install Pillow
 I created a new version with a show_simulation function to show the lcd display on the laptop.
 
 New script: python\zero\smiley-matrix-4b.py
+
+## Progressive enhancement approach
+
+We know that python key_demo.py runs.  I draws on the lcd display as well as uses the joystick and buttons without error.  This is our working position.
+
+Then we have the two other aspects of the project that we should implement step by step into this working position.
+
+1. python key_demo.py runs.  I draws on the lcd display as well as uses the joystick and buttons
+2. drawing the main emoji and the emoji selecting menu and sub-menus in emoji_key_basic.py.
+3. listening to the joystick and buttons and navigating the menu logic in smiley-matrix-4.py.
+
+What we need to do is take main emoji from the smiley-matrix-4b.py file and implement it in the key_demo.py file.
+
+This should take the emoji and draw it at the bottom half of the lcd display and the current joystick and button code draws the shapes in the top half.
+
+Lets call this first step key_demo_with_emoji.py.
+
+Progressive enhancement approach
+
+We know that python key_demo.py runs.  I draws on the lcd display as well as uses the joystick and buttons without error.  This is our working position.
+
+Then we have the two other aspects of the project that we should implement step by step into this working position.
+
+1. python key_demo.py runs.  I draws on the lcd display as well as uses the joystick and buttons
+2. drawing the main emoji and the emoji selecting menu and sub-menus in emoji_key_basic.py.
+3. listening to the joystick and buttons and navigating the menu logic in smiley-matrix-4.py.
+
+What we need to do is take main emoji from the smiley-matrix-4b.py file and implement it in the key_demo.py file.
+
+This should take the emoji and draw it at the bottom half of the lcd display and the current joystick and button code draws the shapes in the top half.
+
+Lets call this first step key_demo_with_emoji.py.
+
+Commit message: use same GPIO setup as key_demo.py and add main emoji drawing functionality from smiley-matrix-4b.py
