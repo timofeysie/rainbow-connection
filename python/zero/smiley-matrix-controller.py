@@ -66,7 +66,8 @@ if is_raspberry_pi():
 
 # === Initialize display (only on Raspberry Pi) ===
 if is_raspberry_pi():
-     GPIO.cleanup()
+    GPIO.cleanup()
+    GPIO.setmode(GPIO.BCM)
     disp = LCD_1in44.LCD()
     disp.LCD_Init(LCD_1in44.SCAN_DIR_DFT)
     disp.LCD_Clear()
