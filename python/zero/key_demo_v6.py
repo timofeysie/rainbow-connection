@@ -90,7 +90,7 @@ def draw_centered_text(draw, text, y_position, font, max_width, text_color="whit
 
 # === Function to draw menu row with selection styling ===
 def draw_menu_row(draw, text, y_position, font, is_selected=False):
-    row_height = 15
+    row_height = 14  # Reduced from 15 to 14 pixels
     row_y = y_position
     
     if is_selected:
@@ -98,7 +98,17 @@ def draw_menu_row(draw, text, y_position, font, is_selected=False):
         bg_width = 80  # Width of menu text area
         bg_x = (disp.width - bg_width) // 2  # Center the background
         draw.rectangle((bg_x, row_y, bg_x + bg_width, row_y + row_height), fill="white")
-        draw_centered_text(draw, text, row_y, font, disp.width, "black")
+        
+        # Center text vertically in the selection area
+        try:
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_height = bbox[3] - bbox[1]
+        except AttributeError:
+            _, text_height = draw.textsize(text, font=font)
+        
+        # Calculate vertical center of the selection area
+        text_y_centered = row_y + (row_height - text_height) // 2
+        draw_centered_text(draw, text, text_y_centered, font, disp.width, "black")
     else:
         draw_centered_text(draw, text, row_y, font, disp.width, "white")
 
