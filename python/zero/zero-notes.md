@@ -153,3 +153,32 @@ This should take the emoji and draw it at the bottom half of the lcd display and
 Lets call this first step key_demo_with_emoji.py.
 
 Commit message: use same GPIO setup as key_demo.py and add main emoji drawing functionality from smiley-matrix-4b.py
+
+When running that code on the device, I see this error:
+
+```sh
+tim@raspberrypi:~/emoji-os $ python key_demo_with_emoji.py
+/usr/lib/python3/dist-packages/RPi/GPIO/__init__.py:622: Warning: No channels have been set up yet - nothing to clean up!  Try cleaning up at the end of your program instead!
+  warnings.warn(Warning(
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/RPi/GPIO/__init__.py", line 393, in _gpio_list
+    return tuple(_to_gpio(int(channel)) for channel in chanlist)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'int' object is not iterable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/tim/emoji-os/key_demo_with_emoji.py", line 20, in <module>
+    GPIO.setup(KEY_UP_PIN,      GPIO.IN, pull_up_down=GPIO.PUD_UP)    # Input with pull-up
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/RPi/GPIO/__init__.py", line 680, in setup
+    for gpio in _gpio_list(chanlist):
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/RPi/GPIO/__init__.py", line 396, in _gpio_list
+    return (_to_gpio(int(chanlist)),)
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/RPi/GPIO/__init__.py", line 356, in _to_gpio
+    raise RuntimeError(
+RuntimeError: Please set pin numbering mode using GPIO.setmode(GPIO.BOARD) or GPIO.setmode(GPIO.BCM)
+```
