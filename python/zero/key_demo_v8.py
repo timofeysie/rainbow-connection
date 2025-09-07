@@ -21,7 +21,13 @@ draw = ImageDraw.Draw(image)
 draw.rectangle((0,0,disp.width,disp.height), outline=0, fill=0)
 disp.LCD_ShowImage(image,0,0)
 
-# === Smiley matrix (8x8) ===
+# === State Machine Variables ===
+menu = 0  # Main menu selection (0-3)
+pos = 0   # Positive selection (left side emojis)
+neg = 0   # Negative selection (right side emojis)
+state = "none"  # State: "none", "start", "choosing"
+
+# === Emoji Data ===
 smiley_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
@@ -33,40 +39,28 @@ smiley_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
-# === Color mapping ===
 color_map = {
     'Y': 'yellow',
     'B': 'black',
-    ' ': (0, 0, 0),  # background
+    ' ': (0, 0, 0),
 }
 
-# === Menu items ===
+# === Menu Items ===
 menu_items = ["Emojis", "Animations", "Characters", "Other"]
 
-# === Menu state variables (matching emoji_key_basic.py) ===
-menu = 0
-pos = 0
-neg = 0
-state = "none"  # start, end, or none
-# preserve the previous state for pos/neg flipping
-prev_menu = 0
-prev_pos = 0
-prev_neg = 0
-prev_state = "none"  # or done
-
-# === Button state tracking for debouncing ===
+# === Button State Tracking ===
 button_states = {
-    'up': None,
-    'down': None,
-    'left': None,
-    'right': None,
-    'center': None,
-    'key1': None,
-    'key2': None,
-    'key3': None
+    'up': True,
+    'down': True,
+    'left': True,
+    'right': True,
+    'center': True,
+    'key1': True,
+    'key2': True,
+    'key3': True
 }
 
-# === Function to draw a single scaled pixel ===
+# === Helper Functions ===
 def draw_pixel(draw, x, y, color, scale):
     x0 = x
     y0 = y
@@ -74,7 +68,6 @@ def draw_pixel(draw, x, y, color, scale):
     y1 = y + scale
     draw.rectangle((x0, y0, x1, y1), fill=color)
 
-# === Function to draw emoji with optional selection border ===
 def draw_emoji(draw, matrix, color_map, scale, top_left_x, top_left_y, show_selection=False):
     for row in range(len(matrix)):
         for col in range(len(matrix[row])):
@@ -84,19 +77,17 @@ def draw_emoji(draw, matrix, color_map, scale, top_left_x, top_left_y, show_sele
             y = top_left_y + row * scale
             draw_pixel(draw, x, y, color, scale)
     
-    # Draw selection border if requested
     if show_selection:
         emoji_width = len(matrix[0]) * scale
         emoji_height = len(matrix) * scale
         border_width = 1
         draw.rectangle(
             (top_left_x - border_width, top_left_y - border_width, 
-             top_left_x + emoji_width + border_width, top_left_y + emoji_height + border_width),
+             top_left_x + emoji_width + border_width + 1, top_left_y + emoji_height + border_width + 1),
             outline="white",
             width=border_width
         )
 
-# === Function to draw text centered ===
 def draw_centered_text(draw, text, y_position, font, max_width, text_color="white"):
     try:
         bbox = draw.textbbox((0, 0), text, font=font)
@@ -108,44 +99,18 @@ def draw_centered_text(draw, text, y_position, font, max_width, text_color="whit
     x_position = (max_width - text_width) // 2
     draw.text((x_position, y_position), text, font=font, fill=text_color)
 
-# === Function to draw menu row with selection styling ===
 def draw_menu_row(draw, text, y_position, font, is_selected=False):
     row_height = 14
     row_y = y_position
     
     if is_selected:
-        bg_width = 80
-        bg_x = (disp.width - bg_width) // 2
+        bg_width = 80  # Fixed width for selection background
+        bg_x = 24
         draw.rectangle((bg_x, row_y, bg_x + bg_width, row_y + row_height), fill="white")
-        
-        try:
-            bbox = draw.textbbox((0, 0), text, font=font)
-            text_height = bbox[3] - bbox[1]
-        except AttributeError:
-            _, text_height = draw.textsize(text, font=font)
-        
-        text_y_centered = row_y + (row_height - text_height) // 2
-        draw_centered_text(draw, text, text_y_centered, font, disp.width, "black")
+        draw_centered_text(draw, text, row_y + 2, font, 128, "black")
     else:
-        draw_centered_text(draw, text, row_y, font, disp.width, "white")
+        draw_centered_text(draw, text, row_y + 2, font, 128, "white")
 
-# === Function to check for button press (with debouncing) ===
-def check_button_press(button_name, pin):
-    current_state = disp.digital_read(pin) == 0
-    previous_state = button_states[button_name]
-    
-    if previous_state is None:
-        button_states[button_name] = current_state
-        return False
-    
-    if current_state and not previous_state:
-        button_states[button_name] = current_state
-        return True
-    
-    button_states[button_name] = current_state
-    return False
-
-# === Menu control functions (matching emoji_key_basic.py) ===
 def check_menu():
     global menu
     if menu > 3:
@@ -157,238 +122,201 @@ def check_pos():
     global pos
     if pos > 4:
         pos = 1
+    if pos < 1:
+        pos = 4
 
 def check_neg():
     global neg
     if neg > 4:
         neg = 1
+    if neg < 1:
+        neg = 4
 
-def reset_state():
-    """Reset the current state and store previous values"""
-    global state, menu, pos, neg, prev_state, prev_menu, prev_pos, prev_neg
-    prev_state = "done"
-    prev_menu = menu
-    prev_pos = pos
-    prev_neg = neg
-    state = "none"
-    menu = 0
-    pos = 0
-    neg = 0
-
-def reset_prev():
-    """Reset the previous state values"""
-    global prev_state, prev_menu, prev_pos, prev_neg
-    prev_state = "none"
-    prev_menu = 0
-    prev_pos = 0
-    prev_neg = 0
-
-# === Function to handle menu navigation (matching emoji_key_basic.py logic) ===
-def handle_menu_navigation():
-    global menu, pos, neg, state, prev_menu, prev_pos, prev_neg, prev_state
+def draw_display():
+    """Draw the complete display"""
+    # Clear screen
+    draw.rectangle((0,0,disp.width,disp.height), outline=0, fill=0)
     
-    # Check joystick inputs for menu navigation
-    if check_button_press('up', disp.GPIO_KEY_UP_PIN):  # Up pressed
-        if state == "none":
-            state = "start"
-        elif state == "start":
-            menu = (menu - 1) % 4
-            check_menu()
-        print('Up - Menu:', menu)
-        time.sleep(0.2)  # Debounce
-        return True
-        
-    elif check_button_press('down', disp.GPIO_KEY_DOWN_PIN):  # Down pressed
-        if state == "none":
-            state = "start"
-        elif state == "start":
-            menu = (menu + 1) % 4
-            check_menu()
-        print('Down - Menu:', menu)
-        time.sleep(0.2)  # Debounce
-        return True
-        
-    elif check_button_press('left', disp.GPIO_KEY_LEFT_PIN):  # Left pressed
-        if state == "choosing":
-            neg = (neg + 1) % 5
-            if neg == 0:
-                neg = 1
-            pos = 0
-            check_neg()
-        print('Left - Negative:', neg)
-        time.sleep(0.2)  # Debounce
-        return True
-        
-    elif check_button_press('right', disp.GPIO_KEY_RIGHT_PIN):  # Right pressed
-        if state == "choosing":
-            pos = (pos + 1) % 5
-            if pos == 0:
-                pos = 1
-            neg = 0
-            check_pos()
-        print('Right - Positive:', pos)
-        time.sleep(0.2)  # Debounce
-        return True
-        
-    elif check_button_press('center', disp.GPIO_KEY_PRESS_PIN):  # Center pressed
-        if state == "start":
-            state = "choosing"
-            pos = 1
-            neg = 0
-        elif state == "choosing":
-            print(f"Selected: Menu {menu}, {'Positive' if pos > 0 else 'Negative'} {pos if pos > 0 else neg}")
-            reset_state()
-        print('Center pressed')
-        time.sleep(0.2)  # Debounce
-        return True
-        
-    # Check button inputs
-    elif check_button_press('key1', disp.GPIO_KEY1_PIN):  # KEY1 pressed
-        if state == "choosing":
-            pos = (pos + 1) % 5
-            if pos == 0:
-                pos = 1
-            neg = 0
-            check_pos()
-        elif state == "start":
-            state = "choosing"
-            pos = 1
-            neg = 0
-        elif prev_state == "done":
-            if prev_neg > 0:
-                pos = prev_neg
-                neg = 0
-                menu = prev_menu
-            elif prev_pos > 0:
-                pos = prev_pos
-                neg = 0
-                menu = prev_menu
-        print('KEY1 - Positive:', pos)
-        time.sleep(0.2)  # Debounce
-        return True
-        
-    elif check_button_press('key2', disp.GPIO_KEY2_PIN):  # KEY2 pressed
-        reset_prev()
-        if state == "start":
-            menu = (menu + 1) % 4
-            check_menu()
-        elif state == "none":
-            state = "start"
-            check_menu()
-        elif state == "choosing":
-            print(f"Selected: Menu {menu}, {'Positive' if pos > 0 else 'Negative'} {pos if pos > 0 else neg}")
-            reset_state()
-        print('KEY2 - Menu:', menu)
-        time.sleep(0.2)  # Debounce
-        return True
-        
-    elif check_button_press('key3', disp.GPIO_KEY3_PIN):  # KEY3 pressed
-        if state == "choosing":
-            neg = (neg + 1) % 5
-            if neg == 0:
-                neg = 1
-            pos = 0
-            check_neg()
-        elif state == "start":
-            state = "choosing"
-            neg = 1
-            pos = 0
-        elif prev_state == "done":
-            if prev_pos > 0:
-                neg = prev_pos
-                pos = 0
-                menu = prev_menu
-            elif prev_neg > 0:
-                neg = prev_neg
-                pos = 0
-                menu = prev_menu
-        print('KEY3 - Negative:', neg)
-        time.sleep(0.2)  # Debounce
-        return True
+    # === Main Emoji (bottom half) ===
+    scale = 7
+    emoji_width = scale * 8
+    emoji_height = scale * 8
+    start_x = (disp.width - emoji_width) // 2
+    start_y = 64 + (64 - emoji_height)
+    draw_emoji(draw, smiley_matrix, color_map, scale, start_x, start_y)
     
-    return False
+    # === Left Side Emojis (with selection) ===
+    left_emoji_y = [1, 16, 31, 46]
+    for i, y_pos in enumerate(left_emoji_y):
+        show_selection = (state == "choosing" and pos == i + 1)
+        draw_emoji(draw, smiley_matrix, color_map, 1.5, 5, y_pos, show_selection)
+    
+    # === Right Side Emojis (with selection) ===
+    right_emoji_y = [1, 16, 31, 46]
+    for i, y_pos in enumerate(right_emoji_y):
+        show_selection = (state == "choosing" and neg == i + 1)
+        draw_emoji(draw, smiley_matrix, color_map, 1.5, 110, y_pos, show_selection)
+    
+    # === Menu Text ===
+    text_y_positions = [1, 16, 31, 46]
+    for i, item in enumerate(menu_items):
+        is_selected = (i == menu and state == "start")
+        draw_menu_row(draw, item, text_y_positions[i], font, is_selected)
+    
+    # Update display
+    disp.LCD_ShowImage(image,0,0)
+
+# === Load font ===
+try:
+    font = ImageFont.load_default()
+except:
+    font = ImageFont.load_default()
+
+# === Initial display ===
+draw_display()
+
+print("Emoji OS Zero started. Use the joystick and buttons to navigate.")
+print("Joystick: Navigate menus")
+print("KEY1: Select positive")
+print("KEY2: Navigate/confirm")
+print("KEY3: Select negative")
+print("=" * 50)
 
 try:
     while True:
-        # === Handle menu navigation ===
-        handle_menu_navigation()
+        # === Read button states ===
+        up_pressed = disp.digital_read(disp.GPIO_KEY_UP_PIN) == 0
+        down_pressed = disp.digital_read(disp.GPIO_KEY_DOWN_PIN) == 0
+        left_pressed = disp.digital_read(disp.GPIO_KEY_LEFT_PIN) == 0
+        right_pressed = disp.digital_read(disp.GPIO_KEY_RIGHT_PIN) == 0
+        center_pressed = disp.digital_read(disp.GPIO_KEY_PRESS_PIN) == 0
+        key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
+        key2_pressed = disp.digital_read(disp.GPIO_KEY2_PIN) == 0
+        key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
         
-        # === Draw joystick indicators in top half ===
-        if disp.digital_read(disp.GPIO_KEY_UP_PIN ) == 0:
-            draw.polygon([(20, 20), (30, 2), (40, 20)], outline=255, fill=0xff00)
-        else:
-            draw.polygon([(20, 20), (30, 2), (40, 20)], outline=255, fill=0)
-
-        if disp.digital_read(disp.GPIO_KEY_LEFT_PIN) == 0:
-            draw.polygon([(0, 30), (18, 21), (18, 41)], outline=255, fill=0xff00)
-        else:
-            draw.polygon([(0, 30), (18, 21), (18, 41)], outline=255, fill=0)
-
-        if disp.digital_read(disp.GPIO_KEY_RIGHT_PIN) == 0:
-            draw.polygon([(60, 30), (42, 21), (42, 41)], outline=255, fill=0xff00)
-        else:
-            draw.polygon([(60, 30), (42, 21), (42, 41)], outline=255, fill=0)
-
-        if disp.digital_read(disp.GPIO_KEY_DOWN_PIN) == 0:
-            draw.polygon([(30, 60), (40, 42), (20, 42)], outline=255, fill=0xff00)
-        else:
-            draw.polygon([(30, 60), (40, 42), (20, 42)], outline=255, fill=0)
-
-        if disp.digital_read(disp.GPIO_KEY_PRESS_PIN) == 0:
-            draw.rectangle((20, 22,40,40), outline=255, fill=0xff00)
-        else:
-            draw.rectangle((20, 22,40,40), outline=255, fill=0)
-
-        if disp.digital_read(disp.GPIO_KEY1_PIN) == 0:
-            draw.ellipse((70,0,90,20), outline=255, fill=0xff00)
-        else:
-            draw.ellipse((70,0,90,20), outline=255, fill=0)
-
-        if disp.digital_read(disp.GPIO_KEY2_PIN) == 0:
-            draw.ellipse((100,20,120,40), outline=255, fill=0xff00)
-        else:
-            draw.ellipse((100,20,120,40), outline=255, fill=0)
-
-        if disp.digital_read(disp.GPIO_KEY3_PIN) == 0:
-            draw.ellipse((70,40,90,60), outline=255, fill=0xff00)
-        else:
-            draw.ellipse((70,40,90,60), outline=255, fill=0)
-
-        # === Draw main menu demo in top half ===
-        draw.rectangle((0, 0, disp.width, 64), outline=0, fill=0)
+        # === Handle UP button ===
+        if up_pressed and not button_states['up']:
+            if state == "none":
+                state = "start"
+            elif state == "start":
+                menu = (menu - 1) % 4
+                check_menu()
+            draw_display()
+            print('Up - Menu:', menu, 'State:', state)
+            time.sleep(0.2)
+        button_states['up'] = up_pressed
         
-        # Draw menu items with current selection
-        text_y_positions = [5, 20, 35, 50]
-        font = ImageFont.load_default()
+        # === Handle DOWN button ===
+        elif down_pressed and not button_states['down']:
+            if state == "none":
+                state = "start"
+            elif state == "start":
+                menu = (menu + 1) % 4
+                check_menu()
+            draw_display()
+            print('Down - Menu:', menu, 'State:', state)
+            time.sleep(0.2)
+        button_states['down'] = down_pressed
         
-        for i, item in enumerate(menu_items):
-            is_selected = (i == menu)
-            draw_menu_row(draw, item, text_y_positions[i], font, is_selected)
+        # === Handle LEFT button ===
+        elif left_pressed and not button_states['left']:
+            if state == "choosing":
+                neg = (neg + 1) % 5
+                if neg == 0:
+                    neg = 1
+                pos = 0
+                check_neg()
+            draw_display()
+            print('Left - Negative:', neg, 'State:', state)
+            time.sleep(0.2)
+        button_states['left'] = left_pressed
         
-        # Draw small emojis on left and right sides with selection
-        emoji_y_positions = [1, 16, 31, 46]
+        # === Handle RIGHT button ===
+        elif right_pressed and not button_states['right']:
+            if state == "choosing":
+                pos = (pos + 1) % 5
+                if pos == 0:
+                    pos = 1
+                neg = 0
+                check_pos()
+            draw_display()
+            print('Right - Positive:', pos, 'State:', state)
+            time.sleep(0.2)
+        button_states['right'] = right_pressed
         
-        # Left side emojis (negative/left side)
-        for i in range(4):
-            show_selection = (state == "choosing" and neg > 0 and neg == i + 1)
-            draw_emoji(draw, smiley_matrix, color_map, 1.5, 5, emoji_y_positions[i], show_selection)
+        # === Handle CENTER button ===
+        elif center_pressed and not button_states['center']:
+            if state == "start":
+                state = "choosing"
+                pos = 1
+                neg = 0
+            elif state == "choosing":
+                # Show selected emoji
+                print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
+                # For now, just reset to start state
+                state = "start"
+                pos = 0
+                neg = 0
+            draw_display()
+            print('Center - State:', state)
+            time.sleep(0.2)
+        button_states['center'] = center_pressed
         
-        # Right side emojis (positive/right side)
-        for i in range(4):
-            show_selection = (state == "choosing" and pos > 0 and pos == i + 1)
-            draw_emoji(draw, smiley_matrix, color_map, 1.5, 110, emoji_y_positions[i], show_selection)
+        # === Handle KEY1 button (Positive) ===
+        elif key1_pressed and not button_states['key1']:
+            if state == "choosing":
+                pos = (pos + 1) % 5
+                if pos == 0:
+                    pos = 1
+                neg = 0
+                check_pos()
+            elif state == "start":
+                state = "choosing"
+                pos = 1
+                neg = 0
+            draw_display()
+            print('KEY1 - Positive:', pos, 'State:', state)
+            time.sleep(0.2)
+        button_states['key1'] = key1_pressed
+        
+        # === Handle KEY2 button (Menu/Confirm) ===
+        elif key2_pressed and not button_states['key2']:
+            if state == "start":
+                menu = (menu + 1) % 4
+                check_menu()
+            elif state == "none":
+                state = "start"
+            elif state == "choosing":
+                # Show selected emoji
+                print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
+                # Reset to start state
+                state = "start"
+                pos = 0
+                neg = 0
+            draw_display()
+            print('KEY2 - Menu:', menu, 'State:', state)
+            time.sleep(0.2)
+        button_states['key2'] = key2_pressed
+        
+        # === Handle KEY3 button (Negative) ===
+        elif key3_pressed and not button_states['key3']:
+            if state == "choosing":
+                neg = (neg + 1) % 5
+                if neg == 0:
+                    neg = 1
+                pos = 0
+                check_neg()
+            elif state == "start":
+                state = "choosing"
+                neg = 1
+                pos = 0
+            draw_display()
+            print('KEY3 - Negative:', neg, 'State:', state)
+            time.sleep(0.2)
+        button_states['key3'] = key3_pressed
+        
+        time.sleep(0.1)
 
-        # === Draw main emoji in bottom half ===
-        scale = 7
-        emoji_width = scale * 8
-        emoji_height = scale * 8
-        start_x = (disp.width - emoji_width) // 2
-        start_y = 64 + (64 - emoji_height) // 2
-        draw_emoji(draw, smiley_matrix, color_map, scale, start_x, start_y)
-
-        disp.LCD_ShowImage(image,0,0)
-        time.sleep(0.05)
-        
-except:
-	print("except")
-disp.module_exit()
+except KeyboardInterrupt:
+    print("Exiting...")
+    disp.module_exit()
