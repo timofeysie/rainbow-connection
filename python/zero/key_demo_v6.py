@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 import LCD_1in44
+import time
 
 from PIL import Image,ImageDraw,ImageFont,ImageColor
 
@@ -45,6 +46,18 @@ menu_items = ["Emojis", "Animations", "Characters", "Other"]
 # === Menu state ===
 selected_menu = 0  # Start with first item selected
 
+# === Button state tracking for debouncing ===
+button_states = {
+    'up': False,
+    'down': False,
+    'left': False,
+    'right': False,
+    'center': False,
+    'key1': False,
+    'key2': False,
+    'key3': False
+}
+
 # === Function to draw a single scaled pixel ===
 def draw_pixel(draw, x, y, color, scale):
     x0 = x
@@ -89,38 +102,56 @@ def draw_menu_row(draw, text, y_position, font, is_selected=False):
     else:
         draw_centered_text(draw, text, row_y, font, disp.width, "white")
 
+# === Function to check for button press (with debouncing) ===
+def check_button_press(button_name, pin):
+    current_state = disp.digital_read(pin) == 0  # True when pressed
+    previous_state = button_states[button_name]
+    
+    # Check for button press (transition from not pressed to pressed)
+    if current_state and not previous_state:
+        button_states[button_name] = current_state
+        return True
+    
+    button_states[button_name] = current_state
+    return False
+
 # === Function to handle menu navigation ===
 def handle_menu_navigation():
     global selected_menu
     
     # Check for UP button (move menu up)
-    if disp.digital_read(disp.GPIO_KEY_UP_PIN) == 0:
+    if check_button_press('up', disp.GPIO_KEY_UP_PIN):
         selected_menu = (selected_menu - 1) % len(menu_items)
         print(f"Menu UP - Selected: {menu_items[selected_menu]}")
+        time.sleep(0.2)  # Debounce delay
         return True
     
     # Check for DOWN button (move menu down)
-    if disp.digital_read(disp.GPIO_KEY_DOWN_PIN) == 0:
+    if check_button_press('down', disp.GPIO_KEY_DOWN_PIN):
         selected_menu = (selected_menu + 1) % len(menu_items)
         print(f"Menu DOWN - Selected: {menu_items[selected_menu]}")
+        time.sleep(0.2)  # Debounce delay
         return True
     
     # Check for KEY1 (move menu up)
-    if disp.digital_read(disp.GPIO_KEY1_PIN) == 0:
+    if check_button_press('key1', disp.GPIO_KEY1_PIN):
         selected_menu = (selected_menu - 1) % len(menu_items)
         print(f"KEY1 - Menu UP - Selected: {menu_items[selected_menu]}")
+        time.sleep(0.2)  # Debounce delay
         return True
     
     # Check for KEY2 (move menu down)
-    if disp.digital_read(disp.GPIO_KEY2_PIN) == 0:
+    if check_button_press('key2', disp.GPIO_KEY2_PIN):
         selected_menu = (selected_menu + 1) % len(menu_items)
         print(f"KEY2 - Menu DOWN - Selected: {menu_items[selected_menu]}")
+        time.sleep(0.2)  # Debounce delay
         return True
     
     # Check for KEY3 (move menu down)
-    if disp.digital_read(disp.GPIO_KEY3_PIN) == 0:
+    if check_button_press('key3', disp.GPIO_KEY3_PIN):
         selected_menu = (selected_menu + 1) % len(menu_items)
         print(f"KEY3 - Menu DOWN - Selected: {menu_items[selected_menu]}")
+        time.sleep(0.2)  # Debounce delay
         return True
     
     return False
@@ -128,7 +159,7 @@ def handle_menu_navigation():
 try:
     while True:
         # === Handle menu navigation ===
-        menu_changed = handle_menu_navigation()
+        handle_menu_navigation()
         
         # === Draw joystick indicators in top half ===
         if disp.digital_read(disp.GPIO_KEY_UP_PIN ) == 0: # button is released       
@@ -205,6 +236,10 @@ try:
         draw_emoji(draw, smiley_matrix, color_map, scale, start_x, start_y)
 
         disp.LCD_ShowImage(image,0,0)
+        
+        # Small delay to prevent excessive CPU usage
+        time.sleep(0.05)
+        
 except:
 	print("except")
 disp.module_exit()
