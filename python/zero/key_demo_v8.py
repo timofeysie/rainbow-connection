@@ -198,7 +198,7 @@ try:
         if up_pressed and not button_states['up']:
             if state == "none":
                 state = "start"
-            elif state == "start":
+            if state == "start":
                 menu = (menu - 1) % 4
                 check_menu()
             draw_display()
@@ -207,10 +207,10 @@ try:
         button_states['up'] = up_pressed
         
         # === Handle DOWN button ===
-        elif down_pressed and not button_states['down']:
+        if down_pressed and not button_states['down']:
             if state == "none":
                 state = "start"
-            elif state == "start":
+            if state == "start":
                 menu = (menu + 1) % 4
                 check_menu()
             draw_display()
@@ -219,7 +219,7 @@ try:
         button_states['down'] = down_pressed
         
         # === Handle LEFT button ===
-        elif left_pressed and not button_states['left']:
+        if left_pressed and not button_states['left']:
             if state == "choosing":
                 neg = (neg + 1) % 5
                 if neg == 0:
@@ -232,7 +232,7 @@ try:
         button_states['left'] = left_pressed
         
         # === Handle RIGHT button ===
-        elif right_pressed and not button_states['right']:
+        if right_pressed and not button_states['right']:
             if state == "choosing":
                 pos = (pos + 1) % 5
                 if pos == 0:
@@ -245,12 +245,12 @@ try:
         button_states['right'] = right_pressed
         
         # === Handle CENTER button ===
-        elif center_pressed and not button_states['center']:
+        if center_pressed and not button_states['center']:
             if state == "start":
                 state = "choosing"
                 pos = 1
                 neg = 0
-            elif state == "choosing":
+            if state == "choosing":
                 # Show selected emoji
                 print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
                 # For now, just reset to start state
@@ -263,14 +263,14 @@ try:
         button_states['center'] = center_pressed
         
         # === Handle KEY1 button (Positive) ===
-        elif key1_pressed and not button_states['key1']:
+        if key1_pressed and not button_states['key1']:
             if state == "choosing":
                 pos = (pos + 1) % 5
                 if pos == 0:
                     pos = 1
                 neg = 0
                 check_pos()
-            elif state == "start":
+            if state == "start":
                 state = "choosing"
                 pos = 1
                 neg = 0
@@ -280,13 +280,13 @@ try:
         button_states['key1'] = key1_pressed
         
         # === Handle KEY2 button (Menu/Confirm) ===
-        elif key2_pressed and not button_states['key2']:
+        if key2_pressed and not button_states['key2']:
             if state == "start":
                 menu = (menu + 1) % 4
                 check_menu()
-            elif state == "none":
+            if state == "none":
                 state = "start"
-            elif state == "choosing":
+            if state == "choosing":
                 # Show selected emoji
                 print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
                 # Reset to start state
@@ -299,14 +299,14 @@ try:
         button_states['key2'] = key2_pressed
         
         # === Handle KEY3 button (Negative) ===
-        elif key3_pressed and not button_states['key3']:
+        if key3_pressed and not button_states['key3']:
             if state == "choosing":
                 neg = (neg + 1) % 5
                 if neg == 0:
                     neg = 1
                 pos = 0
                 check_neg()
-            elif state == "start":
+            if state == "start":
                 state = "choosing"
                 neg = 1
                 pos = 0
