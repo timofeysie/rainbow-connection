@@ -48,14 +48,14 @@ selected_menu = 0  # Start with first item selected
 
 # === Button state tracking for debouncing ===
 button_states = {
-    'up': False,
-    'down': False,
-    'left': False,
-    'right': False,
-    'center': False,
-    'key1': False,
-    'key2': False,
-    'key3': False
+    'up': None,      # Initialize as None to detect first state
+    'down': None,
+    'left': None,
+    'right': None,
+    'center': None,
+    'key1': None,
+    'key2': None,
+    'key3': None
 }
 
 # === Function to draw a single scaled pixel ===
@@ -106,6 +106,11 @@ def draw_menu_row(draw, text, y_position, font, is_selected=False):
 def check_button_press(button_name, pin):
     current_state = disp.digital_read(pin) == 0  # True when pressed
     previous_state = button_states[button_name]
+    
+    # Initialize button state on first run
+    if previous_state is None:
+        button_states[button_name] = current_state
+        return False
     
     # Check for button press (transition from not pressed to pressed)
     if current_state and not previous_state:
@@ -232,7 +237,7 @@ try:
         emoji_width = scale * 8
         emoji_height = scale * 8
         start_x = (disp.width - emoji_width) // 2
-        start_y = 55 + (64 - emoji_height) // 2
+        start_y = 64 + (64 - emoji_height) // 2  # Fixed positioning
         draw_emoji(draw, smiley_matrix, color_map, scale, start_x, start_y)
 
         disp.LCD_ShowImage(image,0,0)
