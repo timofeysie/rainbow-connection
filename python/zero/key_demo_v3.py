@@ -71,8 +71,10 @@ try:
             draw.ellipse((70,40,90,60), outline=255, fill=0) #A button filled
             print ("KEY3")
 
+        # === MINIMAL CHANGE: Draw a square in the bottom half ===
+        draw.rectangle((40, 80, 88, 128), outline=255, fill=0xff00)  # Yellow square in bottom half
+
         disp.LCD_ShowImage(image,0,0)
 except:
 	print("except")
 disp.module_exit()
-
