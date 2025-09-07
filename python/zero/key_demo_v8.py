@@ -160,7 +160,8 @@ def draw_display():
     # === Menu Text ===
     text_y_positions = [1, 16, 31, 46]
     for i, item in enumerate(menu_items):
-        is_selected = (i == menu and state == "start")
+        # Show main menu selection in both "start" and "choosing" states
+        is_selected = (i == menu and (state == "start" or state == "choosing"))
         draw_menu_row(draw, item, text_y_positions[i], font, is_selected)
     
     # Update display
