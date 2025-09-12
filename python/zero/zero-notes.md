@@ -182,3 +182,70 @@ Traceback (most recent call last):
     raise RuntimeError(
 RuntimeError: Please set pin numbering mode using GPIO.setmode(GPIO.BOARD) or GPIO.setmode(GPIO.BCM)
 ```
+
+## Adding all the emojis
+
+Add all the things!
+
+In the python\emoji-os\emoji-os-pico.py script we import ```from emojis import *``` from python\emojis\emojis.py file to get functions like ```def regular():``` which can be used to draw particular emojis.
+
+Currently we are using the same emoji for every menu position.  We want to change this to use specific emojis for each menu position.
+
+When a specific menu is chose from the left or the right sub-menu in python\zero\key_demo_v9.py, we want to also replace the main emoji with the large version of that.  For example, main menu position 0 has pos (positive or left side sub-menu), there are four emojis:
+
+Positive emojis:
+
+- regular()
+- happy()
+- wry()
+- heartBounce()
+
+Negative emojis:
+
+- thickLips()
+- sad()
+- angry()
+- greenMonster()
+
+Here is the code:
+
+```py
+    #==========
+    #POSITIVE 0
+    # regular
+    if (menu == 0 and pos == 1):
+        print("menu 0 pos 1 normal")
+        regular()
+    # happy
+    if (menu == 0 and pos == 2):
+        print("menu 0 pos 2 happy")
+        happy()
+    # wry
+    if (menu == 0 and pos == 3):
+        print("menu 0 pos 3 wry")
+        wry()
+    # heart bounce
+    if (menu == 0 and pos == 4):
+        print("menu 0 pos 4 heart bounce")
+        heartBounce()
+    # NEGATIVE 0
+    # thick lips
+    if (menu == 0 and neg == 1):
+        print("menu 0 neg 1 thick lips")
+        thickLips()
+    # sad
+    if (menu == 0 and neg == 2):
+        print("menu 0 neg 2 sad")
+        sad()
+    # angry
+    if (menu == 0 and neg == 3):
+        print("menu 0 neg 3 angry")
+        angry()
+    # monster
+    if (menu == 0 and neg == 4):
+        print("menu 0 neg 4 green monster")
+        greenMonster()
+    #==========
+```
+
+Lets add the functionality to python\zero\key_demo_v9.py to draw the emojis for the main menu first option "Emojis" left side and right side sub-menu and draw the selected emoji as the main emoji.  Please create a emoji_os_zero_1.py file to do this.
