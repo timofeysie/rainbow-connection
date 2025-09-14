@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+# Emoji OS Zero v0.1.2 - Added animation support for main emoji display
 import LCD_1in44
 import time
 import threading
@@ -28,16 +29,31 @@ pos = 0   # Positive selection (left side emojis)
 neg = 0   # Negative selection (right side emojis)
 state = "none"  # State: "none", "start", "choosing"
 is_winking = False  # Flag to control winking animation
+is_animating = False  # Flag to control main emoji animation
+animation_running = False  # Flag to prevent multiple animation threads
 
 # === Emoji Matrix Data ===
+# Menu 0 emojis Pos
 # Regular emoji
 regular_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
-    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Regular emoji wink state
+regular_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
@@ -46,11 +62,23 @@ regular_matrix = [
 happy_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
-    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
-    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'B', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'Y', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Happy emoji wink state
+happy_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'B', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'Y', 'Y', 'Y', 'Y'],
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
@@ -66,7 +94,19 @@ wry_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
-# Heart bounce emoji
+# Wry emoji wink state
+wry_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Heart bounce emoji - state 1
 heart_matrix = [
     [' ', 'R', 'R', ' ', ' ', 'R', 'R', ' '],
     ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
@@ -78,11 +118,36 @@ heart_matrix = [
     [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
 ]
 
+# Heart bounce emoji - state 2 (bounced up)
+heart_bounce_matrix = [
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', 'R', 'R', ' ', ' ', 'R', 'R', ' '],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    [' ', 'R', 'R', 'R', 'R', 'R', 'R', ' '],
+    [' ', ' ', 'R', 'R', 'R', 'R', ' ', ' '],
+    [' ', ' ', ' ', 'R', 'R', ' ', ' ', ' '],
+]
+
+# Menu 0 emojis Neg
 # Thick lips emoji
 thick_lips_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'B', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Thick lips emoji wink state
+thick_lips_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'Y', 'B', 'B', 'B', 'B', 'Y', 'Y'],
@@ -102,6 +167,18 @@ sad_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
+# Sad emoji wink state
+sad_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
 # Angry emoji
 angry_matrix = [
     ['R', ' ', 'R', 'R', 'R', 'R', ' ', 'R'],
@@ -114,11 +191,35 @@ angry_matrix = [
     ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
 ]
 
+# Angry emoji wink state
+angry_wink_matrix = [
+    ['R', ' ', 'R', 'R', 'R', 'R', ' ', 'R'],
+    ['R', 'R', ' ', 'R', 'R', ' ', 'R', 'R'],
+    ['R', 'Y', 'Y', ' ', ' ', 'Y', 'Y', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', ' ', ' ', ' ', ' ', 'R', 'R'],
+    ['R', ' ', 'R', 'R', 'R', 'R', ' ', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+]
+
 # Green monster emoji
 green_monster_matrix = [
     [' ', 'G', 'G', 'G', 'G', 'G', 'G', ' '],
     ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
     ['G', 'R', 'G', 'G', 'G', 'G', 'R', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', 'G', 'W', 'W', 'G', 'G', 'G'],
+    ['G', ' ', ' ', ' ', ' ', ' ', ' ', 'G'],
+    ['G', 'W', ' ', 'W', 'W', ' ', 'W', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+]
+
+# Green monster emoji wink state
+green_monster_wink_matrix = [
+    [' ', 'G', 'G', 'G', 'G', 'G', 'G', ' '],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'Y', 'Y', 'G', 'G', 'Y', 'Y', 'G'],
     ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
     ['G', 'G', 'G', 'W', 'W', 'G', 'G', 'G'],
     ['G', ' ', ' ', ' ', ' ', ' ', ' ', 'G'],
@@ -249,6 +350,29 @@ def get_main_emoji():
     # Default to regular smiley for other menus
     return smiley_matrix
 
+def get_main_emoji_animation():
+    """Get the animation state of the main emoji"""
+    if menu == 0:  # Emojis menu
+        if pos == 1:
+            return regular_wink_matrix
+        elif pos == 2:
+            return happy_wink_matrix
+        elif pos == 3:
+            return wry_wink_matrix
+        elif pos == 4:
+            return heart_bounce_matrix
+        elif neg == 1:
+            return thick_lips_wink_matrix
+        elif neg == 2:
+            return sad_wink_matrix
+        elif neg == 3:
+            return angry_wink_matrix
+        elif neg == 4:
+            return green_monster_wink_matrix
+    
+    # Default to wink smiley for other menus
+    return smiley_wink_matrix
+
 def get_left_side_emojis():
     """Get the left side emoji matrices for menu 0 (Emojis)"""
     if menu == 0:
@@ -286,12 +410,36 @@ def check_neg():
 
 def wink_animation():
     """Function to handle the winking animation"""
-    global is_winking
+    global is_winking, animation_running
+    if animation_running:
+        return
+    animation_running = True
     is_winking = True
     draw_display()
     time.sleep(1.0)  # Show wink for 1 second
     is_winking = False
     draw_display()
+    animation_running = False
+
+def heart_bounce_animation():
+    """Function to handle the heart bounce animation"""
+    global is_animating, animation_running
+    if animation_running:
+        return
+    animation_running = True
+    is_animating = True
+    draw_display()
+    time.sleep(1.0)  # Show bounce for 1 second
+    is_animating = False
+    draw_display()
+    animation_running = False
+
+def start_emoji_animation():
+    """Start the appropriate animation based on current selection"""
+    if menu == 0 and pos == 4:  # Heart bounce
+        heart_bounce_animation()
+    else:  # Wink animation for other emojis
+        wink_animation()
 
 def draw_display():
     """Draw the complete display"""
@@ -306,9 +454,8 @@ def draw_display():
     start_y = 64 + (64 - emoji_height)
     
     # Get the appropriate main emoji
-    if is_winking and menu == 0 and pos > 0:
-        # Show wink version for positive emojis
-        current_emoji = smiley_wink_matrix
+    if is_winking or is_animating:
+        current_emoji = get_main_emoji_animation()
     else:
         current_emoji = get_main_emoji()
     
@@ -347,7 +494,7 @@ except:
 # === Initial display ===
 draw_display()
 
-print("Emoji OS Zero v1 started. Use the joystick and buttons to navigate.")
+print("Emoji OS Zero v0.1.2 started. Use the joystick and buttons to navigate.")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive")
 print("KEY2: Navigate/confirm")
@@ -437,12 +584,12 @@ try:
                 pos = 1
                 neg = 0
             elif state == "choosing":
-                # Show selected emoji and trigger wink animation
+                # Show selected emoji and trigger appropriate animation
                 print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
-                # Start wink animation in a separate thread
-                wink_thread = threading.Thread(target=wink_animation)
-                wink_thread.daemon = True
-                wink_thread.start()
+                # Start animation in a separate thread
+                animation_thread = threading.Thread(target=start_emoji_animation)
+                animation_thread.daemon = True
+                animation_thread.start()
                 # Reset to start state
                 state = "start"
                 pos = 0
@@ -477,12 +624,12 @@ try:
             elif state == "none":
                 state = "start"
             elif state == "choosing":
-                # Show selected emoji and trigger wink animation
+                # Show selected emoji and trigger appropriate animation
                 print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
-                # Start wink animation in a separate thread
-                wink_thread = threading.Thread(target=wink_animation)
-                wink_thread.daemon = True
-                wink_thread.start()
+                # Start animation in a separate thread
+                animation_thread = threading.Thread(target=start_emoji_animation)
+                animation_thread.daemon = True
+                animation_thread.start()
                 # Reset to start state
                 state = "start"
                 pos = 0
