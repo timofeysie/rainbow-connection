@@ -446,38 +446,39 @@ def check_neg():
     if neg < 1:
         neg = 4
 
-def wink_animation():
-    """Function to handle the winking animation"""
-    global is_winking, animation_running
+def emoji_two_part_animation():
+    """Function to handle two-part emoji animation: normal state then animation state"""
+    global is_winking, is_animating, animation_running
     if animation_running:
         return
     animation_running = True
-    is_winking = True
-    draw_display()
-    time.sleep(1.0)  # Show wink for 1 second
+    
+    # First show the normal emoji state
     is_winking = False
+    is_animating = False
     draw_display()
-    animation_running = False
-
-def heart_bounce_animation():
-    """Function to handle the heart bounce animation"""
-    global is_animating, animation_running
-    if animation_running:
-        return
-    animation_running = True
-    is_animating = True
+    time.sleep(0.5)  # Show normal state for 0.5 seconds
+    
+    # Then show the animation state
+    if menu == 0 and pos == 4:  # Heart bounce
+        is_animating = True
+        is_winking = False
+    else:  # Wink animation for other emojis
+        is_winking = True
+        is_animating = False
+    
     draw_display()
-    time.sleep(1.0)  # Show bounce for 1 second
+    time.sleep(1.0)  # Show animation for 1 second
+    
+    # Return to normal state
+    is_winking = False
     is_animating = False
     draw_display()
     animation_running = False
 
 def start_emoji_animation():
-    """Start the appropriate animation based on current selection"""
-    if menu == 0 and pos == 4:  # Heart bounce
-        heart_bounce_animation()
-    else:  # Wink animation for other emojis
-        wink_animation()
+    """Start the two-part animation for the selected emoji"""
+    emoji_two_part_animation()
 
 def draw_display():
     """Draw the complete display"""
