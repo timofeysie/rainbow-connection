@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.1.7 - Added animation support for main emoji display
+# Emoji OS Zero v0.1.8 - Added animation support for main emoji display
 import LCD_1in44
 import time
 import threading
@@ -95,8 +95,8 @@ wry_matrix = [
     ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
-    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'B', 'B', 'Y', 'Y', 'Y', 'Y'],
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
@@ -107,8 +107,8 @@ wry_wink_matrix = [
     ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
-    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'B', 'B', 'Y', 'Y', 'Y', 'Y'],
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
@@ -153,7 +153,7 @@ thick_lips_matrix = [
 thick_lips_wink_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
@@ -168,8 +168,8 @@ sad_matrix = [
     ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
     ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
-    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'B', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'B', 'Y', 'Y', 'B', 'Y'],
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
@@ -180,8 +180,8 @@ sad_wink_matrix = [
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
-    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'B', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'B', 'Y', 'Y', 'B', 'Y'],
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
@@ -518,6 +518,9 @@ def start_emoji_animation():
     state = "none"
     pos = 0
     neg = 0
+    
+    # Update display to show the reset state
+    draw_display()
 
 def draw_display():
     """Draw the complete display"""
@@ -673,7 +676,8 @@ try:
                 animation_thread.daemon = True
                 animation_thread.start()
                 # Don't reset state here - let animation handle it
-            draw_display()
+            else:
+                draw_display()
             print('Center - State:', state)
             time.sleep(0.2)
         button_states['center'] = center_pressed
@@ -697,7 +701,7 @@ try:
                 neg = 0
             elif prev_state == "done":
                 if (prev_neg > 0):
-                    # Toggle from previous negative to positive
+                    # Toggle from previous negative to positive (same position)
                     pos = prev_neg
                     neg = 0
                     menu = prev_menu
@@ -737,7 +741,8 @@ try:
                 animation_thread.daemon = True
                 animation_thread.start()
                 # Don't reset state here - let animation handle it
-            draw_display()
+            else:
+                draw_display()
             print('KEY2 - Menu:', menu, 'State:', state)
             time.sleep(0.2)
         button_states['key2'] = key2_pressed
