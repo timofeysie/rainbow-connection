@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.1.4 - Added animation support for main emoji display
+# Emoji OS Zero v0.1.5 - Added animation support for main emoji display
 import LCD_1in44
 import time
 import threading
@@ -67,7 +67,7 @@ regular_wink_matrix = [
 # Happy emoji
 happy_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
-    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
@@ -79,7 +79,7 @@ happy_matrix = [
 # Happy emoji wink state
 happy_wink_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
-    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
@@ -95,8 +95,8 @@ wry_matrix = [
     ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y', 'Y'],
-    ['Y', 'B', 'B', 'B', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
@@ -107,8 +107,8 @@ wry_wink_matrix = [
     ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y', 'Y'],
-    ['Y', 'B', 'B', 'B', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
@@ -504,9 +504,21 @@ def emoji_two_part_animation():
 
 def start_emoji_animation():
     """Start the two-part animation for the selected emoji"""
+    # Save the current selection before animation starts
+    global prev_menu, prev_pos, prev_neg, prev_state
+    prev_state = "done"
+    prev_menu = menu
+    prev_pos = pos
+    prev_neg = neg
+    
+    # Run the animation
     emoji_two_part_animation()
-    # Save the current selection as previous state after animation
-    reset_state()
+    
+    # Reset to start state after animation completes
+    global state
+    state = "start"
+    pos = 0
+    neg = 0
 
 def draw_display():
     """Draw the complete display"""
@@ -767,13 +779,4 @@ try:
                     animation_thread = threading.Thread(target=start_emoji_animation)
                     animation_thread.daemon = True
                     animation_thread.start()
-            draw_display()
-            print('KEY3 - Negative:', neg, 'State:', state)
-            time.sleep(0.2)
-        button_states['key3'] = key3_pressed
-        
-        time.sleep(0.1)
-
-except KeyboardInterrupt:
-    print("Exiting...")
-    disp.module_exit()
+         

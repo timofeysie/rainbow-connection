@@ -2,7 +2,7 @@
 
 These are the steps for setting up an emoji bade.
 
-The current version supports an 8x8 GlowBit display, an NFC reader and optionally "squishy" buttons.
+The current version supports an [8x8 GlowBit display](https://core-electronics.com.au/glowbit-matrix-8x8.html), an NFC reader and optionally "squishy" buttons.
 
 ## Required libraries
 
@@ -10,6 +10,8 @@ The Pico will require the following libraries installed:
 
 - glowbit
 - piicodev
+
+Use the Thonny IDE to install the libraries.
 
 ## Required files
 
