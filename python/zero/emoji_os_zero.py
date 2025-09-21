@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.1.6 - Added animation support for main emoji display
+# Emoji OS Zero v0.1.7 - Added animation support for main emoji display
 import LCD_1in44
 import time
 import threading
@@ -514,8 +514,8 @@ def start_emoji_animation():
     # Run the animation
     emoji_two_part_animation()
     
-    # Reset to start state after animation completes
-    state = "start"
+    # Reset to none state after animation completes (no menu selection)
+    state = "none"
     pos = 0
     neg = 0
 
@@ -691,6 +691,10 @@ try:
                 state = "choosing"
                 pos = 1
                 neg = 0
+            elif state == "none":
+                state = "choosing"
+                pos = 1
+                neg = 0
             elif prev_state == "done":
                 if (prev_neg > 0):
                     # Toggle from previous negative to positive
@@ -748,6 +752,10 @@ try:
                 pos = 0
                 check_neg()
             elif state == "start":
+                state = "choosing"
+                neg = 1
+                pos = 0
+            elif state == "none":
                 state = "choosing"
                 neg = 1
                 pos = 0
