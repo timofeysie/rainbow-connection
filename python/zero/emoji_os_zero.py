@@ -673,10 +673,7 @@ try:
                 animation_thread = threading.Thread(target=start_emoji_animation)
                 animation_thread.daemon = True
                 animation_thread.start()
-                # Reset to start state
-                state = "start"
-                pos = 0
-                neg = 0
+                # Don't reset state here - let animation handle it
             draw_display()
             print('Center - State:', state)
             time.sleep(0.2)
@@ -736,10 +733,7 @@ try:
                 animation_thread = threading.Thread(target=start_emoji_animation)
                 animation_thread.daemon = True
                 animation_thread.start()
-                # Reset to start state
-                state = "start"
-                pos = 0
-                neg = 0
+                # Don't reset state here - let animation handle it
             draw_display()
             print('KEY2 - Menu:', menu, 'State:', state)
             time.sleep(0.2)
@@ -779,4 +773,13 @@ try:
                     animation_thread = threading.Thread(target=start_emoji_animation)
                     animation_thread.daemon = True
                     animation_thread.start()
-         
+            draw_display()
+            print('KEY3 - Negative:', neg, 'State:', state)
+            time.sleep(0.2)
+        button_states['key3'] = key3_pressed
+        
+        time.sleep(0.1)
+
+except KeyboardInterrupt:
+    print("Exiting...")
+    disp.module_exit()
