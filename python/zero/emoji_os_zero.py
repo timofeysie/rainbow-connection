@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.1.5 - Added animation support for main emoji display
+# Emoji OS Zero v0.1.6 - Added animation support for main emoji display
 import LCD_1in44
 import time
 import threading
@@ -505,7 +505,7 @@ def emoji_two_part_animation():
 def start_emoji_animation():
     """Start the two-part animation for the selected emoji"""
     # Save the current selection before animation starts
-    global prev_menu, prev_pos, prev_neg, prev_state
+    global prev_menu, prev_pos, prev_neg, prev_state, menu, pos, neg, state
     prev_state = "done"
     prev_menu = menu
     prev_pos = pos
@@ -515,7 +515,6 @@ def start_emoji_animation():
     emoji_two_part_animation()
     
     # Reset to start state after animation completes
-    global state
     state = "start"
     pos = 0
     neg = 0
