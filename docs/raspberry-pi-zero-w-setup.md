@@ -81,6 +81,12 @@ Notes for how to use the nano editor are also included.
 
 Some sample files are in the python\utils directory of this repo, as well as available for download in the link above with a bit of searching.
 
+- wpa_supplicant.conf
+- userconf.txt
+- ssh
+
+Modify the first two as indicated below and copy them to the SSM card to create the authenticated user with wifi access on first boot.
+
 ## The wpa_supplicant.conf file
 
 This is the format of the file from the video in the link above:

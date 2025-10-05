@@ -1,59 +1,435 @@
-# emoji os zero v0.1.0 Adapted for Raspberry Pi Zero 2 W with Waveshare 1.44inch LCD HAT
+# -*- coding:utf-8 -*-
+# Emoji OS Zero v0.1.7 - Added animation support for main emoji display
 import LCD_1in44
-import LCD_Config
-import RPi.GPIO as GPIO
 import time
-from PIL import Image, ImageDraw, ImageFont, ImageColor
-from emojis_zero import *
+import threading
 
-# GPIO pin definitions for Waveshare LCD HAT
-KEY_UP_PIN     = 6 
-KEY_DOWN_PIN   = 19
-KEY_LEFT_PIN   = 5
-KEY_RIGHT_PIN  = 26
-KEY_PRESS_PIN  = 13
-KEY1_PIN       = 21
-KEY2_PIN       = 20
-KEY3_PIN       = 16
+from PIL import Image,ImageDraw,ImageFont,ImageColor
 
-# Initialize GPIO
-GPIO.setmode(GPIO.BCM) 
-GPIO.cleanup()
-GPIO.setup(KEY_UP_PIN,      GPIO.IN, pull_up_down=GPIO.PUD_UP)    # Input with pull-up
-GPIO.setup(KEY_DOWN_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
-GPIO.setup(KEY_LEFT_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
-GPIO.setup(KEY_RIGHT_PIN,   GPIO.IN, pull_up_down=GPIO.PUD_UP) # Input with pull-up
-GPIO.setup(KEY_PRESS_PIN,   GPIO.IN, pull_up_down=GPIO.PUD_UP) # Input with pull-up
-GPIO.setup(KEY1_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
-GPIO.setup(KEY2_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
-GPIO.setup(KEY3_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
-
-# Initialize LCD display
+# 240x240 display with hardware SPI:
 disp = LCD_1in44.LCD()
-Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  # SCAN_DIR_DFT = D2U_L2R
+Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
 disp.LCD_Init(Lcd_ScanDir)
 disp.LCD_Clear()
 
-# Create blank image for drawing
-width = 128
-height = 128
-image = Image.new('RGB', (width, height))
+# Create blank image for drawing.
+# Make sure to create image with mode '1' for 1-bit color.
+image = Image.new('RGB', (disp.width, disp.height))
+
+# Get drawing object to draw on image.
 draw = ImageDraw.Draw(image)
 
-# Set up the display context for the emojis module
-set_display_context(disp, image, draw)
+# Draw a black filled box to clear the image.
+draw.rectangle((0,0,disp.width,disp.height), outline=0, fill=0)
+disp.LCD_ShowImage(image,0,0)
 
-# Menu state variables
-menu = 0
-pos = 0
-neg = 0
-state = "none"  # start, end, or none
-# preserve the previous state for pos/neg flipping
+# === State Machine Variables ===
+menu = 0  # Main menu selection (0-3)
+pos = 0   # Positive selection (left side emojis)
+neg = 0   # Negative selection (right side emojis)
+state = "none"  # State: "none", "start", "choosing"
+is_winking = False  # Flag to control winking animation
+is_animating = False  # Flag to control main emoji animation
+animation_running = False  # Flag to prevent multiple animation threads
+
+# Previous state tracking for emoji toggling
 prev_menu = 0
 prev_pos = 0
 prev_neg = 0
-prev_state = "none"  # or done
-pause = 0.2
+prev_state = "none"  # or "done"
+
+# === Emoji Matrix Data ===
+# Menu 0 emojis Pos
+# Regular emoji
+regular_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Regular emoji wink state
+regular_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Happy emoji
+happy_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Happy emoji wink state
+happy_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Wry emoji
+wry_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Wry emoji wink state
+wry_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Heart bounce emoji - state 1
+heart_matrix = [
+    [' ', 'R', 'R', ' ', ' ', 'R', 'R', ' '],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    [' ', 'R', 'R', 'R', 'R', 'R', 'R', ' '],
+    [' ', ' ', 'R', 'R', 'R', 'R', ' ', ' '],
+    [' ', ' ', ' ', 'R', 'R', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+# Heart bounce emoji - state 2 (bounced up)
+heart_bounce_matrix = [
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', 'R', 'R', ' ', ' ', 'R', 'R', ' '],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    [' ', 'R', 'R', 'R', 'R', 'R', 'R', ' '],
+    [' ', ' ', 'R', 'R', 'R', 'R', ' ', ' '],
+    [' ', ' ', ' ', 'R', 'R', ' ', ' ', ' '],
+]
+
+# Menu 0 emojis Neg
+# Thick lips emoji
+thick_lips_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Thick lips emoji wink state
+thick_lips_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Sad emoji
+sad_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Sad emoji wink state
+sad_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Angry emoji
+angry_matrix = [
+    ['R', ' ', 'R', 'R', 'R', 'R', ' ', 'R'],
+    ['R', 'R', ' ', 'R', 'R', ' ', 'R', 'R'],
+    ['R', 'B', 'Y', ' ', ' ', 'Y', 'B', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', ' ', ' ', ' ', ' ', 'R', 'R'],
+    ['R', ' ', 'R', 'R', 'R', 'R', ' ', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+]
+
+# Angry emoji wink state
+angry_wink_matrix = [
+    ['R', ' ', 'R', 'R', 'R', 'R', ' ', 'R'],
+    ['R', 'R', ' ', 'R', 'R', ' ', 'R', 'R'],
+    ['R', 'Y', 'Y', ' ', ' ', 'Y', 'Y', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    ['R', 'R', ' ', ' ', ' ', ' ', 'R', 'R'],
+    ['R', ' ', 'R', 'R', 'R', 'R', ' ', 'R'],
+    ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+]
+
+# Green monster emoji
+green_monster_matrix = [
+    [' ', 'G', 'G', 'G', 'G', 'G', 'G', ' '],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'R', 'G', 'G', 'G', 'G', 'R', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', 'G', 'W', ' ', 'G', 'G', 'G'],
+    ['G', ' ', ' ', ' ', ' ', ' ', ' ', 'G'],
+    ['G', 'W', ' ', 'W', 'W', ' ', 'W', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+]
+
+# Green monster emoji wink state
+green_monster_wink_matrix = [
+    [' ', 'G', 'G', 'G', 'G', 'G', 'G', ' '],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'Y', 'Y', 'G', 'G', 'Y', 'Y', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', 'G', 'W', ' ', 'G', 'G', 'G'],
+    ['G', ' ', ' ', ' ', ' ', ' ', ' ', 'G'],
+    ['G', 'W', ' ', 'W', 'W', ' ', 'W', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+]
+
+# Default smiley for menu items
+smiley_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Wink matrix for animation
+smiley_wink_matrix = [
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'B', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y', 'Y'],
+    ['Y', 'Y', 'B', 'B', 'B', 'Y', 'Y', 'Y'],
+    [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Color mapping
+color_map = {
+    'Y': 'yellow',
+    'B': 'black',
+    'R': 'red',
+    'G': 'green',
+    'W': 'white',
+    ' ': (0, 0, 0),
+}
+
+# === Menu Items ===
+menu_items = ["Emojis", "Animations", "Characters", "Other"]
+
+# === Button State Tracking ===
+button_states = {
+    'up': True,
+    'down': True,
+    'left': True,
+    'right': True,
+    'center': True,
+    'key1': True,
+    'key2': True,
+    'key3': True
+}
+
+# === Helper Functions ===
+def draw_pixel(draw, x, y, color, scale):
+    x0 = x
+    y0 = y
+    x1 = x + scale
+    y1 = y + scale
+    draw.rectangle((x0, y0, x1, y1), fill=color)
+
+def draw_emoji(draw, matrix, color_map, scale, top_left_x, top_left_y, show_selection=False):
+    for row in range(len(matrix)):
+        for col in range(len(matrix[row])):
+            symbol = matrix[row][col]
+            color = color_map.get(symbol, (0, 0, 0))
+            x = top_left_x + col * scale
+            y = top_left_y + row * scale
+            draw_pixel(draw, x, y, color, scale)
+    
+    if show_selection:
+        emoji_width = len(matrix[0]) * scale
+        emoji_height = len(matrix) * scale
+        border_width = 1
+        draw.rectangle(
+            (top_left_x - border_width, top_left_y - border_width, 
+             top_left_x + emoji_width + border_width + 1, top_left_y + emoji_height + border_width + 1),
+            outline="white",
+            width=border_width
+        )
+
+def draw_centered_text(draw, text, y_position, font, max_width, text_color="white"):
+    try:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+    except AttributeError:
+        text_width, text_height = draw.textsize(text, font=font)
+    
+    x_position = (max_width - text_width) // 2
+    draw.text((x_position, y_position), text, font=font, fill=text_color)
+
+def draw_menu_row(draw, text, y_position, font, is_selected=False):
+    row_height = 14
+    row_y = y_position
+    
+    if is_selected:
+        bg_width = 80  # Fixed width for selection background
+        bg_x = 24
+        draw.rectangle((bg_x, row_y, bg_x + bg_width, row_y + row_height), fill="white")
+        draw_centered_text(draw, text, row_y + 2, font, 128, "black")
+    else:
+        draw_centered_text(draw, text, row_y + 2, font, 128, "white")
+
+def get_main_emoji():
+    """Get the main emoji matrix based on current menu, pos, and neg selection"""
+    if menu == 0:  # Emojis menu
+        # Show the currently selected emoji when in choosing state
+        if state == "choosing":
+            if pos == 1:
+                return regular_matrix
+            elif pos == 2:
+                return happy_matrix
+            elif pos == 3:
+                return wry_matrix
+            elif pos == 4:
+                return heart_matrix
+            elif neg == 1:
+                return thick_lips_matrix
+            elif neg == 2:
+                return sad_matrix
+            elif neg == 3:
+                return angry_matrix
+            elif neg == 4:
+                return green_monster_matrix
+        # Show default when not in choosing state
+        elif pos == 1:
+            return regular_matrix
+        elif pos == 2:
+            return happy_matrix
+        elif pos == 3:
+            return wry_matrix
+        elif pos == 4:
+            return heart_matrix
+        elif neg == 1:
+            return thick_lips_matrix
+        elif neg == 2:
+            return sad_matrix
+        elif neg == 3:
+            return angry_matrix
+        elif neg == 4:
+            return green_monster_matrix
+    
+    # Default to regular smiley for other menus
+    return smiley_matrix
+
+def get_main_emoji_animation():
+    """Get the animation state of the main emoji"""
+    if menu == 0:  # Emojis menu
+        # Show the animation for currently selected emoji when in choosing state
+        if state == "choosing":
+            if pos == 1:
+                return regular_wink_matrix
+            elif pos == 2:
+                return happy_wink_matrix
+            elif pos == 3:
+                return wry_wink_matrix
+            elif pos == 4:
+                return heart_bounce_matrix
+            elif neg == 1:
+                return thick_lips_wink_matrix
+            elif neg == 2:
+                return sad_wink_matrix
+            elif neg == 3:
+                return angry_wink_matrix
+            elif neg == 4:
+                return green_monster_wink_matrix
+        # Show animation for selected emoji when not in choosing state
+        elif pos == 1:
+            return regular_wink_matrix
+        elif pos == 2:
+            return happy_wink_matrix
+        elif pos == 3:
+            return wry_wink_matrix
+        elif pos == 4:
+            return heart_bounce_matrix
+        elif neg == 1:
+            return thick_lips_wink_matrix
+        elif neg == 2:
+            return sad_wink_matrix
+        elif neg == 3:
+            return angry_wink_matrix
+        elif neg == 4:
+            return green_monster_wink_matrix
+    
+    # Default to wink smiley for other menus
+    return smiley_wink_matrix
+
+def get_left_side_emojis():
+    """Get the left side emoji matrices for menu 0 (Emojis)"""
+    if menu == 0:
+        return [regular_matrix, happy_matrix, wry_matrix, heart_matrix]
+    else:
+        return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
+
+def get_right_side_emojis():
+    """Get the right side emoji matrices for menu 0 (Emojis)"""
+    if menu == 0:
+        return [thick_lips_matrix, sad_matrix, angry_matrix, green_monster_matrix]
+    else:
+        return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
 def check_menu():
     global menu
@@ -66,84 +442,18 @@ def check_pos():
     global pos
     if pos > 4:
         pos = 1
+    if pos < 1:
+        pos = 4
 
 def check_neg():
     global neg
     if neg > 4:
         neg = 1
-
-def clear_display():
-    """Clear the display and draw a black background"""
-    draw.rectangle((0, 0, width, height), outline=0, fill=0)
-
-def draw_menu():
-    """Draw the menu indicator on the display"""
-    global menu
-    global pause
-    
-    clear_display()
-    
-    if menu == 0:
-        # Draw indicator for menu 0 (top)
-        draw.rectangle((60, 20, 68, 28), outline=255, fill=255)
-        disp.LCD_ShowImage(image, 0, 0)
-        time.sleep(pause)
-    elif menu == 1:
-        # Draw indicator for menu 1 (second from top)
-        draw.rectangle((60, 40, 68, 48), outline=255, fill=255)
-        disp.LCD_ShowImage(image, 0, 0)
-        time.sleep(pause)
-    elif menu == 2:
-        # Draw indicator for menu 2 (second from bottom)
-        draw.rectangle((60, 60, 68, 68), outline=255, fill=255)
-        disp.LCD_ShowImage(image, 0, 0)
-        time.sleep(pause)
-    elif menu == 3:
-        # Draw indicator for menu 3 (bottom)
-        draw.rectangle((60, 80, 68, 88), outline=255, fill=255)
-        disp.LCD_ShowImage(image, 0, 0)
-        time.sleep(pause)
-
-def draw_pos():
-    """Draw the positive state indicator"""
-    global pos
-    
-    if pos == 1:
-        draw.rectangle((20, 20, 28, 28), outline=0, fill=0x00ff00)  # Green
-        disp.LCD_ShowImage(image, 0, 0)
-        time.sleep(pause)
-    elif pos == 2:
-        draw.rectangle((20, 40, 28, 48), outline=0, fill=0x00ff00)  # Green
-        disp.LCD_ShowImage(image, 0, 0)
-        time.sleep(pause)
-    elif pos == 3:
-        draw.rectangle((20, 60, 28, 68), outline=0, fill=0x00ff00)  # Green
-        disp.LCD_ShowImage(image, 0, 0)
-        time.sleep(pause)
-    elif pos == 4:
-        draw.rectangle((20, 80, 28, 88), outline=0, fill=0x00ff00)  # Green
-        disp.LCD_ShowImage(image, 0, 0)
-        time.sleep(pause)
-
-def draw_neg():
-    """Draw the negative state indicator"""
-    global neg
-    
-    if neg == 1:
-        draw.rectangle((100, 20, 108, 28), outline=0, fill=0xff0000)  # Red
-        disp.LCD_ShowImage(image, 0, 0)
-    elif neg == 2:
-        draw.rectangle((100, 40, 108, 48), outline=0, fill=0xff0000)  # Red
-        disp.LCD_ShowImage(image, 0, 0)
-    elif neg == 3:
-        draw.rectangle((100, 60, 108, 68), outline=0, fill=0xff0000)  # Red
-        disp.LCD_ShowImage(image, 0, 0)
-    elif neg == 4:
-        draw.rectangle((100, 80, 108, 88), outline=0, fill=0xff0000)  # Red
-        disp.LCD_ShowImage(image, 0, 0)
+    if neg < 1:
+        neg = 4
 
 def reset_state():
-    """Reset the current state and store previous values"""
+    """Save current state as previous and reset to initial state"""
     global state, menu, pos, neg, prev_state, prev_menu, prev_pos, prev_neg
     prev_state = "done"
     prev_menu = menu
@@ -155,329 +465,328 @@ def reset_state():
     neg = 0
 
 def reset_prev():
-    """Reset the previous state values"""
+    """Clear previous state tracking"""
     global prev_state, prev_menu, prev_pos, prev_neg
     prev_state = "none"
     prev_menu = 0
     prev_pos = 0
     prev_neg = 0
 
-def draw_emoji():
-    """Draw the chosen emoji and reset values"""
-    global state, menu, pos, neg
+def emoji_two_part_animation():
+    """Function to handle two-part emoji animation: normal state then animation state"""
+    global is_winking, is_animating, animation_running
+    if animation_running:
+        return
+    animation_running = True
     
-    print(f"draw emoji menu at {menu}, pos at {pos}, neg at {neg}, state {state}")
+    # First show the normal emoji state
+    is_winking = False
+    is_animating = False
+    draw_display()
+    time.sleep(0.5)  # Show normal state for 0.5 seconds
     
-    clear_display()
+    # Then show the animation state
+    if menu == 0 and pos == 4:  # Heart bounce
+        is_animating = True
+        is_winking = False
+    else:  # Wink animation for other emojis
+        is_winking = True
+        is_animating = False
     
-    #==========
-    # POSITIVE 0
-    # regular
-    if (menu == 0 and pos == 1):
-        print("menu 0 pos 1 normal")
-        regular()
-        
-    # happy
-    elif (menu == 0 and pos == 2):
-        print("menu 0 pos 2 happy")
-        happy()
-        
-    # wry
-    elif (menu == 0 and pos == 3):
-        print("menu 0 pos 3 wry")
-        wry()
-        
-    # heart bounce
-    elif (menu == 0 and pos == 4):
-        print("menu 0 pos 4 heart bounce")
-        heartBounce()
-        
-    # NEGATIVE 0
-    # thick lips
-    elif (menu == 0 and neg == 1):
-        print("menu 0 neg 1 thick lips")
-        thickLips()
-        
-    # sad
-    elif (menu == 0 and neg == 2):
-        print("menu 0 neg 2 sad")
-        sad()
-        
-    # angry
-    elif (menu == 0 and neg == 3):
-        print("menu 0 neg 3 angry")
-        angry()
-        
-    # monster
-    elif (menu == 0 and neg == 4):
-        print("menu 0 neg 4 green monster")
-        greenMonster()
-        
-    #==========
-    # POSITIVE 1
-    # fireworks
-    elif (menu == 1 and pos == 1):
-        print("menu 1 pos 1 fireworks")
-        # Draw fireworks pattern
-        for i in range(8):
-            angle = i * 45
-            x = 64 + int(30 * (angle / 90))
-            y = 64 + int(30 * (angle / 90))
-            draw.line((64, 64, x, y), fill=0xff00ff, width=2)
-        disp.LCD_ShowImage(image, 0, 0)
-        
-    # circularRainbow
-    elif (menu == 1 and pos == 2):
-        print("menu 1 pos 2 circularRainbow")
-        # Draw rainbow circles
-        colors = [0xff0000, 0xff8000, 0xffff00, 0x00ff00, 0x0080ff, 0x8000ff]
-        for i, color in enumerate(colors):
-            radius = 20 + i * 8
-            draw.ellipse((64-radius, 64-radius, 64+radius, 64+radius), outline=color, fill=0)
-        disp.LCD_ShowImage(image, 0, 0)
-        
-    # scroll_large_image
-    elif (menu == 1 and pos == 3):
-        print("menu 1 pos 3 scroll_large_image")
-        scroll_large_image()
-        
-    # chakana
-    elif (menu == 1 and pos == 4):
-        print("menu 1 pos 4 chacana")
-        chakana()
-        
-    # NEGATIVE 1
-    # rain
-    elif (menu == 1 and neg == 1):
-        print("menu 1 neg 1 rain")
-        # Draw rain drops
-        for i in range(10):
-            x = 20 + i * 10
-            y = 20 + (i % 3) * 20
-            draw.line((x, y, x+2, y+8), fill=0x0080ff, width=2)
-        disp.LCD_ShowImage(image, 0, 0)
-        
-    #==========
-    # POSITIVE 2
-    # finn
-    elif (menu == 2 and pos == 1):
-        print("menu 2 pos 1 finn")
-        finn()
-        
-    # pikachu
-    elif (menu == 2 and pos == 2):
-        print("menu 2 pos 2 pikachu")
-        pikachu()
-        
-    # crab
-    elif (menu == 2 and pos == 3):
-        print("menu 2 pos 3 crab")
-        crab()
-        
-    # frog
-    elif (menu == 2 and pos == 4):
-        print("menu 2 pos 4 frog")
-        frog()
-        
-    # NEGATIVE 2
-    # bald
-    elif (menu == 2 and neg == 1):
-        print("menu 2 neg 1 bald")
-        bald()
-        
-    # surprise
-    elif (menu == 2 and neg == 2):
-        print("menu 2 neg 2 surprise")
-        surprise()
-        
-    #==========
-    # POSITIVE 3
-    # circle
-    elif (menu == 3 and pos == 1):
-        print("menu 3 pos 1 circle")
-        draw.ellipse((40, 40, 88, 88), outline=255, fill=0x0080ff)
-        disp.LCD_ShowImage(image, 0, 0)
-        
-    # yes
-    elif (menu == 3 and pos == 2):
-        print("menu 3 pos 2 yes")
-        # Draw "YES" text
-        draw.text((40, 50), "YES", fill=255)
-        disp.LCD_ShowImage(image, 0, 0)
-        
-    # Somi
-    elif (menu == 3 and pos == 3):
-        print("menu 3 pos 3 Somi")
-        # Draw "Somi" text
-        draw.text((40, 50), "Somi", fill=255)
-        disp.LCD_ShowImage(image, 0, 0)
-        
-    # NEGATIVE 3
-    # X
-    elif (menu == 3 and neg == 1):
-        print("menu 3 neg 1 X")
-        # Draw an X
-        draw.line((40, 40, 88, 88), fill=255, width=3)
-        draw.line((88, 40, 40, 88), fill=255, width=3)
-        disp.LCD_ShowImage(image, 0, 0)
-        
-    # no
-    elif (menu == 3 and neg == 2):
-        print("menu 3 neg 2 no")
-        # Draw "NO" text
-        draw.text((40, 50), "NO", fill=255)
-        disp.LCD_ShowImage(image, 0, 0)
-        
-    else:
-        # Reset state if no valid combination
-        reset_state()
+    draw_display()
+    time.sleep(1.0)  # Show animation for 1 second
+    
+    # Return to normal state
+    is_winking = False
+    is_animating = False
+    draw_display()
+    animation_running = False
 
-# Main loop
-print("Emoji OS Zero started. Use the joystick and buttons to navigate.")
+def start_emoji_animation():
+    """Start the two-part animation for the selected emoji"""
+    # Save the current selection before animation starts
+    global prev_menu, prev_pos, prev_neg, prev_state, menu, pos, neg, state
+    prev_state = "done"
+    prev_menu = menu
+    prev_pos = pos
+    prev_neg = neg
+    
+    # Run the animation
+    emoji_two_part_animation()
+    
+    # Reset to none state after animation completes (no menu selection)
+    state = "none"
+    pos = 0
+    neg = 0
+
+def draw_display():
+    """Draw the complete display"""
+    # Clear screen
+    draw.rectangle((0,0,disp.width,disp.height), outline=0, fill=0)
+    
+    # === Main Emoji (bottom half) ===
+    scale = 7
+    emoji_width = scale * 8
+    emoji_height = scale * 8
+    start_x = (disp.width - emoji_width) // 2
+    start_y = 64 + (64 - emoji_height)
+    
+    # Get the appropriate main emoji
+    if is_winking or is_animating:
+        current_emoji = get_main_emoji_animation()
+    else:
+        current_emoji = get_main_emoji()
+    
+    draw_emoji(draw, current_emoji, color_map, scale, start_x, start_y)
+    
+    # === Left Side Emojis (with selection) ===
+    left_emoji_y = [1, 16, 31, 46]
+    left_emojis = get_left_side_emojis()
+    for i, y_pos in enumerate(left_emoji_y):
+        show_selection = (state == "choosing" and pos == i + 1)
+        draw_emoji(draw, left_emojis[i], color_map, 1.5, 5, y_pos, show_selection)
+    
+    # === Right Side Emojis (with selection) ===
+    right_emoji_y = [1, 16, 31, 46]
+    right_emojis = get_right_side_emojis()
+    for i, y_pos in enumerate(right_emoji_y):
+        show_selection = (state == "choosing" and neg == i + 1)
+        draw_emoji(draw, right_emojis[i], color_map, 1.5, 110, y_pos, show_selection)
+    
+    # === Menu Text ===
+    text_y_positions = [1, 16, 31, 46]
+    for i, item in enumerate(menu_items):
+        # Show main menu selection in both "start" and "choosing" states
+        is_selected = (i == menu and (state == "start" or state == "choosing"))
+        draw_menu_row(draw, item, text_y_positions[i], font, is_selected)
+    
+    # Update display
+    disp.LCD_ShowImage(image,0,0)
+
+# === Load font ===
+try:
+    font = ImageFont.load_default()
+except:
+    font = ImageFont.load_default()
+
+# === Initial display ===
+draw_display()
+
+print("Emoji OS Zero v0.1.2 started. Use the joystick and buttons to navigate.")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive")
 print("KEY2: Navigate/confirm")
 print("KEY3: Select negative")
+print("=" * 50)
 
-while True:
-    # Check joystick inputs for menu navigation
-    if GPIO.input(KEY_UP_PIN) == 0:  # Up pressed
-        if state == "none":
-            state = "start"
-        elif state == "start":
-            menu = (menu - 1) % 4
-            check_menu()
-            clear_display()
-            draw_menu()
-        print('Up - Menu:', menu)
+try:
+    while True:
+        # === Read button states ===
+        up_pressed = disp.digital_read(disp.GPIO_KEY_UP_PIN) == 0
+        down_pressed = disp.digital_read(disp.GPIO_KEY_DOWN_PIN) == 0
+        left_pressed = disp.digital_read(disp.GPIO_KEY_LEFT_PIN) == 0
+        right_pressed = disp.digital_read(disp.GPIO_KEY_RIGHT_PIN) == 0
+        center_pressed = disp.digital_read(disp.GPIO_KEY_PRESS_PIN) == 0
+        key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
+        key2_pressed = disp.digital_read(disp.GPIO_KEY2_PIN) == 0
+        key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
         
-    elif GPIO.input(KEY_DOWN_PIN) == 0:  # Down pressed
-        if state == "none":
-            state = "start"
-        elif state == "start":
-            menu = (menu + 1) % 4
-            check_menu()
-            clear_display()
-            draw_menu()
-        print('Down - Menu:', menu)
-        
-    elif GPIO.input(KEY_LEFT_PIN) == 0:  # Left pressed
-        if state == "choosing":
-            neg = (neg + 1) % 5
-            if neg == 0:
-                neg = 1
-            pos = 0
-            check_neg()
-            clear_display()
-            draw_menu()
-            draw_neg()
-        print('Left - Negative:', neg)
-        
-    elif GPIO.input(KEY_RIGHT_PIN) == 0:  # Right pressed
-        if state == "choosing":
-            pos = (pos + 1) % 5
-            if pos == 0:
-                pos = 1
-            neg = 0
-            check_pos()
-            clear_display()
-            draw_menu()
-            draw_pos()
-        print('Right - Positive:', pos)
-        
-    elif GPIO.input(KEY_PRESS_PIN) == 0:  # Center pressed
-        if state == "start":
-            state = "choosing"
-            pos = 1
-            neg = 0
-            clear_display()
-            draw_menu()
-            draw_pos()
-        elif state == "choosing":
-            clear_display()
-            draw_emoji()
-        print('Center pressed')
-        
-    # Check button inputs
-    elif GPIO.input(KEY1_PIN) == 0:  # KEY1 pressed
-        if state == "choosing":
-            pos = (pos + 1) % 5
-            if pos == 0:
-                pos = 1
-            neg = 0
-            check_pos()
-            clear_display()
-            draw_menu()
-            draw_pos()
-        elif state == "start":
-            state = "choosing"
-            pos = 1
-            neg = 0
-            clear_display()
-            draw_menu()
-            draw_pos()
-        elif prev_state == "done":
-            if prev_neg > 0:
-                pos = prev_neg
+        # === Handle UP button ===
+        if up_pressed and not button_states['up']:
+            reset_prev()  # Clear previous state when navigating
+            if state == "none":
+                state = "start"
+            elif state == "start":
+                menu = (menu - 1) % 4
+                check_menu()
+            elif state == "choosing":
+                # In choosing mode, UP/DOWN should cycle through left side emojis (positive)
+                pos = (pos - 1) % 5
+                if pos == 0:
+                    pos = 4
                 neg = 0
-                menu = prev_menu
-                clear_display()
-                draw_emoji()
-            elif prev_pos > 0:
-                pos = prev_pos
+                check_pos()
+            draw_display()
+            print('Up - Menu:', menu, 'Pos:', pos, 'Neg:', neg, 'State:', state)
+            time.sleep(0.2)
+        button_states['up'] = up_pressed
+        
+        # === Handle DOWN button ===
+        if down_pressed and not button_states['down']:
+            reset_prev()  # Clear previous state when navigating
+            if state == "none":
+                state = "start"
+            elif state == "start":
+                menu = (menu + 1) % 4
+                check_menu()
+            elif state == "choosing":
+                # In choosing mode, UP/DOWN should cycle through left side emojis (positive)
+                pos = (pos + 1) % 5
+                if pos == 0:
+                    pos = 1
                 neg = 0
-                menu = prev_menu
-                clear_display()
-                draw_emoji()
-        print('KEY1 - Positive:', pos)
+                check_pos()
+            draw_display()
+            print('Down - Menu:', menu, 'Pos:', pos, 'Neg:', neg, 'State:', state)
+            time.sleep(0.2)
+        button_states['down'] = down_pressed
         
-    elif GPIO.input(KEY2_PIN) == 0:  # KEY2 pressed
-        reset_prev()
-        if state == "start":
-            menu = (menu + 1) % 4
-            check_menu()
-            clear_display()
-            draw_menu()
-        elif state == "none":
-            state = "start"
-            check_menu()
-            clear_display()
-            draw_menu()
-        elif state == "choosing":
-            clear_display()
-            draw_emoji()
-        print('KEY2 - Menu:', menu)
+        # === Handle LEFT button ===
+        if left_pressed and not button_states['left']:
+            reset_prev()  # Clear previous state when navigating
+            if state == "choosing":
+                neg = (neg + 1) % 5
+                if neg == 0:
+                    neg = 1
+                pos = 0
+                check_neg()
+            draw_display()
+            print('Left - Negative:', neg, 'State:', state)
+            time.sleep(0.2)
+        button_states['left'] = left_pressed
         
-    elif GPIO.input(KEY3_PIN) == 0:  # KEY3 pressed
-        if state == "choosing":
-            neg = (neg + 1) % 5
-            if neg == 0:
+        # === Handle RIGHT button ===
+        if right_pressed and not button_states['right']:
+            reset_prev()  # Clear previous state when navigating
+            if state == "choosing":
+                pos = (pos + 1) % 5
+                if pos == 0:
+                    pos = 1
+                neg = 0
+                check_pos()
+            draw_display()
+            print('Right - Positive:', pos, 'State:', state)
+            time.sleep(0.2)
+        button_states['right'] = right_pressed
+        
+        # === Handle CENTER button ===
+        if center_pressed and not button_states['center']:
+            if state == "start":
+                state = "choosing"
+                pos = 1
+                neg = 0
+            elif state == "choosing":
+                # Show selected emoji and trigger appropriate animation
+                print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
+                # Start animation in a separate thread
+                animation_thread = threading.Thread(target=start_emoji_animation)
+                animation_thread.daemon = True
+                animation_thread.start()
+                # Don't reset state here - let animation handle it
+            draw_display()
+            print('Center - State:', state)
+            time.sleep(0.2)
+        button_states['center'] = center_pressed
+        
+        # === Handle KEY1 button (Positive) ===
+        if key1_pressed and not button_states['key1']:
+            print('debug KEY1 - menu:', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
+            if state == "choosing":
+                pos = (pos + 1) % 5
+                if pos == 0:
+                    pos = 1
+                neg = 0
+                check_pos()
+            elif state == "start":
+                state = "choosing"
+                pos = 1
+                neg = 0
+            elif state == "none":
+                state = "choosing"
+                pos = 1
+                neg = 0
+            elif prev_state == "done":
+                if (prev_neg > 0):
+                    # Toggle from previous negative to positive
+                    pos = prev_neg
+                    neg = 0
+                    menu = prev_menu
+                    print('KEY1 - Toggle from neg to pos, menu:', menu, "pos", pos, "neg", neg)
+                    # Start animation for the toggled emoji
+                    animation_thread = threading.Thread(target=start_emoji_animation)
+                    animation_thread.daemon = True
+                    animation_thread.start()
+                elif (prev_pos > 0):
+                    # Replay previous positive
+                    pos = prev_pos
+                    neg = 0
+                    menu = prev_menu
+                    print('KEY1 - Replay prev pos, menu:', menu, "pos", pos, "neg", neg)
+                    # Start animation for the previous emoji
+                    animation_thread = threading.Thread(target=start_emoji_animation)
+                    animation_thread.daemon = True
+                    animation_thread.start()
+            draw_display()
+            print('KEY1 - Positive:', pos, 'State:', state)
+            time.sleep(0.2)
+        button_states['key1'] = key1_pressed
+        
+        # === Handle KEY2 button (Menu/Confirm) ===
+        if key2_pressed and not button_states['key2']:
+            reset_prev()  # Clear previous state when navigating menus
+            if state == "start":
+                menu = (menu + 1) % 4
+                check_menu()
+            elif state == "none":
+                state = "start"
+            elif state == "choosing":
+                # Show selected emoji and trigger appropriate animation
+                print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
+                # Start animation in a separate thread
+                animation_thread = threading.Thread(target=start_emoji_animation)
+                animation_thread.daemon = True
+                animation_thread.start()
+                # Don't reset state here - let animation handle it
+            draw_display()
+            print('KEY2 - Menu:', menu, 'State:', state)
+            time.sleep(0.2)
+        button_states['key2'] = key2_pressed
+        
+        # === Handle KEY3 button (Negative) ===
+        if key3_pressed and not button_states['key3']:
+            print('debug KEY3 - menu:', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
+            if state == "choosing":
+                neg = (neg + 1) % 5
+                if neg == 0:
+                    neg = 1
+                pos = 0
+                check_neg()
+            elif state == "start":
+                state = "choosing"
                 neg = 1
-            pos = 0
-            check_neg()
-            clear_display()
-            draw_menu()
-            draw_neg()
-        elif state == "start":
-            state = "choosing"
-            neg = 1
-            pos = 0
-            clear_display()
-            draw_menu()
-            draw_neg()
-        elif prev_state == "done":
-            if prev_pos > 0:
-                neg = prev_pos
                 pos = 0
-                menu = prev_menu
-                clear_display()
-                draw_emoji()
-            elif prev_neg > 0:
-                neg = prev_neg
+            elif state == "none":
+                state = "choosing"
+                neg = 1
                 pos = 0
-                menu = prev_menu
-                clear_display()
-                draw_emoji()
-        print('KEY3 - Negative:', neg)
-    
-    time.sleep(0.1)  # Small delay to prevent excessive CPU usage
+            elif prev_state == "done":
+                if (prev_pos > 0):
+                    # Toggle from previous positive to negative
+                    neg = prev_pos
+                    pos = 0
+                    menu = prev_menu
+                    print('KEY3 - Toggle from pos to neg, menu:', menu, "pos", pos, "neg", neg)
+                    # Start animation for the toggled emoji
+                    animation_thread = threading.Thread(target=start_emoji_animation)
+                    animation_thread.daemon = True
+                    animation_thread.start()
+                elif (prev_neg > 0):
+                    # Replay previous negative
+                    neg = prev_neg
+                    pos = 0
+                    menu = prev_menu
+                    print('KEY3 - Replay prev neg, menu:', menu, "pos", pos, "neg", neg)
+                    # Start animation for the previous emoji
+                    animation_thread = threading.Thread(target=start_emoji_animation)
+                    animation_thread.daemon = True
+                    animation_thread.start()
+            draw_display()
+            print('KEY3 - Negative:', neg, 'State:', state)
+            time.sleep(0.2)
+        button_states['key3'] = key3_pressed
+        
+        time.sleep(0.1)
+
+except KeyboardInterrupt:
+    print("Exiting...")
+    disp.module_exit()
