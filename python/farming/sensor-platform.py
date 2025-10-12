@@ -1,4 +1,6 @@
-# PiicoDev Atmospheric Sensor BME280 + Air Quality ENS160 + OLED Display Demo
+# Sensor Platform for the Raspberry Pi Pico v0.0.2
+# Moisture readings are done via the Capacitive Soil Moisture Sensor SKU SEN0193 connected now to a Raspberry Pi Pico.
+# The other sensors are the PiicoDev Atmospheric Sensor BME280 + Air Quality ENS160 + OLED Display Demo
 # This program reads Temperature, Pressure, Relative Humidity, AQI, TVOC, and eCO2
 # and displays Moisture, Temp+Humidity, Pressure as text rows, and air quality values as a single text line.
 
@@ -25,10 +27,14 @@ def read_moisture():
     # Convert to voltage (0-3.3V)
     voltage = (raw_value / 65535) * 3.3
     
-    # Convert to moisture percentage (adjust these values based on your sensor calibration)
-    # Typically: 0V = 100% moisture (sensor in water), 3.3V = 0% moisture (sensor in air)
-    # You may need to calibrate these values for your specific sensor
-    moisture_percent = ((3.3 - voltage) / 3.3) * 100
+    # Convert to moisture percentage (adjusted based on calibration)
+    # Your sensor readings: Air=59%, Water=77%
+    # Map this range (59-77%) to proper moisture scale (0-100%)
+    raw_moisture = ((3.3 - voltage) / 3.3) * 100
+    
+    # Calibrate: map 59-77% range to 0-100% moisture
+    # Formula: (raw - 59) / (77 - 59) * 100
+    moisture_percent = ((raw_moisture - 59) / 18) * 100
     
     # Clamp values between 0-100%
     moisture_percent = max(0, min(100, moisture_percent))
