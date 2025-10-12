@@ -103,7 +103,7 @@ while True:
     display.text(f"{humRH:.2f}%", WIDTH - 60, hum_y_offset, 1)
     
     # Show air quality values as a single text line at the bottom
-    air_text = f"A:{aqi} T:{tvoc} eCO2:{eco2}"
+    air_text = f"A:{aqi} T:{tvoc} C:{eco2}"
     display.text(air_text, 0, 56, 1)
     
     # Update display
@@ -114,3 +114,4 @@ while True:
     
     # Wait before next reading
     sleep_ms(500)  # Update every 500ms
+

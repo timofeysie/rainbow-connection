@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.1.7 - Added animation support for main emoji display
+# Emoji OS Zero v0.1.10
 import LCD_1in44
 import time
 import threading
@@ -153,7 +153,7 @@ thick_lips_matrix = [
 thick_lips_wink_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
-    ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
+    ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'B', 'Y'],
     ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
     ['Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y'],
     ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
@@ -680,33 +680,25 @@ try:
         
         # === Handle KEY1 button (Positive) ===
         if key1_pressed and not button_states['key1']:
-            print('debug KEY1 - menu:', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
-            if state == "choosing":
-                pos = (pos + 1) % 5
-                if pos == 0:
-                    pos = 1
-                neg = 0
-                check_pos()
-            elif state == "start":
-                state = "choosing"
-                pos = 1
-                neg = 0
-            elif state == "none":
-                state = "choosing"
-                pos = 1
-                neg = 0
-            elif prev_state == "done":
-                if (prev_neg > 0):
+            print('debug KEY1 - menu:', menu, "pos", pos, "neg", neg, 
+                "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
+
+            # Try toggle or replay previous if available
+            if prev_state == "done":
+                if prev_neg > 0:
                     # Toggle from previous negative to positive
                     pos = prev_neg
                     neg = 0
                     menu = prev_menu
                     print('KEY1 - Toggle from neg to pos, menu:', menu, "pos", pos, "neg", neg)
-                    # Start animation for the toggled emoji
                     animation_thread = threading.Thread(target=start_emoji_animation)
                     animation_thread.daemon = True
                     animation_thread.start()
-                elif (prev_pos > 0):
+                    draw_display()
+                    time.sleep(0.2)
+                    button_states['key1'] = key1_pressed
+                    continue
+                elif prev_pos > 0:
                     # Replay previous positive
                     pos = prev_pos
                     neg = 0

@@ -427,113 +427,31 @@ try:
         
         # === Handle KEY1 button (Positive) ===
         if key1_pressed and not button_states['key1']:
-            print('debug KEY1 - menu:', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
-            if state == "choosing":
-                pos = (pos + 1) % 5
-                if pos == 0:
-                    pos = 1
-                neg = 0
-                check_pos()
-            elif state == "start":
-                state = "choosing"
-                pos = 1
-                neg = 0
-            elif state == "none":
-                state = "choosing"
-                pos = 1
-                neg = 0
-            elif prev_state == "done":
-                if (prev_neg > 0):
+            print('debug KEY1 - menu:', menu, "pos", pos, "neg", neg, 
+                "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
+
+            # Try toggle or replay previous if available
+            if prev_state == "done":
+                if prev_neg > 0:
                     # Toggle from previous negative to positive
                     pos = prev_neg
                     neg = 0
                     menu = prev_menu
                     print('KEY1 - Toggle from neg to pos, menu:', menu, "pos", pos, "neg", neg)
-                    # Start animation for the toggled emoji
                     animation_thread = threading.Thread(target=start_emoji_animation)
                     animation_thread.daemon = True
                     animation_thread.start()
-                elif (prev_pos > 0):
+                    draw_display()
+                    time.sleep(0.2)
+                    button_states['key1'] = key1_pressed
+                    continue
+                elif prev_pos > 0:
                     # Replay previous positive
                     pos = prev_pos
                     neg = 0
                     menu = prev_menu
                     print('KEY1 - Replay prev pos, menu:', menu, "pos", pos, "neg", neg)
-                    # Start animation for the previous emoji
                     animation_thread = threading.Thread(target=start_emoji_animation)
                     animation_thread.daemon = True
                     animation_thread.start()
-            draw_display()
-            print('KEY1 - Positive:', pos, 'State:', state)
-            time.sleep(0.2)
-        button_states['key1'] = key1_pressed
-        
-        # === Handle KEY2 button (Menu/Confirm) ===
-        if key2_pressed and not button_states['key2']:
-            reset_prev()  # Clear previous state when navigating menus
-            if state == "start":
-                menu = (menu + 1) % 4
-                check_menu()
-            elif state == "none":
-                state = "start"
-            elif state == "choosing":
-                # Show selected emoji and trigger appropriate animation
-                print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
-                # Start animation in a separate thread
-                animation_thread = threading.Thread(target=start_emoji_animation)
-                animation_thread.daemon = True
-                animation_thread.start()
-                # Don't reset state here - let animation handle it
-            draw_display()
-            print('KEY2 - Menu:', menu, 'State:', state)
-            time.sleep(0.2)
-        button_states['key2'] = key2_pressed
-        
-        # === Handle KEY3 button (Negative) ===
-        if key3_pressed and not button_states['key3']:
-            print('debug KEY3 - menu:', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
-            if state == "choosing":
-                neg = (neg + 1) % 5
-                if neg == 0:
-                    neg = 1
-                pos = 0
-                check_neg()
-            elif state == "start":
-                state = "choosing"
-                neg = 1
-                pos = 0
-            elif state == "none":
-                state = "choosing"
-                neg = 1
-                pos = 0
-            elif prev_state == "done":
-                if (prev_pos > 0):
-                    # Toggle from previous positive to negative
-                    neg = prev_pos
-                    pos = 0
-                    menu = prev_menu
-                    print('KEY3 - Toggle from pos to neg, menu:', menu, "pos", pos, "neg", neg)
-                    # Start animation for the toggled emoji
-                    animation_thread = threading.Thread(target=start_emoji_animation)
-                    animation_thread.daemon = True
-                    animation_thread.start()
-                elif (prev_neg > 0):
-                    # Replay previous negative
-                    neg = prev_neg
-                    pos = 0
-                    menu = prev_menu
-                    print('KEY3 - Replay prev neg, menu:', menu, "pos", pos, "neg", neg)
-                    # Start animation for the previous emoji
-                    animation_thread = threading.Thread(target=start_emoji_animation)
-                    animation_thread.daemon = True
-                    animation_thread.start()
-            draw_display()
-            print('KEY3 - Negative:', neg, 'State:', state)
-            time.sleep(0.2)
-        button_states['key3'] = key3_pressed
-        
-        time.sleep(0.1)
-
-except KeyboardInterrupt:
-    print("Exiting...")
-    disp.module_exit()
+                    draw_disp
