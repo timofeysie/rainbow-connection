@@ -6,7 +6,8 @@ import threading
 
 from PIL import Image,ImageDraw,ImageFont,ImageColor
 from emojis_zero import *
-from animations_zero import fireworks_animation, rain_animation
+from animations_zero import fireworks_animation as fw_anim_func, rain_animation as rain_anim_func
+from emojis_zero import fireworks_animation, rain_animation
 
 # 240x240 display with hardware SPI:
 disp = LCD_1in44.LCD()
@@ -275,10 +276,6 @@ def start_procedural_animation():
     emoji_height = scale * 8
     start_x = (disp.width - emoji_width) // 2
     start_y = 64 + (64 - emoji_height)
-    
-    # Import animation functions
-    from animations_zero import fireworks_animation as fw_anim_func
-    from animations_zero import rain_animation as rain_anim_func
     
     interrupted = False
     
