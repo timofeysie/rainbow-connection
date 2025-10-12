@@ -1,11 +1,12 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.2.0 - Added animation support for main emoji display
+# Emoji OS Zero v0.2.2
 import LCD_1in44
 import time
 import threading
 
 from PIL import Image,ImageDraw,ImageFont,ImageColor
 from emojis_zero import *
+from animations_zero import fireworks_animation, rain_animation
 
 # 240x240 display with hardware SPI:
 disp = LCD_1in44.LCD()
@@ -32,6 +33,7 @@ state = "none"  # State: "none", "start", "choosing"
 is_winking = False  # Flag to control winking animation
 is_animating = False  # Flag to control main emoji animation
 animation_running = False  # Flag to prevent multiple animation threads
+stop_animation = False  # Flag to interrupt procedural animations
 
 # Previous state tracking for emoji toggling
 prev_menu = 0
@@ -119,6 +121,18 @@ def get_main_emoji():
         elif neg == 4:
             return green_monster_matrix
     
+    elif menu == 1:  # Animations menu
+        # Return preview matrices for animations
+        if state == "choosing":
+            if pos == 1:
+                return fireworks_animation.preview
+            elif neg == 1:
+                return rain_animation.preview
+        elif pos == 1:
+            return fireworks_animation.preview
+        elif neg == 1:
+            return rain_animation.preview
+    
     # Default to regular smiley for other menus
     return smiley_matrix
 
@@ -165,16 +179,20 @@ def get_main_emoji_animation():
     return smiley_wink_matrix
 
 def get_left_side_emojis():
-    """Get the left side emoji matrices for menu 0 (Emojis)"""
+    """Get the left side emoji matrices for menu 0 (Emojis) and menu 1 (Animations)"""
     if menu == 0:
         return [regular_matrix, happy_matrix, wry_matrix, heart_matrix]
+    elif menu == 1:
+        return [fireworks_animation.preview, smiley_matrix, smiley_matrix, smiley_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
 def get_right_side_emojis():
-    """Get the right side emoji matrices for menu 0 (Emojis)"""
+    """Get the right side emoji matrices for menu 0 (Emojis) and menu 1 (Animations)"""
     if menu == 0:
         return [thick_lips_matrix, sad_matrix, angry_matrix, green_monster_matrix]
+    elif menu == 1:
+        return [rain_animation.preview, smiley_matrix, smiley_matrix, smiley_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
@@ -219,6 +237,87 @@ def reset_prev():
     prev_pos = 0
     prev_neg = 0
 
+def check_animation_interruption():
+    """Check if user wants to interrupt the current animation"""
+    global stop_animation
+    key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
+    key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
+    
+    # If opposite button is pressed, signal interruption
+    if (menu == 1 and pos > 0 and key3_pressed) or (menu == 1 and neg > 0 and key1_pressed):
+        stop_animation = True
+        return True
+    return False
+
+def start_procedural_animation():
+    """Start a procedural animation (fireworks or rain) with interruption support"""
+    global animation_running, stop_animation, prev_menu, prev_pos, prev_neg, prev_state
+    global state, menu, pos, neg
+    
+    if animation_running:
+        return
+    
+    animation_running = True
+    stop_animation = False
+    
+    # Save current selection
+    prev_state = "done"
+    prev_menu = menu
+    prev_pos = pos
+    prev_neg = neg
+    
+    # Clear the display for animation
+    draw.rectangle((0, 0, disp.width, disp.height), outline=0, fill=0)
+    
+    # Calculate position for full-screen animation (bottom half like emojis)
+    scale = 7
+    emoji_width = scale * 8
+    emoji_height = scale * 8
+    start_x = (disp.width - emoji_width) // 2
+    start_y = 64 + (64 - emoji_height)
+    
+    # Import animation functions
+    from animations_zero import fireworks_animation as fw_anim_func
+    from animations_zero import rain_animation as rain_anim_func
+    
+    interrupted = False
+    
+    # Run the appropriate animation
+    if menu == 1 and pos == 1:
+        # Fireworks animation
+        interrupted = fw_anim_func(draw, disp, scale, start_x, start_y, 
+                                   iters=10, interruption_check=check_animation_interruption)
+    elif menu == 1 and neg == 1:
+        # Rain animation
+        interrupted = rain_anim_func(draw, disp, scale, start_x, start_y, 
+                                    iters=200, density=1, interruption_check=check_animation_interruption)
+    
+    # Handle interruption
+    if interrupted and stop_animation:
+        # User pressed opposite button - toggle pos/neg
+        if prev_pos > 0:
+            neg = prev_pos
+            pos = 0
+        elif prev_neg > 0:
+            pos = prev_neg
+            neg = 0
+        
+        # Reset flags
+        animation_running = False
+        stop_animation = False
+        
+        # Start the opposite animation immediately
+        start_procedural_animation()
+        return
+    
+    # Animation completed normally - reset state
+    state = "none"
+    pos = 0
+    neg = 0
+    animation_running = False
+    stop_animation = False
+    draw_display()
+
 def emoji_two_part_animation():
     """Function to handle two-part emoji animation: normal state then animation state"""
     global is_winking, is_animating, animation_running
@@ -250,21 +349,26 @@ def emoji_two_part_animation():
     animation_running = False
 
 def start_emoji_animation():
-    """Start the two-part animation for the selected emoji"""
-    # Save the current selection before animation starts
+    """Start the appropriate animation based on menu selection"""
     global prev_menu, prev_pos, prev_neg, prev_state, menu, pos, neg, state
-    prev_state = "done"
-    prev_menu = menu
-    prev_pos = pos
-    prev_neg = neg
     
-    # Run the animation
-    emoji_two_part_animation()
-    
-    # Reset to none state after animation completes (no menu selection)
-    state = "none"
-    pos = 0
-    neg = 0
+    # Check if this is a procedural animation (menu 1)
+    if menu == 1 and (pos == 1 or neg == 1):
+        start_procedural_animation()
+    else:
+        # Regular two-part emoji animation
+        prev_state = "done"
+        prev_menu = menu
+        prev_pos = pos
+        prev_neg = neg
+        
+        # Run the animation
+        emoji_two_part_animation()
+        
+        # Reset to none state after animation completes (no menu selection)
+        state = "none"
+        pos = 0
+        neg = 0
 
 def draw_display():
     """Draw the complete display"""
@@ -454,4 +558,115 @@ try:
                     animation_thread = threading.Thread(target=start_emoji_animation)
                     animation_thread.daemon = True
                     animation_thread.start()
-                    draw_disp
+                    draw_display()
+                    time.sleep(0.2)
+                    button_states['key1'] = key1_pressed
+                    continue
+
+            # Fallback to regular logic
+            if state == "choosing":
+                pos = (pos + 1) % 5
+                if pos == 0:
+                    pos = 1
+                neg = 0
+                check_pos()
+
+            elif state == "start":
+                state = "choosing"
+                pos = 1
+                neg = 0
+
+            elif state == "none":
+                state = "choosing"
+                pos = 1
+                neg = 0
+
+            draw_display()
+            print('KEY1 - Positive:', pos, 'State:', state)
+            time.sleep(0.2)
+        button_states['key1'] = key1_pressed
+        
+        # === Handle KEY2 button (Menu/Confirm) ===
+        if key2_pressed and not button_states['key2']:
+            # Only clear prev when *not* confirming the current choosing
+            if state != "choosing":
+                reset_prev()
+
+            if state == "start":
+                menu = (menu + 1) % 4
+                check_menu()
+            elif state == "none":
+                state = "start"
+            elif state == "choosing":
+                # Don’t reset prev here! First record prev, then animate
+                print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
+                animation_thread = threading.Thread(target=start_emoji_animation)
+                animation_thread.daemon = True
+                animation_thread.start()
+            draw_display()
+            print('KEY2 - Menu:', menu, 'State:', state)
+            time.sleep(0.2)
+        button_states['key2'] = key2_pressed
+        
+        # === Handle KEY3 button (Negative) ===
+        if key3_pressed and not button_states['key3']:
+            print('debug KEY3 - menu:', menu, "pos", pos, "neg", neg, 
+                  "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
+
+            # First, attempt the “toggle / replay previous” case if just after an animation
+            if prev_state == "done":
+                if prev_pos > 0:
+                    # Toggle from previous positive to negative
+                    neg = prev_pos
+                    pos = 0
+                    menu = prev_menu
+                    print('KEY3 - Toggle from pos to neg, menu:', menu, "pos", pos, "neg", neg)
+                    animation_thread = threading.Thread(target=start_emoji_animation)
+                    animation_thread.daemon = True
+                    animation_thread.start()
+                    # We do NOT reset prev_state here, so it doesn’t fall through to other branches
+                    draw_display()
+                    time.sleep(0.2)
+                    button_states['key3'] = key3_pressed
+                    continue
+                elif prev_neg > 0:
+                    # Replay previous negative
+                    neg = prev_neg
+                    pos = 0
+                    menu = prev_menu
+                    print('KEY3 - Replay prev neg, menu:', menu, "pos", pos, "neg", neg)
+                    animation_thread = threading.Thread(target=start_emoji_animation)
+                    animation_thread.daemon = True
+                    animation_thread.start()
+                    draw_display()
+                    time.sleep(0.2)
+                    button_states['key3'] = key3_pressed
+                    continue
+
+            # If we didn’t take the toggle/replay branch, do the normal logic
+            if state == "choosing":
+                neg = (neg + 1) % 5
+                if neg == 0:
+                    neg = 1
+                pos = 0
+                check_neg()
+
+            elif state == "start":
+                state = "choosing"
+                neg = 1
+                pos = 0
+
+            elif state == "none":
+                state = "choosing"
+                neg = 1
+                pos = 0
+
+            draw_display()
+            print('KEY3 - Negative:', neg, 'State:', state)
+            time.sleep(0.2)
+        button_states['key3'] = key3_pressed
+        time.sleep(0.1)
+
+except KeyboardInterrupt:
+    print("Exiting...")
+    disp.module_exit()

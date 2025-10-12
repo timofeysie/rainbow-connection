@@ -8,130 +8,17 @@ The Emoji OS Zero will be designed for a Raspberry Pi Zero 2 W with a Waveshare 
 
 The demo code from Waveshare demonstrates the joystick, button and display features of the LCD HAT.
 
-This is the [key_demo.py](https://github.com/Kudesnick/1.44inch-LCD-HAT-Code/blob/main/python/key_demo.py) code.
-
-```py
-# -*- coding:utf-8 -*-
-import LCD_1in44
-import LCD_Config
-
-import RPi.GPIO as GPIO
-
-import time
-from PIL import Image,ImageDraw,ImageFont,ImageColor
-
-KEY_UP_PIN     = 6 
-KEY_DOWN_PIN   = 19
-KEY_LEFT_PIN   = 5
-KEY_RIGHT_PIN  = 26
-KEY_PRESS_PIN  = 13
-KEY1_PIN       = 21
-KEY2_PIN       = 20
-KEY3_PIN       = 16
-
-#init GPIO
-GPIO.setmode(GPIO.BCM) 
-GPIO.cleanup()
-GPIO.setup(KEY_UP_PIN,      GPIO.IN, pull_up_down=GPIO.PUD_UP)    # Input with pull-up
-GPIO.setup(KEY_DOWN_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
-GPIO.setup(KEY_LEFT_PIN,    GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Input with pull-up
-GPIO.setup(KEY_RIGHT_PIN,   GPIO.IN, pull_up_down=GPIO.PUD_UP) # Input with pull-up
-GPIO.setup(KEY_PRESS_PIN,   GPIO.IN, pull_up_down=GPIO.PUD_UP) # Input with pull-up
-GPIO.setup(KEY1_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
-GPIO.setup(KEY2_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
-GPIO.setup(KEY3_PIN,        GPIO.IN, pull_up_down=GPIO.PUD_UP)      # Input with pull-up
-
-# 240x240 display with hardware SPI:
-disp = LCD_1in44.LCD()
-Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
-disp.LCD_Init(Lcd_ScanDir)
-disp.LCD_Clear()
-
-# Create blank image for drawing.
-# Make sure to create image with mode '1' for 1-bit color.
-width = 128
-height = 128
-image = Image.new('RGB', (width, height))
-
-# Get drawing object to draw on image.
-draw = ImageDraw.Draw(image)
-
-# Draw a black filled box to clear the image.
-draw.rectangle((0,0,width,height), outline=0, fill=0)
-disp.LCD_ShowImage(image,0,0)
-
-# try:
-while 1:
-    # with canvas(device) as draw:
-    if GPIO.input(KEY_UP_PIN) == 0: # button is released       
-        draw.polygon([(20, 20), (30, 2), (40, 20)], outline=255, fill=0xff00)  #Up        
-        print('Up')        
-    else: # button is pressed:
-        draw.polygon([(20, 20), (30, 2), (40, 20)], outline=255, fill=0)  #Up filled
-        
-    if GPIO.input(KEY_LEFT_PIN) == 0: # button is released
-        draw.polygon([(0, 30), (18, 21), (18, 41)], outline=255, fill=0xff00)  #left
-        print('left')        
-    else: # button is pressed:       
-        draw.polygon([(0, 30), (18, 21), (18, 41)], outline=255, fill=0)  #left filled
-        
-    if GPIO.input(KEY_RIGHT_PIN) == 0: # button is released
-        draw.polygon([(60, 30), (42, 21), (42, 41)], outline=255, fill=0xff00) #right
-        print('right')
-    else: # button is pressed:
-        draw.polygon([(60, 30), (42, 21), (42, 41)], outline=255, fill=0) #right filled       
-        
-    if GPIO.input(KEY_DOWN_PIN) == 0: # button is released
-        draw.polygon([(30, 60), (40, 42), (20, 42)], outline=255, fill=0xff00) #down
-        print('down')
-    else: # button is pressed:
-        draw.polygon([(30, 60), (40, 42), (20, 42)], outline=255, fill=0) #down filled
-        
-    if GPIO.input(KEY_PRESS_PIN) == 0: # button is released
-        draw.rectangle((20, 22,40,40), outline=255, fill=0xff00) #center 
-        print('center')
-    else: # button is pressed:
-        draw.rectangle((20, 22,40,40), outline=255, fill=0) #center filled
-        
-    if GPIO.input(KEY1_PIN) == 0: # button is released
-        draw.ellipse((70,0,90,20), outline=255, fill=0xff00) #A button
-        print('KEY1')
-    else: # button is pressed:
-        draw.ellipse((70,0,90,20), outline=255, fill=0) #A button filled
-        
-    if GPIO.input(KEY2_PIN) == 0: # button is released
-        draw.ellipse((100,20,120,40), outline=255, fill=0xff00) #B button]
-        print('KEY2')
-    else: # button is pressed:
-        draw.ellipse((100,20,120,40), outline=255, fill=0) #B button filled
-        
-    if GPIO.input(KEY3_PIN) == 0: # button is released
-        draw.ellipse((70,40,90,60), outline=255, fill=0xff00) #A button
-        print('KEY3')
-    else: # button is pressed:
-        draw.ellipse((70,40,90,60), outline=255, fill=0) #A button filled
-    disp.LCD_ShowImage(image,0,0)
-# except:
-	# print('except')
-    # GPIO.cleanup()
-```
-
-I want to create a new version of this file which removes the Bluetooth and nfc features from the emoji-os-pico.py code, and just creates the menu and emoji switching functionality using the above code methods.
-We do not want to install any new libraries.
-
-This file also depends on another python\emojis\emojis.py which we will handle next.
-
-Can you please create a new file called emoji-os-zero.py which is a copy of the emoji-os-pico.py file, but with the Bluetooth and nfc features removed.  It must use the same code methods as the key_demo.py file.
+This is the [key_demo.py](https://github.com/Kudesnick/1.44inch-LCD-HAT-Code/blob/main/python/key_demo.py) code which was used as the starting point for Emoji OS Zero.
 
 ## The menu
 
 The emoji-os-pico.py version relies on three buttons to control a menu and select an emoji.
 
-In this version, the middle button 
+In this version, the middle button is the menu.  The top and bottom buttons are the positive and negative emojis.
 
-button1 = pos (positive emojis)
-button2 = menu (menu position)
-button3 = neg (negative emojis)
+- key1 button = pos (positive emojis)
+- key2 button = menu (menu position)
+- key3 button = neg (negative emojis)
 
 The middle menu button2 moves the selected emoji category represented by four positions.  If the user goes past the end of the list it starts from the beginning again.
 
@@ -150,7 +37,8 @@ The new emoji-os-zero.py file will use a similar setup, but the menu can go up o
 
 The Emoji OS Zero provides a hierarchical menu system with 4 main categories, each containing multiple positive and negative options:
 
-### Menu Categories:
+### Menu Categories
+
 1. **Emojis** - Basic facial expressions and emotions
 2. **Animations** - Dynamic patterns and visual effects  
 3. **Characters** - Character-based designs and creatures
@@ -176,62 +64,11 @@ The Emoji OS Zero provides a hierarchical menu system with 4 main categories, ea
 | | | 2. YES | 2. NO |
 | | | 3. Somi | 3. (None) |
 
-### Navigation Controls:
+### Navigation Controls
+
 - **Joystick Up/Down**: Navigate between menu categories (0-3)
 - **Joystick Left/Right**: Select negative/positive options within a category
 - **Joystick Center Press**: Confirm selection and display emoji
 - **KEY1**: Quick positive selection
 - **KEY2**: Menu navigation and confirmation
 - **KEY3**: Quick negative selection
-
-## Issues modifying the emoji-os-pico.py
-
-Using the pico code to work with the Waveshare 1.44inch LCD HAT on a Raspberry Pi Zero 2 W was not working after a few attempts.
-
-I think the code written for the emoji-os-zero.py still needs some work.  When I try to run it on the zero with the waveshare 1.44inch LED hat, I am seeing this error:
-
-```sh
-tim@raspberrypi:~/emoji-os $ python emoji-os-zero.py
-Traceback (most recent call last):
-  File "/usr/lib/python3/dist-packages/gpiozero/pins/pi.py", line 411, in pin
-    pin = self.pins[info]
-          ~~~~~~~~~^^^^^^
-KeyError: PinInfo(number=31, name='GPIO6', names=frozenset({'BOARD31', 6, 'GPIO6', '6', 'J8:31', 'BCM6', 'WPI22'}), pull='', row=16, col=1, interfaces=frozenset({'', 'uart', 'gpio', 'smi', 'spi', 'i2c', 'dpi'}))
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/home/tim/emoji-os/emoji-os-zero.py", line 32, in <module>
-    disp = LCD_1in44.LCD()
-           ^^^^^^^^^^^^^^^
-  File "/home/tim/emoji-os/config.py", line 63, in __init__
-    self.GPIO_KEY_UP_PIN     = self.gpio_mode(KEY_UP_PIN,self.INPUT,True,None)
-                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/tim/emoji-os/config.py", line 84, in gpio_mode
-    return DigitalInputDevice(Pin,pull_up=pull_up,active_state=active_state)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/gpiozero/input_devices.py", line 162, in __init__
-    super().__init__(
-  File "/usr/lib/python3/dist-packages/gpiozero/mixins.py", line 243, in __init__
-    super().__init__(*args, **kwargs)
-  File "/usr/lib/python3/dist-packages/gpiozero/input_devices.py", line 79, in __init__
-    super().__init__(pin, pin_factory=pin_factory)
-  File "/usr/lib/python3/dist-packages/gpiozero/devices.py", line 553, in __init__
-    pin = self.pin_factory.pin(pin)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/gpiozero/pins/pi.py", line 413, in pin
-    pin = self.pin_class(self, info)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/gpiozero/pins/lgpio.py", line 126, in __init__
-    lgpio.gpio_claim_input(
-  File "/usr/lib/python3/dist-packages/lgpio.py", line 755, in gpio_claim_input
-    return _u2i(_lgpio._gpio_claim_input(handle&0xffff, lFlags, gpio))
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/lgpio.py", line 458, in _u2i
-    raise error(error_text(v))
-lgpio.error: 'GPIO busy'
-```
-
-Both libraries are trying to use the same GPIO pin (in your case, GPIO 6, 19, etc.), and this causes a conflict?  Since our demo code runs which is seen in the key_demo.py script, how about we apply our menu and emoji selection code to the working wy_demo.py so that we can proceed from a working standpoint?
-
-But I still see the runtime error: "Please set pin numbering mode using GPIO.setmode(GPIO.BOARD) or GPIO.setmode(GPIO.BCM)" at line 24.
