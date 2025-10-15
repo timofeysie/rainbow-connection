@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.2.2
+# Emoji OS Zero v0.2.3
 import LCD_1in44
 import time
 import threading
@@ -241,14 +241,18 @@ def reset_prev():
 def check_animation_interruption():
     """Check if user wants to interrupt the current animation"""
     global stop_animation
-    key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
-    key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
-    
-    # If opposite button is pressed, signal interruption
-    if (menu == 1 and pos > 0 and key3_pressed) or (menu == 1 and neg > 0 and key1_pressed):
-        stop_animation = True
-        return True
-    return False
+    try:
+        key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
+        key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
+        
+        # If opposite button is pressed, signal interruption
+        if (menu == 1 and pos > 0 and key3_pressed) or (menu == 1 and neg > 0 and key1_pressed):
+            stop_animation = True
+            return True
+        return False
+    except:
+        # If GPIO read fails, don't interrupt
+        return False
 
 def start_procedural_animation():
     """Start a procedural animation (fireworks or rain) with interruption support"""
@@ -282,29 +286,33 @@ def start_procedural_animation():
     # Run the appropriate animation
     if menu == 1 and pos == 1:
         # Fireworks animation
-        interrupted = fw_anim_func(draw, disp, scale, start_x, start_y, 
+        interrupted = fw_anim_func(draw, image, disp, scale, start_x, start_y, 
                                    iters=10, interruption_check=check_animation_interruption)
     elif menu == 1 and neg == 1:
         # Rain animation
-        interrupted = rain_anim_func(draw, disp, scale, start_x, start_y, 
+        interrupted = rain_anim_func(draw, image, disp, scale, start_x, start_y, 
                                     iters=200, density=1, interruption_check=check_animation_interruption)
     
-    # Handle interruption
+    # Handle interruption - toggle to opposite animation
     if interrupted and stop_animation:
         # User pressed opposite button - toggle pos/neg
         if prev_pos > 0:
             neg = prev_pos
             pos = 0
+            menu = prev_menu
         elif prev_neg > 0:
             pos = prev_neg
             neg = 0
+            menu = prev_menu
         
         # Reset flags
         animation_running = False
         stop_animation = False
         
-        # Start the opposite animation immediately
-        start_procedural_animation()
+        # Start the opposite animation in a new thread to avoid recursion
+        animation_thread = threading.Thread(target=start_procedural_animation)
+        animation_thread.daemon = True
+        animation_thread.start()
         return
     
     # Animation completed normally - reset state

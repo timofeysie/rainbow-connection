@@ -99,7 +99,7 @@ def render_grid_to_image(draw, grid, scale, start_x, start_y):
             y = start_y + row * scale
             draw.rectangle((x, y, x + scale, y + scale), fill=color)
 
-def fireworks_animation(draw, disp, scale, start_x, start_y, iters=10, interruption_check=None):
+def fireworks_animation(draw, image, disp, scale, start_x, start_y, iters=10, interruption_check=None):
     """
     Fireworks animation adapted from GlowBit library (lines 811-825)
     Draws expanding/contracting circles at random positions with random colors
@@ -136,7 +136,7 @@ def fireworks_animation(draw, disp, scale, start_x, start_y, iters=10, interrupt
             # Render to display
             draw.rectangle((start_x, start_y, start_x + scale * 8, start_y + scale * 8), fill=(0, 0, 0))
             render_grid_to_image(draw, grid, scale, start_x, start_y)
-            disp.LCD_ShowImage(draw._image, 0, 0)
+            disp.LCD_ShowImage(image, 0, 0)
             time.sleep(0.05)
         
         # Contracting circles (fade out)
@@ -150,14 +150,14 @@ def fireworks_animation(draw, disp, scale, start_x, start_y, iters=10, interrupt
             # Render to display
             draw.rectangle((start_x, start_y, start_x + scale * 8, start_y + scale * 8), fill=(0, 0, 0))
             render_grid_to_image(draw, grid, scale, start_x, start_y)
-            disp.LCD_ShowImage(draw._image, 0, 0)
+            disp.LCD_ShowImage(image, 0, 0)
             time.sleep(0.05)
         
         iters -= 1
     
     return False  # Animation completed normally
 
-def rain_animation(draw, disp, scale, start_x, start_y, iters=200, density=1, interruption_check=None):
+def rain_animation(draw, image, disp, scale, start_x, start_y, iters=200, density=1, interruption_check=None):
     """
     Rain animation adapted from GlowBit library (lines 876-913)
     Digital rain effect with falling green droplets
