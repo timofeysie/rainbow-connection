@@ -1,14 +1,264 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero v0.1.8 - Added animation support for main emoji display
-import LCD_1in44
 import time
 import threading
 
-from PIL import Image,ImageDraw,ImageFont,ImageColor
+# === Auto-detect environment ===
+def is_raspberry_pi():
+    """Detect if running on Raspberry Pi with LCD hardware"""
+    try:
+        import LCD_1in44  # noqa: F401
+        import LCD_Config  # noqa: F401
+        import RPi.GPIO as GPIO  # noqa: F401
+        import spidev  # noqa: F401
+        return True
+    except ImportError:
+        return False
 
-# 240x240 display with hardware SPI:
-disp = LCD_1in44.LCD()
-Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  #SCAN_DIR_DFT = D2U_L2R
+# === Import appropriate modules based on environment ===
+if is_raspberry_pi():
+    # Running on Raspberry Pi with actual LCD hardware
+    from PIL import Image,ImageDraw,ImageFont,ImageColor
+    import LCD_1in44
+    import RPi.GPIO as GPIO  # noqa: F401
+    print("Running on Raspberry Pi with LCD hardware")
+else:
+    # Running on laptop - use simulation
+    from PIL import Image,ImageDraw,ImageFont,ImageColor
+    import tkinter as tk
+    from tkinter import ttk
+    print("Running on laptop - using LCD simulation")
+
+    class _DispStub:
+        """Minimal stub to mimic Waveshare LCD API used by this script.
+        Provides dimensions and no-op methods so the script can run on a PC.
+        """
+        # Pins (to satisfy attribute access in code if ever used)
+        GPIO_KEY_UP_PIN = 6
+        GPIO_KEY_DOWN_PIN = 19
+        GPIO_KEY_LEFT_PIN = 5
+        GPIO_KEY_RIGHT_PIN = 26
+        GPIO_KEY_PRESS_PIN = 13
+        GPIO_KEY1_PIN = 21
+        GPIO_KEY2_PIN = 20
+        GPIO_KEY3_PIN = 16
+
+        def __init__(self):
+            self.width = 128
+            self.height = 128
+            self.simulation_window = None
+            self.simulation_label = None
+
+        def LCD_Init(self, *_args, **_kwargs):
+            return None
+
+        def LCD_Clear(self):
+            return None
+
+        def LCD_ShowImage(self, image, *_args, **_kwargs):
+            # Show image in tkinter window on laptop
+            if not self.simulation_window:
+                self._create_simulation_window()
+            
+            if self.simulation_label:
+                # Scale image for better visibility
+                scale_factor = 4
+                scaled_image = image.resize((self.width * scale_factor, self.height * scale_factor), Image.NEAREST)
+                
+                # Convert PIL image to PhotoImage
+                from PIL import ImageTk
+                photo = ImageTk.PhotoImage(scaled_image)
+                self.simulation_label.config(image=photo)
+                self.simulation_label.image = photo  # Keep a reference
+            return None
+
+        def digital_read(self, *_args, **_kwargs):
+            # Always return not pressed on laptop
+            return 1
+
+        def module_exit(self):
+            if self.simulation_window:
+                self.simulation_window.destroy()
+            return None
+
+        def _create_simulation_window(self):
+            """Create tkinter simulation window"""
+            self.simulation_window = tk.Tk()
+            self.simulation_window.title("Emoji OS Zero - LCD Simulation")
+            
+            # Create label to display image
+            self.simulation_label = tk.Label(self.simulation_window)
+            self.simulation_label.pack()
+            
+            # Add info text
+            info_label = tk.Label(self.simulation_window, text=f"Simulated {self.width}x{self.height} LCD Display (scaled 4x)")
+            info_label.pack()
+            
+            # Add control info
+            control_label = tk.Label(self.simulation_window, text="Controls: Left=KEY1, Down=KEY2, Right=KEY3, Up/Down=Menu, Enter=Center")
+            control_label.pack()
+            
+            # Add status label
+            self.status_label = tk.Label(self.simulation_window, text="Menu: 0, State: none, Pos: 0, Neg: 0")
+            self.status_label.pack()
+            
+            # Add close button
+            close_button = tk.Button(self.simulation_window, text="Close", command=self.simulation_window.destroy)
+            close_button.pack()
+            
+            # Bind keyboard events
+            self.simulation_window.bind('<Key>', self._on_key_press)
+            self.simulation_window.focus_set()  # Make sure window can receive key events
+
+        def _on_key_press(self, event):
+            """Handle keyboard input for simulation"""
+            global menu, pos, neg, state, prev_menu, prev_pos, prev_neg, prev_state
+            
+            if event.keysym == 'Up':
+                reset_prev()  # Clear previous state when navigating
+                if state == "none":
+                    state = "start"
+                elif state == "start":
+                    menu = (menu - 1) % 4
+                    check_menu()
+                elif state == "choosing":
+                    # In choosing mode, UP/DOWN should cycle through left side emojis (positive)
+                    pos = (pos - 1) % 5
+                    if pos == 0:
+                        pos = 4
+                    neg = 0
+                    check_pos()
+                draw_display()
+                print('Up - Menu:', menu, 'Pos:', pos, 'Neg:', neg, 'State:', state)
+                
+            elif event.keysym == 'Down':  # KEY2 (Menu/Confirm)
+                reset_prev()  # Clear previous state when navigating menus
+                if state == "start":
+                    menu = (menu + 1) % 4
+                    check_menu()
+                elif state == "none":
+                    state = "start"
+                elif state == "choosing":
+                    # Show selected emoji and trigger appropriate animation
+                    print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
+                    # Start animation in a separate thread
+                    animation_thread = threading.Thread(target=start_emoji_animation)
+                    animation_thread.daemon = True
+                    animation_thread.start()
+                    # Don't reset state here - let animation handle it
+                else:
+                    draw_display()
+                draw_display()
+                print('KEY2 - Menu:', menu, 'State:', state)
+                
+            elif event.keysym == 'Left':  # KEY1 (Positive)
+                print('debug KEY1 - menu:', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
+                if state == "choosing":
+                    pos = (pos + 1) % 5
+                    if pos == 0:
+                        pos = 1
+                    neg = 0
+                    check_pos()
+                elif state == "start":
+                    state = "choosing"
+                    pos = 1
+                    neg = 0
+                elif state == "none":
+                    state = "choosing"
+                    pos = 1
+                    neg = 0
+                elif prev_state == "done":
+                    if (prev_neg > 0):
+                        # Toggle from previous negative to positive (same position)
+                        pos = prev_neg
+                        neg = 0
+                        menu = prev_menu
+                        print('KEY1 - Toggle from neg to pos, menu:', menu, "pos", pos, "neg", neg)
+                        # Start animation for the toggled emoji
+                        animation_thread = threading.Thread(target=start_emoji_animation)
+                        animation_thread.daemon = True
+                        animation_thread.start()
+                    elif (prev_pos > 0):
+                        # Replay previous positive
+                        pos = prev_pos
+                        neg = 0
+                        menu = prev_menu
+                        print('KEY1 - Replay prev pos, menu:', menu, "pos", pos, "neg", neg)
+                        # Start animation for the previous emoji
+                        animation_thread = threading.Thread(target=start_emoji_animation)
+                        animation_thread.daemon = True
+                        animation_thread.start()
+                draw_display()
+                print('KEY1 - Positive:', pos, 'State:', state)
+                
+            elif event.keysym == 'Right':  # KEY3 (Negative)
+                print('debug KEY3 - menu:', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
+                if state == "choosing":
+                    neg = (neg + 1) % 5
+                    if neg == 0:
+                        neg = 1
+                    pos = 0
+                    check_neg()
+                elif state == "start":
+                    state = "choosing"
+                    neg = 1
+                    pos = 0
+                elif state == "none":
+                    state = "choosing"
+                    neg = 1
+                    pos = 0
+                elif prev_state == "done":
+                    if (prev_pos > 0):
+                        # Toggle from previous positive to negative
+                        neg = prev_pos
+                        pos = 0
+                        menu = prev_menu
+                        print('KEY3 - Toggle from pos to neg, menu:', menu, "pos", pos, "neg", neg)
+                        # Start animation for the toggled emoji
+                        animation_thread = threading.Thread(target=start_emoji_animation)
+                        animation_thread.daemon = True
+                        animation_thread.start()
+                    elif (prev_neg > 0):
+                        # Replay previous negative
+                        neg = prev_neg
+                        pos = 0
+                        menu = prev_menu
+                        print('KEY3 - Replay prev neg, menu:', menu, "pos", pos, "neg", neg)
+                        # Start animation for the previous emoji
+                        animation_thread = threading.Thread(target=start_emoji_animation)
+                        animation_thread.daemon = True
+                        animation_thread.start()
+                draw_display()
+                print('KEY3 - Negative:', neg, 'State:', state)
+                
+            elif event.keysym == 'Return':  # Center button
+                if state == "start":
+                    state = "choosing"
+                    pos = 1
+                    neg = 0
+                elif state == "choosing":
+                    # Show selected emoji and trigger appropriate animation
+                    print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
+                    # Start animation in a separate thread
+                    animation_thread = threading.Thread(target=start_emoji_animation)
+                    animation_thread.daemon = True
+                    animation_thread.start()
+                    # Don't reset state here - let animation handle it
+                else:
+                    draw_display()
+                print('Center - State:', state)
+            
+            # Update status label
+            if hasattr(self, 'status_label') and self.status_label:
+                self.status_label.config(text=f"Menu: {menu}, State: {state}, Pos: {pos}, Neg: {neg}")
+
+# 240x240 display with hardware SPI (or stub on laptop):
+if is_raspberry_pi():
+    disp = LCD_1in44.LCD()
+    Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  # SCAN_DIR_DFT = D2U_L2R
+else:
+    disp = _DispStub()
+    Lcd_ScanDir = 0
 disp.LCD_Init(Lcd_ScanDir)
 disp.LCD_Clear()
 
@@ -582,17 +832,19 @@ print("KEY2: Navigate/confirm")
 print("KEY3: Select negative")
 print("=" * 50)
 
-try:
-    while True:
-        # === Read button states ===
-        up_pressed = disp.digital_read(disp.GPIO_KEY_UP_PIN) == 0
-        down_pressed = disp.digital_read(disp.GPIO_KEY_DOWN_PIN) == 0
-        left_pressed = disp.digital_read(disp.GPIO_KEY_LEFT_PIN) == 0
-        right_pressed = disp.digital_read(disp.GPIO_KEY_RIGHT_PIN) == 0
-        center_pressed = disp.digital_read(disp.GPIO_KEY_PRESS_PIN) == 0
-        key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
-        key2_pressed = disp.digital_read(disp.GPIO_KEY2_PIN) == 0
-        key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
+# === Main execution ===
+if is_raspberry_pi():
+    try:
+        while True:
+            # === Read button states ===
+            up_pressed = disp.digital_read(disp.GPIO_KEY_UP_PIN) == 0
+            down_pressed = disp.digital_read(disp.GPIO_KEY_DOWN_PIN) == 0
+            left_pressed = disp.digital_read(disp.GPIO_KEY_LEFT_PIN) == 0
+            right_pressed = disp.digital_read(disp.GPIO_KEY_RIGHT_PIN) == 0
+            center_pressed = disp.digital_read(disp.GPIO_KEY_PRESS_PIN) == 0
+            key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
+            key2_pressed = disp.digital_read(disp.GPIO_KEY2_PIN) == 0
+            key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
         
         # === Handle UP button ===
         if up_pressed and not button_states['up']:
@@ -792,6 +1044,12 @@ try:
         
         time.sleep(0.1)
 
-except KeyboardInterrupt:
-    print("Exiting...")
-    disp.module_exit()
+    except KeyboardInterrupt:
+        print("Exiting...")
+        disp.module_exit()
+else:
+    # Running on laptop - show simulation window
+    print("Running on laptop - showing LCD simulation window")
+    draw_display()  # Draw initial display
+    if hasattr(disp, 'simulation_window') and disp.simulation_window:
+        disp.simulation_window.mainloop()
