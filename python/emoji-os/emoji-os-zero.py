@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.2.6
+# Emoji OS Zero v0.2.7
 import time
 import threading
 
@@ -541,8 +541,18 @@ def start_procedural_animation():
     global state, menu, pos, neg
     
     if animation_running:
+        print("DEBUG: Animation already running, skipping")
         return
     
+    # Memory monitoring
+    try:
+        import psutil
+        memory_info = psutil.virtual_memory()
+        print(f"DEBUG: Memory before animation - Used: {memory_info.used/1024/1024:.1f}MB, Available: {memory_info.available/1024/1024:.1f}MB")
+    except ImportError:
+        print("DEBUG: psutil not available for memory monitoring")
+    
+    print(f"DEBUG: Starting procedural animation - Menu: {menu}, Pos: {pos}, Neg: {neg}")
     animation_running = True
     stop_animation = False
     
@@ -552,6 +562,7 @@ def start_procedural_animation():
     prev_pos = pos
     prev_neg = neg
     
+    print("DEBUG: Clearing display for animation")
     # Clear the display for animation
     draw.rectangle((0, 0, disp.width, disp.height), outline=0, fill=0)
     
@@ -562,20 +573,37 @@ def start_procedural_animation():
     start_x = (disp.width - emoji_width) // 2
     start_y = 64 + (64 - emoji_height)
     
+    print(f"DEBUG: Animation position - start_x: {start_x}, start_y: {start_y}, scale: {scale}")
     interrupted = False
     
     # Run the appropriate animation
-    if menu == 1 and pos == 1:
-        # Fireworks animation
-        interrupted = fw_anim_func(draw, image, disp, scale, start_x, start_y, 
-                                   iters=10, interruption_check=check_animation_interruption)
-    elif menu == 1 and neg == 1:
-        # Rain animation
-        interrupted = rain_anim_func(draw, image, disp, scale, start_x, start_y, 
-                                    iters=200, density=1, interruption_check=check_animation_interruption)
+    try:
+        if menu == 1 and pos == 1:
+            # Fireworks animation - reduced iterations for Pi Zero
+            print("DEBUG: Starting fireworks animation")
+            iterations = 5 if is_raspberry_pi() else 10  # Reduce for Pi Zero
+            interrupted = fw_anim_func(draw, image, disp, scale, start_x, start_y, 
+                                       iters=iterations, interruption_check=check_animation_interruption)
+            print(f"DEBUG: Fireworks animation completed, interrupted: {interrupted}")
+        elif menu == 1 and neg == 1:
+            # Rain animation - reduced iterations and density for Pi Zero
+            print("DEBUG: Starting rain animation")
+            iterations = 50 if is_raspberry_pi() else 200  # Reduce for Pi Zero
+            density = 0.5 if is_raspberry_pi() else 1      # Reduce density for Pi Zero
+            interrupted = rain_anim_func(draw, image, disp, scale, start_x, start_y, 
+                                        iters=iterations, density=density, interruption_check=check_animation_interruption)
+            print(f"DEBUG: Rain animation completed, interrupted: {interrupted}")
+    except Exception as e:
+        print(f"DEBUG: Animation failed with error: {e}")
+        print(f"DEBUG: Error type: {type(e).__name__}")
+        interrupted = False
+        # Try to recover by showing normal display
+        print("DEBUG: Attempting to recover by showing normal display")
+        draw_display()
     
     # Handle interruption - toggle to opposite animation
     if interrupted and stop_animation:
+        print("DEBUG: Animation was interrupted, toggling to opposite")
         # User pressed opposite button - toggle pos/neg
         if prev_pos > 0:
             neg = prev_pos
@@ -597,11 +625,19 @@ def start_procedural_animation():
         return
     
     # Animation completed normally - reset state
+    print("DEBUG: Animation completed normally, resetting state")
     state = "none"
     pos = 0
     neg = 0
     animation_running = False
     stop_animation = False
+    
+    # Force garbage collection to free memory
+    import gc
+    gc.collect()
+    print("DEBUG: Garbage collection completed")
+    
+    print("DEBUG: Calling draw_display() after animation")
     draw_display()
 
 def emoji_two_part_animation():
