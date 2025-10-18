@@ -283,6 +283,11 @@ from emojis_zero import fireworks_animation, rain_animation
 
 # 240x240 display with hardware SPI (or stub on laptop):
 if is_raspberry_pi():
+    # Initialize GPIO for button reading
+    import RPi.GPIO as GPIO
+    GPIO.cleanup()
+    GPIO.setmode(GPIO.BCM)
+    
     disp = LCD_1in44.LCD()
     Lcd_ScanDir = LCD_1in44.SCAN_DIR_DFT  # SCAN_DIR_DFT = D2U_L2R
 else:
