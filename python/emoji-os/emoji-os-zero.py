@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.2.5
+# Emoji OS Zero v0.2.6
 import time
 import threading
 
@@ -518,15 +518,8 @@ def check_animation_interruption():
     """Check if user wants to interrupt the current animation"""
     global stop_animation
     try:
-        if is_raspberry_pi():
-            # Use GPIO directly on Raspberry Pi
-            import RPi.GPIO as GPIO
-            key1_pressed = GPIO.input(disp.GPIO_KEY1_PIN) == 0
-            key3_pressed = GPIO.input(disp.GPIO_KEY3_PIN) == 0
-        else:
-            # Use stub on laptop
-            key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
-            key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
+        key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
+        key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
         
         # If opposite button is pressed, signal interruption
         if (menu == 1 and pos > 0 and key3_pressed) or (menu == 1 and neg > 0 and key1_pressed):
@@ -723,16 +716,14 @@ if is_raspberry_pi():
     try:
         while True:
             # === Read button states ===
-            # Use GPIO directly on Raspberry Pi
-            import RPi.GPIO as GPIO
-            up_pressed = GPIO.input(disp.GPIO_KEY_UP_PIN) == 0
-            down_pressed = GPIO.input(disp.GPIO_KEY_DOWN_PIN) == 0
-            left_pressed = GPIO.input(disp.GPIO_KEY_LEFT_PIN) == 0
-            right_pressed = GPIO.input(disp.GPIO_KEY_RIGHT_PIN) == 0
-            center_pressed = GPIO.input(disp.GPIO_KEY_PRESS_PIN) == 0
-            key1_pressed = GPIO.input(disp.GPIO_KEY1_PIN) == 0
-            key2_pressed = GPIO.input(disp.GPIO_KEY2_PIN) == 0
-            key3_pressed = GPIO.input(disp.GPIO_KEY3_PIN) == 0
+            up_pressed = disp.digital_read(disp.GPIO_KEY_UP_PIN) == 0
+            down_pressed = disp.digital_read(disp.GPIO_KEY_DOWN_PIN) == 0
+            left_pressed = disp.digital_read(disp.GPIO_KEY_LEFT_PIN) == 0
+            right_pressed = disp.digital_read(disp.GPIO_KEY_RIGHT_PIN) == 0
+            center_pressed = disp.digital_read(disp.GPIO_KEY_PRESS_PIN) == 0
+            key1_pressed = disp.digital_read(disp.GPIO_KEY1_PIN) == 0
+            key2_pressed = disp.digital_read(disp.GPIO_KEY2_PIN) == 0
+            key3_pressed = disp.digital_read(disp.GPIO_KEY3_PIN) == 0
         
         # === Handle UP button ===
         if up_pressed and not button_states['up']:
