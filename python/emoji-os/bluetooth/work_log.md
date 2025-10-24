@@ -1,0 +1,126 @@
+# Work log
+
+## Next Debugging Steps
+
+Step 1: Run Service Discovery
+On the zero:
+python3 service_discovery.py
+This will show us exactly what services and characteristics the Pico is advertising.
+
+Step 2: Run Debug Client
+On your Pico
+python3 service_discovery.py
+
+This will show us detailed information about the service registration process.
+
+Step 3: Test Connection Again
+On your Zero, run:
+# In Thonny, run:
+client_debug.py
+
+
+## For the changelog
+
+v0.2.3 rain and firework animations implemented, but not working on the device.
+v0.2.6 non-zero simulation mode but controls don't work on the device. 
+
+## Bluetooth communication  prompts
+
+I have a Raspberry Pi Pico 2 w which I want to listen to commands that are sent from a Raspberry Pi Zero 2 W using either BLE or Bluetooth Classic mode.
+Lets create two simple test scripts, one for the zero in python to send signals to the pico, and one for the pico in micropython which will be connected to a laptop Thonny running the app and showing the output.
+
+
+
+
+
+I have a Raspberry Pi Pico 2 w which I want to listen to commands that are sent from a Raspberry Pi Zero 2 W using either BLE or Bluetooth Classic mode.
+Lets create two simple test scripts, one for the zero in python to send signals to the pico, and one for the pico in micropython which will be connected to a laptop Thonny running the app and showing the output.  The raspberry pi zero script will be called: python/bluetooth/copntroller.py and the pico script: python/bluetooth/client.py.
+Add some documentation to the python/bluetooth/product-requirements-document.md later.
+
+
+
+
+Bluetooth protocol choice: Which protocol would you prefer?
+c) Either one (choose the most straightforward option)
+
+Communication pattern: What type of commands will the Zero send to the Pico?
+a) Simple text commands (e.g., "ON", "OFF", "STATUS")
+
+Pico response behavior: Should the Pico respond back to the Zero?
+b) No, just receive and display commands
+
+
+
+First I tried the script and saw this:
+    ```>>> %Run controller.py
+BLE Controller Debug Version
+==================================================
+Scanning for 'Pico-Client' for 15 seconds...
+Make sure your Pico is running client.py and advertising...
+
+Found 23 total BLE devices:
+------------------------------------------------------------
+Unexpected error: 'BLEDevice' object has no attribute 'rssi'
+>>>
+```
+
+I removed the ```{device.rssi}``` occurance, then saw this:
+
+
+```
+BLE Controller Debug Version
+==================================================
+Scanning for 'Pico-Client' for 15 seconds...
+Make sure your Pico is running client.py and advertising...
+
+Found 21 total BLE devices:
+------------------------------------------------------------
+ 1. Name: (No Name)            | Address: 45:C3:FC:8C:83:0C | RSSI: x
+ 2. Name: (No Name)            | Address: 52:B3:A2:98:D9:97 | RSSI: x
+ 3. Name: (No Name)            | Address: 6F:C2:16:4C:96:05 | RSSI: x
+ 4. Name: (No Name)            | Address: 54:0C:7A:46:04:66 | RSSI: x
+ 5. Name: (No Name)            | Address: 88:C6:26:AC:57:74 | RSSI: x
+ 6. Name: (No Name)            | Address: 75:9A:62:74:78:8D | RSSI: x
+ 7. Name: S24 9B0A LE          | Address: CD:4D:7C:66:43:1A | RSSI: x
+ 8. Name: (No Name)            | Address: 4B:70:CE:9B:8E:EA | RSSI: x
+ 9. Name: (No Name)            | Address: 42:ED:CD:74:FF:E2 | RSSI: x
+10. Name: (No Name)            | Address: 19:0D:A1:75:3F:0C | RSSI: x
+11. Name: Pico-Client          | Address: 28:CD:C1:05:AB:A4 | RSSI: x
+    *** FOUND TARGET DEVICE! ***
+12. Name: PR BT 7CF6           | Address: 00:1F:FF:A9:0F:06 | RSSI: x
+13. Name: (No Name)            | Address: D0:77:9F:36:9F:70 | RSSI: x
+14. Name: (No Name)            | Address: 50:E5:B6:61:E1:56 | RSSI: x
+15. Name: (No Name)            | Address: 59:A9:C6:74:99:63 | RSSI: x
+16. Name: (No Name)            | Address: E9:6A:F6:E3:4C:8E | RSSI: x
+17. Name: (No Name)            | Address: C5:83:99:83:07:0D | RSSI: x
+18. Name: (No Name)            | Address: CE:A4:02:35:F5:CB | RSSI: x
+19. Name: (No Name)            | Address: CC:03:7B:7B:8C:93 | RSSI: x
+20. Name: (No Name)            | Address: F4:8E:9A:E0:42:A9 | RSSI: x
+21. Name: (No Name)            | Address: F8:5C:0E:79:80:46 | RSSI: x
+------------------------------------------------------------
+✓ Found Pico-Client at address: 28:CD:C1:05:AB:A4
+Connecting to 28:CD:C1:05:AB:A4...
+✓ Successfully connected!
+
+Sending test command...
+✗ Error sending command 'STATUS': Characteristic 6E400002-B5A3-F393-E0A9-E50E24DCCA9E was not found!
+
+Test completed successfully!
+Disconnected
+```
+
+What is the error from the test send?
+
+
+
+ Next Debugging Steps
+Now let's test this systematically:
+Step 1: Run Service Discovery
+On your Raspberry Pi Zero, run:
+This will show us exactly what services and characteristics the Pico is advertising.
+Step 2: Run Debug Client
+On your Pico, stop the current client and run:
+This will show us detailed information about the service registration process.
+Step 3: Test Connection Again
+On your Zero, run:
+
