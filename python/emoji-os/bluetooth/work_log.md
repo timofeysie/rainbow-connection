@@ -8,37 +8,127 @@ python3 service_discovery.py
 This will show us exactly what services and characteristics the Pico is advertising.
 
 Step 2: Run Debug Client
-On your Pico
-python3 service_discovery.py
+On the Pico, run:
+client_debug.py
 
 This will show us detailed information about the service registration process.
 
 Step 3: Test Connection Again
 On your Zero, run:
-# In Thonny, run:
+
 client_debug.py
 
-
-## For the changelog
-
-v0.2.3 rain and firework animations implemented, but not working on the device.
-v0.2.6 non-zero simulation mode but controls don't work on the device. 
-
-## Bluetooth communication  prompts
-
-I have a Raspberry Pi Pico 2 w which I want to listen to commands that are sent from a Raspberry Pi Zero 2 W using either BLE or Bluetooth Classic mode.
-Lets create two simple test scripts, one for the zero in python to send signals to the pico, and one for the pico in micropython which will be connected to a laptop Thonny running the app and showing the output.
+### Debugging outcome
 
 
+Output on the pcio:
+```
+>>> %Run -c $EDITOR_CONTENT
+BLE Client Debug Version
+========================================
+Initializing BLE...
+Creating peripheral...
+Initializing BLE Peripheral...
+Activating BLE...
+Setting up IRQ handler...
+Registering UART service...
+Service UUID: UUID('6e400001-b5a3-f393-e0a9-e50e24dcca9e')
+TX Characteristic: UUID('6e400003-b5a3-f393-e0a9-e50e24dcca9e')
+RX Characteristic: UUID('6e400002-b5a3-f393-e0a9-e50e24dcca9e')
+✓ Service registered successfully!
+TX handle: 9
+RX handle: 12
+Creating advertising payload...
+Advertising payload length: 34
+Starting advertising...
+Starting advertising with interval 500000μs...
+Setting up command handler...
 
+BLE Client started successfully!
+Waiting for connections...
+Available commands: ON, OFF, STATUS, BLINK
+Press Ctrl+C to stop
+✓ New connection: 64
+✗ Disconnected: 64
+Starting advertising with interval 500000μs...
+✓ New connection: 64
+✗ Disconnected: 64
+Starting advertising with interval 500000μs...
+✓ New connection: 64
+✗ Disconnected: 64
+Starting advertising with interval 500000μs...
+✓ New connection: 64
+✗ Disconnected: 64
+Starting advertising with interval 500000μs...
+```
 
+On the zero, when I run service_discovery.py
+This is the output:
+
+```
+BLE Service Discovery Debug
+========================================
+Connecting to Pico at 28:CD:C1:05:AB:A4...
+✓ Connected successfully!
+
+Discovering services and characteristics...
+Error: object of type 'BleakGATTServiceCollection' has no len()
+```
+
+I edit the len() fn out like this:
+
+print(f"\nFound {len(services)} services:")
+To 
+print(f"\nFound x services:")
+
+And this is the output:
+```
+BLE Service Discovery Debug
+========================================
+Connecting to Pico at 28:CD:C1:05:AB:A4...
+✓ Connected successfully!
+
+Discovering services and characteristics...
+
+Found xxx services:
+------------------------------------------------------------
+Service: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
+  Description: Nordic UART Service
+  Characteristics (2):
+    UUID: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+    Properties: ['write-without-response', 'write']
+    Description: Nordic UART RX
+
+    UUID: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
+    Properties: ['read', 'notify']
+    Description: Nordic UART TX
+
+------------------------------------------------------------
+Service: 00001801-0000-1000-8000-00805f9b34fb
+  Description: Generic Attribute Profile
+  Characteristics (1):
+    UUID: 00002a05-0000-1000-8000-00805f9b34fb
+    Properties: ['read']
+    Description: Service Changed
+
+------------------------------------------------------------
+
+Looking for Nordic UART Service...
+✓ Found Nordic UART Service: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
+✓ Found RX characteristic: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+✓ Found TX characteristic: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
+>>>
+```
+
+## Prompts
+
+### Initial prompt for planning
 
 I have a Raspberry Pi Pico 2 w which I want to listen to commands that are sent from a Raspberry Pi Zero 2 W using either BLE or Bluetooth Classic mode.
 Lets create two simple test scripts, one for the zero in python to send signals to the pico, and one for the pico in micropython which will be connected to a laptop Thonny running the app and showing the output.  The raspberry pi zero script will be called: python/bluetooth/copntroller.py and the pico script: python/bluetooth/client.py.
 Add some documentation to the python/bluetooth/product-requirements-document.md later.
 
-
-
+### Question and answers
 
 Bluetooth protocol choice: Which protocol would you prefer?
 c) Either one (choose the most straightforward option)
@@ -49,10 +139,10 @@ a) Simple text commands (e.g., "ON", "OFF", "STATUS")
 Pico response behavior: Should the Pico respond back to the Zero?
 b) No, just receive and display commands
 
-
-
 First I tried the script and saw this:
-    ```>>> %Run controller.py
+
+```
+>>> %Run controller.py
 BLE Controller Debug Version
 ==================================================
 Scanning for 'Pico-Client' for 15 seconds...
@@ -65,7 +155,6 @@ Unexpected error: 'BLEDevice' object has no attribute 'rssi'
 ```
 
 I removed the ```{device.rssi}``` occurance, then saw this:
-
 
 ```
 BLE Controller Debug Version
@@ -111,9 +200,8 @@ Disconnected
 
 What is the error from the test send?
 
+### Next Debugging Steps
 
-
- Next Debugging Steps
 Now let's test this systematically:
 Step 1: Run Service Discovery
 On your Raspberry Pi Zero, run:
