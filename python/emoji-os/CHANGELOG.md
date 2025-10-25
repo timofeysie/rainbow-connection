@@ -17,6 +17,10 @@ Original three button emoji menu with plus/minus toggle.
 
 rain and firework animations implemented, but not working on the device.
 
-## v0.2.6
+## Emoji OS Zero v0.2.7
 
 non-zero simulation mode but controls don't work on the device.
+
+## Emoji OS Zero v0.3.0
+
+Based on v0.2.3 NOT Emoji OS Zero v0.2.7 which is the non-zero simulation mode that does not work for button/joystick input.

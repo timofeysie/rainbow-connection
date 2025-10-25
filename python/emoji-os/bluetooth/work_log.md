@@ -62,10 +62,9 @@ Starting advertising with interval 500000μs...
 Starting advertising with interval 500000μs...
 ```
 
-On the zero, when I run service_discovery.py
-This is the output:
+On the zero, when I run service_discovery.py, this is the output:
 
-```
+```sh
 BLE Service Discovery Debug
 ========================================
 Connecting to Pico at 28:CD:C1:05:AB:A4...
@@ -142,7 +141,7 @@ b) No, just receive and display commands
 
 First I tried the script and saw this:
 
-```
+```sh
 >>> %Run controller.py
 BLE Controller Debug Version
 ==================================================
@@ -157,7 +156,7 @@ Unexpected error: 'BLEDevice' object has no attribute 'rssi'
 
 I removed the ```{device.rssi}``` occurance, then saw this:
 
-```
+```sh
 BLE Controller Debug Version
 ==================================================
 Scanning for 'Pico-Client' for 15 seconds...
@@ -201,15 +200,24 @@ Disconnected
 
 What is the error from the test send?
 
-### Next Debugging Steps
+### Implementing the solution
 
-Now let's test this systematically:
-Step 1: Run Service Discovery
-On your Raspberry Pi Zero, run:
-This will show us exactly what services and characteristics the Pico is advertising.
-Step 2: Run Debug Client
-On your Pico, stop the current client and run:
-This will show us detailed information about the service registration process.
-Step 3: Test Connection Again
-On your Zero, run:
+After the above debugging, the communication between the zero and the pico is working.
 
+This has been a long time coming.  Since my initial failures with trying to get a Pico 2 W to work in central mode, and then the same thing with the FireBeetle 2 ESP32 board, I was beginning to think it was not possible.
+
+I was told in theory that a Raspberry pi zero could send signals to a Pico, but again, until it works, and can be used in emoji OS, it was still just an experiment.
+
+Now I can move on to using the same method to send signals from the zero controller to the pico and have the emojis chosen that way.  Time to write the prompt for that.
+
+I think I will have to start with the python\emoji-os\emoji-os-zero-0.2.3.py file.
+
+Emoji OS Zero v0.2.7 with the PC simulation mode will not accept key or joystick input.  It did prove that the animation code currently could work, as it does on a PC, but that's another story.
+
+We have a working controller.py running on a Raspberry Pi Zero 2 W that sends signals to a Raspberry Pi Pico 2 running the client.py file.
+
+We want the controller to send the chosen emoji to the pico which can then display the emoji on the LCD display.
+
+Look at the code in the python\emoji-os\emoji-os-zero-0.2.3.py and add the functionality from the python\emoji-os\bluetooth\controller.py file to send the main and sub-menu values to the pico.
+
+We can make things simple and send a single string with the main menu value, a separator token and the sub-menu value.
