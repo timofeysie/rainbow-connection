@@ -20,9 +20,9 @@ client_debug.py
 
 ### Debugging outcome
 
+Output on the pico:
 
-Output on the pcio:
-```
+```sh
 >>> %Run -c $EDITOR_CONTENT
 BLE Client Debug Version
 ========================================
@@ -77,12 +77,13 @@ Error: object of type 'BleakGATTServiceCollection' has no len()
 
 I edit the len() fn out like this:
 
-print(f"\nFound {len(services)} services:")
-To 
-print(f"\nFound x services:")
+```print(f"\nFound {len(services)} services:")```
+To:
+```print(f"\nFound x services:")```
 
 And this is the output:
-```
+
+```sh
 BLE Service Discovery Debug
 ========================================
 Connecting to Pico at 28:CD:C1:05:AB:A4...

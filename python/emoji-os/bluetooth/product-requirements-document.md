@@ -33,7 +33,7 @@ This project implements Bluetooth Low Energy (BLE) communication between a Raspb
 
 ### Raspberry Pi Pico 2 W
 - MicroPython firmware with BLE support
-- `ble_advertising.py` helper module (included in project)
+- `ble_advertising.py` helper module (copy from `python/pico_w/ble_advertising.py`)
 
 ## BLE Protocol Details
 
@@ -62,8 +62,8 @@ This project implements Bluetooth Low Energy (BLE) communication between a Raspb
    - Configure interpreter for MicroPython on Pico
 
 3. **Upload Required Files**:
-   - Copy `ble_advertising.py` from `python/pico_w/` to Pico
-   - Copy `client.py` to Pico
+   - Copy `ble_advertising.py` from `python/pico_w/` to Pico root directory
+   - Copy `client.py` to Pico root directory
    - Ensure both files are in the root directory
 
 4. **Run the Client**:
@@ -120,37 +120,50 @@ After the automatic command sequence, the controller offers interactive mode:
 ## Expected Output
 
 ### Pico Client Console Output
-```
+
+```sh
+BLE Client for Raspberry Pi Pico 2 W
+==================================================
 BLE Client started
 Waiting for connections...
 Available commands: ON, OFF, STATUS, BLINK
+Press Ctrl+C to stop
 Starting advertising...
-New connection: 1
-Received command: 'ON'
+✓ Connected: 64
+✓ Received command: 'ON'
 Command: Turning ON
-Received command: 'OFF'
+✓ Received command: 'OFF'
 Command: Turning OFF
-Received command: 'STATUS'
+✓ Received command: 'STATUS'
 Command: STATUS requested
 LED is OFF
-Received command: 'BLINK'
+✓ Received command: 'BLINK'
 Command: BLINK
 ```
 
 ### Zero Controller Console Output
-```
+
+```sh
 BLE Controller for Raspberry Pi Zero 2 W
 ==================================================
 Scanning for 'Pico-Client' for 10 seconds...
-Found Pico-Client at address: XX:XX:XX:XX:XX:XX
-Connecting to XX:XX:XX:XX:XX:XX...
-Successfully connected!
+Make sure your Pico is running client.py...
+Found 5 BLE devices:
+--------------------------------------------------
+ 1. Pico-Client          | 28:CD:C1:05:AB:A4
+    *** FOUND TARGET DEVICE! ***
+ 2. iPhone               | AA:BB:CC:DD:EE:FF
+ 3. (No Name)            | 11:22:33:44:55:66
+--------------------------------------------------
+✓ Found Pico-Client at address: 28:CD:C1:05:AB:A4
+Connecting to 28:CD:C1:05:AB:A4...
+✓ Successfully connected!
 
 Sending command sequence...
-Sent command: 'ON'
-Sent command: 'OFF'
-Sent command: 'STATUS'
-Sent command: 'BLINK'
+✓ Sent command: 'ON'
+✓ Sent command: 'OFF'
+✓ Sent command: 'STATUS'
+✓ Sent command: 'BLINK'
 
 Would you like to enter interactive mode? (y/n):
 ```
@@ -161,23 +174,24 @@ Would you like to enter interactive mode? (y/n):
 
 1. **"Could not find 'Pico-Client'"**:
    - Ensure Pico is running `client.py`
-   - Check that BLE is enabled on both devices
-   - Try restarting both devices
+   - Check that Pico shows 'Starting advertising...'
+   - Try moving devices closer together
+   - Restart both devices
 
 2. **"Failed to connect"**:
    - Check Bluetooth permissions on Zero
    - Ensure devices are within range (typically 10m)
    - Restart Bluetooth service: `sudo systemctl restart bluetooth`
 
-3. **"Not connected to any device"**:
-   - Connection may have dropped
-   - Restart both scripts
-   - Check for interference from other Bluetooth devices
+3. **"Characteristic not found"**:
+   - Verify `ble_advertising.py` is present on Pico
+   - Check that Pico shows "Service registered successfully!"
+   - Restart Pico client script
 
 4. **Commands not received**:
    - Verify Pico is still running and connected
    - Check Thonny console for error messages
-   - Ensure `ble_advertising.py` is present on Pico
+   - Ensure connection is stable (LED should be solid on Pico)
 
 ### Debug Tips
 
@@ -196,13 +210,21 @@ Would you like to enter interactive mode? (y/n):
 
 ## File Structure
 
-```
+```sh
 python/bluetooth/
 ├── client.py                           # Pico 2 W MicroPython script
 ├── controller.py                       # Zero 2 W Python script
 ├── product-requirements-document.md    # This documentation
 └── ble_advertising.py                  # Required helper (copy from pico_w/)
 ```
+
+## Testing Workflow
+
+1. Copy `ble_advertising.py` from `python/pico_w/` to Pico root directory
+2. Copy `client.py` to Pico root directory
+3. Run `client.py` on Pico - should show "Starting advertising"
+4. Run `controller.py` on Zero - should connect and send commands
+5. Verify commands appear in Pico's Thonny console
 
 ## Future Enhancements
 

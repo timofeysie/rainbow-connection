@@ -1,6 +1,7 @@
 """
 BLE Client for Raspberry Pi Pico 2 W
 Acts as a BLE peripheral that receives commands from a central device (Pi Zero 2 W)
+Enhanced with debugging and connection stability improvements
 """
 
 import bluetooth
@@ -42,7 +43,10 @@ class BLESimplePeripheral:
         self._ble = ble
         self._ble.active(True)
         self._ble.irq(self._irq)
+        
+        # Register the UART service
         ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((_UART_SERVICE,))
+        
         self._connections = set()
         self._write_callback = None
         self._payload = advertising_payload(name=name, services=[_UART_UUID])
@@ -52,12 +56,13 @@ class BLESimplePeripheral:
         """Handle BLE events"""
         if event == _IRQ_CENTRAL_CONNECT:
             conn_handle, _, _ = data
-            print(f"New connection: {conn_handle}")
+            print(f"✓ Connected: {conn_handle}")
             self._connections.add(conn_handle)
         elif event == _IRQ_CENTRAL_DISCONNECT:
             conn_handle, _, _ = data
-            print(f"Disconnected: {conn_handle}")
+            print(f"✗ Disconnected: {conn_handle}")
             self._connections.remove(conn_handle)
+            # Restart advertising after disconnect
             self._advertise()
         elif event == _IRQ_GATTS_WRITE:
             conn_handle, value_handle = data
@@ -77,9 +82,6 @@ class BLESimplePeripheral:
     def _advertise(self, interval_us=500000):
         """Start advertising the BLE service"""
         print("Starting advertising...")
-        print(f"Device name: Pico-Client")
-        print(f"Service UUID: {_UART_UUID}")
-        print(f"Advertising interval: {interval_us}μs")
         self._ble.gap_advertise(interval_us, adv_data=self._payload)
 
     def on_write(self, callback):
@@ -92,7 +94,7 @@ def handle_command(command_data):
     try:
         # Decode the command
         command = command_data.decode('utf-8').strip()
-        print(f"Received command: '{command}'")
+        print(f"✓ Received command: '{command}'")
         
         # Process different commands
         if command == "ON":
@@ -115,22 +117,22 @@ def handle_command(command_data):
             print(f"Unknown command: '{command}'")
             
     except Exception as e:
-        print(f"Error processing command: {e}")
+        print(f"✗ Error processing command: {e}")
 
 
 def main():
     """Main function to run the BLE client"""
     global led
     
+    print("BLE Client for Raspberry Pi Pico 2 W")
+    print("=" * 50)
+    
     # Initialize LED for visual feedback
     led = Pin("LED", Pin.OUT)
     led.off()
     
-    print("Initializing BLE...")
     # Initialize BLE
     ble = bluetooth.BLE()
-    print("BLE initialized successfully")
-    
     peripheral = BLESimplePeripheral(ble, "Pico-Client")
     
     # Set up command handler

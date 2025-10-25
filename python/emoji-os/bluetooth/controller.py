@@ -1,6 +1,7 @@
 """
 BLE Controller for Raspberry Pi Zero 2 W
 Acts as a BLE central that connects to Pico 2 W and sends commands
+Enhanced with better error handling and connection stability
 """
 
 import asyncio
@@ -30,17 +31,36 @@ class BLEController:
     async def scan_for_device(self, timeout=10):
         """Scan for the target Pico device"""
         print(f"Scanning for '{TARGET_DEVICE_NAME}' for {timeout} seconds...")
+        print("Make sure your Pico is running client.py...")
         
         devices = await BleakScanner.discover(timeout=timeout)
         
-        for device in devices:
+        print(f"Found {len(devices)} BLE devices:")
+        print("-" * 50)
+        
+        target_found = False
+        for i, device in enumerate(devices, 1):
+            name = device.name or "(No Name)"
+            print(f"{i:2d}. {name:<20} | {device.address}")
+            
             if device.name == TARGET_DEVICE_NAME:
-                print(f"Found {TARGET_DEVICE_NAME} at address: {device.address}")
+                print(f"    *** FOUND TARGET DEVICE! ***")
                 self.device_address = device.address
-                return True
-                
-        print(f"Could not find '{TARGET_DEVICE_NAME}'")
-        return False
+                target_found = True
+        
+        print("-" * 50)
+        
+        if target_found:
+            print(f"✓ Found {TARGET_DEVICE_NAME} at address: {self.device_address}")
+            return True
+        else:
+            print(f"✗ Could not find '{TARGET_DEVICE_NAME}'")
+            print("\nTroubleshooting tips:")
+            print("1. Make sure Pico is running client.py")
+            print("2. Check that Pico shows 'Starting advertising...'")
+            print("3. Try moving devices closer together")
+            print("4. Restart both devices")
+            return False
     
     async def connect_to_device(self):
         """Connect to the discovered Pico device"""
@@ -54,14 +74,14 @@ class BLEController:
             await self.client.connect()
             
             if self.client.is_connected:
-                print("Successfully connected!")
+                print("✓ Successfully connected!")
                 return True
             else:
-                print("Failed to connect")
+                print("✗ Failed to connect")
                 return False
                 
         except Exception as e:
-            print(f"Connection error: {e}")
+            print(f"✗ Connection error: {e}")
             return False
     
     async def send_command(self, command):
@@ -76,11 +96,11 @@ class BLEController:
             
             # Write to the RX characteristic
             await self.client.write_gatt_char(UART_RX_CHAR_UUID, command_bytes)
-            print(f"Sent command: '{command}'")
+            print(f"✓ Sent command: '{command}'")
             return True
             
         except Exception as e:
-            print(f"Error sending command '{command}': {e}")
+            print(f"✗ Error sending command '{command}': {e}")
             return False
     
     async def disconnect(self):
@@ -131,14 +151,17 @@ async def main():
     controller = BLEController()
     
     try:
+        print("BLE Controller for Raspberry Pi Zero 2 W")
+        print("=" * 50)
+        
         # Scan for the Pico device
         if not await controller.scan_for_device():
-            print("Exiting - could not find target device")
+            print("\nExiting - could not find target device")
             return
         
         # Connect to the device
         if not await controller.connect_to_device():
-            print("Exiting - could not connect to device")
+            print("\nExiting - could not connect to device")
             return
         
         # Send automatic command sequence
@@ -166,9 +189,6 @@ async def main():
 
 def run_controller():
     """Entry point for running the controller"""
-    print("BLE Controller for Raspberry Pi Zero 2 W")
-    print("=" * 50)
-    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
