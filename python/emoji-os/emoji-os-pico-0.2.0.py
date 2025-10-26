@@ -1,26 +1,15 @@
-# emoji os v0.1.5
+# emoji os v0.2.0 - Enhanced with BLE Controller functionality
 import glowbit
 from machine import Pin
 import time
 from emojis import *
 
-from PiicoDev_RFID import PiicoDev_RFID
-from PiicoDev_Unified import sleep_ms
-from PiicoDev_SSD1306 import *
-import network   # handles connecting to WiFi
-import urequests # handles making and servicing network requests
-import time
-import secrets
-
-# NFC & Bluetooth setup
+# === BLE Imports ===
 import bluetooth
-import random
-import struct
-from machine import Pin
 from ble_advertising import advertising_payload
-
 from micropython import const
 
+# === BLE Constants ===
 _IRQ_CENTRAL_CONNECT = const(1)
 _IRQ_CENTRAL_DISCONNECT = const(2)
 _IRQ_GATTS_WRITE = const(3)
@@ -30,6 +19,7 @@ _FLAG_WRITE_NO_RESPONSE = const(0x0004)
 _FLAG_WRITE = const(0x0008)
 _FLAG_NOTIFY = const(0x0010)
 
+# Nordic UART Service UUIDs
 _UART_UUID = bluetooth.UUID("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
 _UART_TX = (
     bluetooth.UUID("6E400003-B5A3-F393-E0A9-E50E24DCCA9E"),
@@ -44,62 +34,28 @@ _UART_SERVICE = (
     (_UART_TX, _UART_RX),
 )
 
-
-# Connect to network
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
-
-# Attempt to connect to the network
-wlan.connect(secrets.ssid, secrets.password)
-
-# Wait for the connection to establish
-time.sleep(10)
-
-# Check if the connection was successful
-if wlan.isconnected():
-    print("Connected to the network")
-else:
-    print("Failed to connect to the network")
-
-# Example urequests can also handle basic json support! Let's get the current time from a server
-print("\n\n2. Querying the current GMT+0 time:")
-r = urequests.get("http://date.jsontest.com") # Server that returns the current GMT+0 time.
-print(r.json())
-
-## RFID & Display
-display = create_PiicoDev_SSD1306()
-
-data = r.json()
-date_str = str(data['date'])
-time_str = str(data['time'])
-display_str = date_str + " " + time_str
-display.text(display_str, 0,0, 1)
-
-rfid = PiicoDev_RFID()   # Initialise the RFID module
-
-print('Place tag near the PiicoDev RFID Module')
-print(rfid)
-display.show()
-
-## Emoji OS
+# === Hardware Setup ===
 matrix = glowbit.matrix8x8()
 matrix.pixelsFill(matrix.black())
 button1 = Pin(22, Pin.IN, Pin.PULL_DOWN)
 button2 = Pin(21, Pin.IN, Pin.PULL_DOWN)
 button3 = Pin(20, Pin.IN, Pin.PULL_DOWN)
 buzzer = Pin(11, Pin.OUT)
+led_onboard = Pin("LED", Pin.OUT)
 
+# === State Variables ===
 menu = 0
 pos = 0
 neg = 0
-state = "none" # start end or none
+state = "none"  # start end or none
 # preserve the previous state for pos/neg flipping
 prev_menu = 0
 prev_pos = 0
 prev_neg = 0
-prev_state = "none" # or done
+prev_state = "none"  # or done
 pause = 0.2
 
+# === Helper Functions ===
 def check_menu():
     global menu
     if menu > 3:
@@ -217,8 +173,8 @@ def draw_emoji():
     global menu
     global pos
     global neg
-    print ("draw emoji menu at", menu, "pos at", pos, "neg at", neg, "state", state)
-    matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond = 0.7)
+    print("draw emoji menu at", menu, "pos at", pos, "neg at", neg, "state", state)
+    matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond=0.7)
     #==========
     #POSITIVE 0
     # regular
@@ -259,12 +215,12 @@ def draw_emoji():
     # fireworks
     if (menu == 1 and pos == 1):
         print("menu 1 pos 1 fireworks " + state)
-        matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond = 1)
+        matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond=1)
         matrix.fireworks()
     # circularRainbow
     if (menu == 1 and pos == 2):
         print("menu 1 pos 2 circularRainbow")
-        matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond = 20)
+        matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond=20)
         matrix.circularRainbow()
     # scroll_large_image
     if (menu == 1 and pos == 3):
@@ -279,7 +235,7 @@ def draw_emoji():
     # rain
     if (menu == 1 and neg == 1):
         print("menu 1 neg 1 rain")
-        matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond = 5)
+        matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond=5)
         matrix.rain()
     # ??
     if (menu == 1 and neg == 2):
@@ -359,27 +315,38 @@ def draw_emoji():
         # do we need this in scrolling mode?
         reset_state()
 
-
+# === BLE Classes ===
 class BLESimplePeripheral:
-    def __init__(self, ble, name="mpy-uart"):
+    """BLE Peripheral that advertises UART service and receives emoji commands"""
+    
+    def __init__(self, ble, name="Pico-Client"):
         self._ble = ble
+        # Force BLE stack reset to clear cached name
+        self._ble.active(False)
+        time.sleep(0.1)
         self._ble.active(True)
+        time.sleep(0.1)
         self._ble.irq(self._irq)
+        
+        # Register the UART service
         ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((_UART_SERVICE,))
+        
         self._connections = set()
         self._write_callback = None
         self._payload = advertising_payload(name=name, services=[_UART_UUID])
         self._advertise()
 
     def _irq(self, event, data):
+        """Handle BLE events"""
         if event == _IRQ_CENTRAL_CONNECT:
             conn_handle, _, _ = data
-            print("New connection", conn_handle)
+            print(f"✓ Connected: {conn_handle}")
             self._connections.add(conn_handle)
         elif event == _IRQ_CENTRAL_DISCONNECT:
             conn_handle, _, _ = data
-            print("Disconnected", conn_handle)
+            print(f"✗ Disconnected: {conn_handle}")
             self._connections.remove(conn_handle)
+            # Restart advertising after disconnect
             self._advertise()
         elif event == _IRQ_GATTS_WRITE:
             conn_handle, value_handle = data
@@ -388,75 +355,128 @@ class BLESimplePeripheral:
                 self._write_callback(value)
 
     def send(self, data):
+        """Send data to connected central devices"""
         for conn_handle in self._connections:
             self._ble.gatts_notify(conn_handle, self._handle_tx, data)
 
     def is_connected(self):
+        """Check if any central device is connected"""
         return len(self._connections) > 0
 
     def _advertise(self, interval_us=500000):
-        print("Starting advertising")
+        """Start advertising the BLE service"""
+        print("Starting advertising...")
         self._ble.gap_advertise(interval_us, adv_data=self._payload)
 
     def on_write(self, callback):
+        """Set callback for when data is written to RX characteristic"""
         self._write_callback = callback
 
-led_onboard = Pin("LED", Pin.OUT)
-ble = bluetooth.BLE()
-p = BLESimplePeripheral(ble)
-
-def on_rx(v):
-    print("RX", v)
-
-p.on_write(on_rx)
-
-i = 0
-
-while True:
-    if rfid.tagPresent():  # if an RFID tag is present
-        id = rfid.readID()   # get the id
-        matrix.pixelsFill(matrix.black()) # clear the glowbit
-        if (id == "5B:6F:B8:08"):
-            display.fill(0)
-            print("R12")
-            display.text(display_str, 0,0, 1)
-            display.text("R12 - Monkey", 0,15, 1)
-            matrix.drawCircle(3, 3, 3, matrix.blue())
-            matrix.pixelsShow()
-        elif (id == "DB:93:B7:08"):
-            display.fill(0)
-            print("W3 - Clown")
-            display.text(display_str, 0,0, 1)
-            display.text("W3 - Clown", 0,15, 1)
-            matrix.drawLine(0, 0, 7, 7, matrix.red())
-            matrix.drawLine(0, 7, 7, 0, matrix.red())
-            matrix.pixelsShow()
-        else:
-            print(id)
-            display.fill(0)
-            display.text(display_str, 0,0, 1)
-            display.text(id, 0,15, 1)
-        display.show()
-
-        # bluetooth demo part from the first script
-        if p.is_connected():
+# === BLE Command Handlers ===
+def handle_command(command_data):
+    """Handle incoming commands from central device"""
+    try:
+        # Decode the command
+        command = command_data.decode('utf-8').strip()
+        print(f"✓ Received command: '{command}'")
+        
+        # Check if this is an emoji command (format: "MENU:POS:NEG")
+        if ':' in command:
+            try:
+                parts = command.split(':')
+                if len(parts) == 3:
+                    menu_val = int(parts[0])
+                    pos_val = int(parts[1])
+                    neg_val = int(parts[2])
+                    
+                    print(f"Emoji Command - Menu: {menu_val}, Pos: {pos_val}, Neg: {neg_val}")
+                    
+                    # Handle emoji selection
+                    handle_emoji_selection(menu_val, pos_val, neg_val)
+                    return
+            except ValueError:
+                print(f"Invalid emoji command format: '{command}'")
+        
+        # Process legacy commands
+        if command == "ON":
+            print("Command: Turning ON")
             led_onboard.on()
+        elif command == "OFF":
+            print("Command: Turning OFF")
+            led_onboard.off()
+        elif command == "STATUS":
+            print("Command: STATUS requested")
+            print(f"LED is {'ON' if led_onboard.value() else 'OFF'}")
+        elif command == "BLINK":
+            print("Command: BLINK")
             for _ in range(3):
-                data = str(i) + "_"
-                print("TX", data)
-                display.text(data, 0,30, 1)
-                display.show()
-                p.send(data)
-                i += 1
+                led_onboard.on()
+                time.sleep(0.2)
+                led_onboard.off()
+                time.sleep(0.2)
+        else:
+            print(f"Unknown command: '{command}'")
+            
+    except Exception as e:
+        print(f"✗ Error processing command: {e}")
 
-    # blocks need to be in reverse order to stop the cascade throguh the conditions
+
+def handle_emoji_selection(menu_val, pos_val, neg_val):
+    """Handle emoji selection from the Pi Zero"""
+    global menu, pos, neg, state
+    
+    print(f"Processing emoji selection:")
+    print(f"  Menu: {menu_val} ({get_menu_name(menu_val)})")
+    print(f"  Position: {pos_val}")
+    print(f"  Negative: {neg_val}")
+    
+    # Set the global state variables
+    menu = menu_val
+    pos = pos_val
+    neg = neg_val
+    state = "choosing"
+    
+    # Visual feedback with LED
+    for _ in range(2):
+        led_onboard.on()
+        time.sleep(0.1)
+        led_onboard.off()
+        time.sleep(0.1)
+    
+    # Display the emoji immediately
+    matrix.pixelsFill(matrix.black())
+    draw_emoji()
+
+
+def get_menu_name(menu_val):
+    """Get the name of the menu"""
+    menu_names = ["Emojis", "Animations", "Characters", "Other"]
+    if 0 <= menu_val < len(menu_names):
+        return menu_names[menu_val]
+    return "Unknown"
+
+# === Initialize BLE ===
+ble = bluetooth.BLE()
+p = BLESimplePeripheral(ble, "Pico-Client")
+
+# Set up command handler
+p.on_write(handle_command)
+
+print("Emoji OS Pico v0.2.0 - Enhanced with BLE Controller functionality")
+print("Device Name: Pico-Client")
+print("Supports emoji commands in format: 'MENU:POS:NEG'")
+print("Legacy commands: ON, OFF, STATUS, BLINK")
+
+# === Main Loop ===
+while True:
+    # blocks need to be in reverse order to stop the cascade through the conditions
     if button1.value():
         print('debug btn 1 menu ', menu, "pos", pos, "neg", neg, "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
         if state == "choosing":
             buzz()
             # increment positive choice
             pos = pos + 1
-            neg = 0 # reset any negative value
+            neg = 0  # reset any negative value
             check_pos()
             print('button 1 pressed, menu ', menu, "pos", pos, "state", state)
             matrix.pixelsFill(matrix.black())
@@ -522,7 +542,7 @@ while True:
         if state == "choosing":
             # increment negative choice
             neg = neg + 1
-            pos = 0 # reset positive
+            pos = 0  # reset positive
             check_neg()
             print('button 3 pressed, menu ', menu, "neg", neg, "state", state)
             matrix.pixelsFill(matrix.black())
@@ -558,3 +578,4 @@ while True:
                 menu = prev_menu
                 print('button 3 pressed again, menu ', menu, "pos", pos, "neg", neg, "state", state)
                 draw_emoji()
+
