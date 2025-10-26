@@ -221,3 +221,172 @@ We want the controller to send the chosen emoji to the pico which can then displ
 Look at the code in the python\emoji-os\emoji-os-zero-0.2.3.py and add the functionality from the python\emoji-os\bluetooth\controller.py file to send the main and sub-menu values to the pico.
 
 We can make things simple and send a single string with the main menu value, a separator token and the sub-menu value.
+
+### Running v0.3.0
+
+I had some strange issues when running these scripts.  When I ran the script on startup via rc.local method, I saw this logging:
+
+```sh
+=== rc.local starting ===
+Running emoji_os_zero_1.py...
+Traceback (most recent call last):
+  File "/home/tim/emoji-os/emoji_os_zero_1.py", line 7, in <module>
+    from bleak import BleakScanner, BleakClient
+ModuleNotFoundError: No module named 'bleak'
+```
+
+Note that emoji_os_zero_1.py is the name of the script that I pasted the contents of Emoji OS Zero v0.3.0 into and rebooted.
+
+If I disable the rc.local method and run the script via Thonny on the zero, the script runs, and I see this output:
+
+```sh
+Emoji OS Zero v0.3.0 started with BLE Controller functionality
+Joystick: Navigate menus
+KEY1: Select positive
+KEY2: Navigate/confirm
+KEY3: Select negative
+==================================================
+Scanning for 'Pico-Client' for 5 seconds...
+Make sure your Pico is running client.py...
+Found 20 BLE devices:
+--------------------------------------------------
+ 1. (No Name)            | 34:FC:C5:09:84:A3
+ 2. S24 9B06 LE          | CD:4D:CA:E8:49:22
+ 3. (No Name)            | FA:FA:C2:46:80:58
+ 4. (No Name)            | 6A:41:26:41:6A:9D
+ 5. S24 9B0A LE          | CD:4D:7C:66:43:1A
+ 6. Pico-Client          | 28:CD:C1:05:AB:A4
+    *** FOUND TARGET DEVICE! ***
+ 7. (No Name)            | 70:D3:A4:89:21:81
+ 8. (No Name)            | 88:C6:26:AC:57:74
+ 9. (No Name)            | 78:32:93:43:15:D0
+10. (No Name)            | 7D:3B:43:E3:7F:DF
+11. (No Name)            | 7D:8F:B2:F6:49:EC
+12. (No Name)            | F1:E4:7A:76:BB:5D
+13. (No Name)            | F0:A4:4A:43:1F:4B
+14. PR BT 7CF6           | 00:1F:FF:A9:0F:06
+15. (No Name)            | EC:DF:20:E4:A9:78
+16. (No Name)            | EB:52:DE:85:FB:07
+17. (No Name)            | 1F:B1:8F:DF:45:D0
+18. (No Name)            | E1:A3:C2:8C:47:DE
+19. (No Name)            | 55:68:20:D2:B2:15
+20. (No Name)            | 7B:3E:58:CD:9C:A6
+--------------------------------------------------
+✓ Found Pico-Client at address: 28:CD:C1:05:AB:A4
+Connecting to 28:CD:C1:05:AB:A4...
+✓ Successfully connected!
+KEY2 - Menu: 0 State: start
+debug KEY1 - menu: 0 pos 0 neg 0 state start prev_pos 0 prev_neg 0 prev_state none
+KEY1 - Positive: 1 State: choosing
+debug KEY1 - menu: 0 pos 1 neg 0 state choosing prev_pos 0 prev_neg 0 prev_state none
+KEY1 - Positive: 2 State: choosing
+debug KEY1 - menu: 0 pos 2 neg 0 state choosing prev_pos 0 prev_neg 0 prev_state none
+KEY1 - Positive: 3 State: choosing
+debug KEY1 - menu: 0 pos 3 neg 0 state choosing prev_pos 0 prev_neg 0 prev_state none
+KEY1 - Positive: 4 State: choosing
+Selected: Menu 0, Pos 4, Neg 0
+✗ Error sending emoji command '0:4:0': Task <Task pending name='Task-9' coro=<BLEController.send_emoji_command() running at /home/tim/emoji-os/emoji_os_zero_1.py:102> cb=[_run_until_complete_cb() at /usr/lib/python3.11/asyncio/base_events.py:180]> got Future <Future pending> attached to a different loop
+KEY2 - Menu: 0 State: choosing
+KEY2 - Menu: 0 State: start
+debug KEY3 - menu: 0 pos 0 neg 0 state start prev_pos 0 prev_neg 0 prev_state none
+KEY3 - Negative: 1 State: choosing
+debug KEY3 - menu: 0 pos 0 neg 1 state choosing prev_pos 0 prev_neg 0 prev_state none
+KEY3 - Negative: 2 State: choosing
+debug KEY3 - menu: 0 pos 0 neg 2 state choosing prev_pos 0 prev_neg 0 prev_state none
+KEY3 - Negative: 3 State: choosing
+Selected: Menu 0, Pos 0, Neg 3
+✗ Error sending emoji command '0:0:3': Task <Task pending name='Task-10' coro=<BLEController.send_emoji_command() running at /home/tim/emoji-os/emoji_os_zero_1.py:102> cb=[_run_until_complete_cb() at /usr/lib/python3.11/asyncio/base_events.py:180]> got Future <Future pending> attached to a different loop
+KEY2 - Menu: 0 State: choosing
+```  
+
+#### Question 1: why is bleak not installed when run via rc.local method?
+
+*The issue is that rc.local runs with a different environment than when you run scripts manually through Thonny. When you run via rc.local, it uses the system's default Python environment and PATH, which may not have the same packages installed as your user environment.*
+
+Solution: *Startup Script (start_emoji_os.sh): A bash script that properly sets up the Python environment for rc.local*
+
+I don't think we need a *fallback Version (emoji-os-zero-0.3.0-fallback.py) to gracefully handles missing bleak module*, as the idea is to setup the env correctly so it works every time.  But if we have to use this method, then it would be good to get the current details straight.
+
+This is the output which shows where pip and python are:
+
+```sh
+tim@raspberrypi:~ $ pip --version
+pip 23.0.1 from /usr/lib/python3/dist-packages/pip (python 3.11)
+tim@raspberrypi:~ $ pip3 --version
+pip 23.0.1 from /usr/lib/python3/dist-packages/pip (python 3.1
+```
+
+Here is the current contents of the /etc/rc.local file:
+
+```sh
+#!/bin/sh -e
+
+sleep 10
+
+echo "=== rc.local starting ===" >> /home/tim/rc.local.log
+echo "Running emoji_os_zero_1.py..." >> /home/tim/rc.local.log
+
+# /usr/bin/python /home/tim/emoji-os/emoji_os_zero_1.py >> /home/tim/rc.local.l>
+
+# echo "=== rc.local done ===" >> /home/tim/rc.local.log
+
+exit 0
+```
+
+Using these details, lets make a more appropriate python\emoji-os\start_emoji_os.sh file.
+
+The new start_emoji_os.sh file:
+
+```sh
+#!/bin/bash
+# Startup script for Emoji OS Zero v0.3.1
+# This script handles the Python environment setup for rc.local
+
+echo "=== Emoji OS Zero v0.3.1 Startup ===" >> /home/tim/rc.local.log
+
+# Run as user 'tim' to get the correct environment
+sudo -u tim bash << 'EOF'
+cd /home/tim/emoji-os
+
+# Use the user's Python environment
+export PATH="/home/tim/.local/bin:$PATH"
+export PYTHONPATH="/home/tim/.local/lib/python3.11/site-packages:$PYTHONPATH"
+
+# Check if bleak is available in user environment
+if python3 -c "import bleak" 2>/dev/null; then
+    echo "✓ Bleak module found in user environment" >> /home/tim/rc.local.log
+else
+    echo "✗ Bleak module not found, installing..." >> /home/tim/rc.local.log
+    pip3 install --user bleak
+fi
+
+# Run the emoji OS
+echo "Starting Emoji OS Zero v0.3.1..." >> /home/tim/rc.local.log
+python3 emoji_os_zero_1.py >> /home/tim/rc.local.log 2>&1
+
+echo "Emoji OS Zero v0.3.1 stopped" >> /home/tim/rc.local.log
+EOF
+```
+
+The rc.local file then would use the new script like this:
+
+```sh
+#!/bin/sh -e
+
+sleep 10
+
+echo "=== rc.local starting ===" >> /home/tim/rc.local.log
+
+# Use the startup script that handles environment properly
+/home/tim/emoji-os/start_emoji_os.sh &
+
+echo "=== rc.local done ===" >> /home/tim/rc.local.log
+
+exit 0
+```
+
+#### Question 2: what is the issue with the ```got Future <Future pending> attached to a different loop``` error?  we were able to send messages in the controller.py script without error before
+
+*The error got Future <Future pending> attached to a different loop occurs because we're trying to use asyncio across different threads without proper event loop management. The BLE controller creates its own event loop in a separate thread, but when we try to send commands from the main thread, there's a conflict.*
+
+Solution: *implement proper event loop management using asyncio.run_coroutine_threadsafe() which allows safe communication between threads.*

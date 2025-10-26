@@ -1,123 +1,153 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.3.1 - Enhanced with BLE Controller functionality
+# Emoji OS Zero v0.3.0 - Enhanced with BLE Controller functionality (Fallback Version)
+# This version gracefully handles missing bleak module
 import LCD_1in44
 import time
 import threading
-import asyncio
-from bleak import BleakScanner, BleakClient
-from bleak.backends.characteristic import BleakGATTCharacteristic
 
 from PIL import Image,ImageDraw,ImageFont,ImageColor
 from emojis_zero import *
 from animations_zero import fireworks_animation as fw_anim_func, rain_animation as rain_anim_func
 from emojis_zero import fireworks_animation, rain_animation
 
-# === BLE Configuration ===
-# Nordic UART Service UUIDs
-UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # Write characteristic
-UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # Notify characteristic
+# Try to import BLE modules, but don't fail if they're not available
+BLE_AVAILABLE = False
+try:
+    import asyncio
+    from bleak import BleakScanner, BleakClient
+    from bleak.backends.characteristic import BleakGATTCharacteristic
+    BLE_AVAILABLE = True
+    print("✓ BLE modules loaded successfully")
+except ImportError as e:
+    print(f"⚠ BLE modules not available: {e}")
+    print("Running in offline mode - BLE functionality disabled")
+    BLE_AVAILABLE = False
 
-# Device name to look for
-TARGET_DEVICE_NAME = "Pico-Client"
+# === BLE Configuration (only if available) ===
+if BLE_AVAILABLE:
+    # Nordic UART Service UUIDs
+    UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+    UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # Write characteristic
+    UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # Notify characteristic
 
-# BLE Controller class
-class BLEController:
-    """BLE Central controller that connects to Pico and sends emoji commands"""
-    
-    def __init__(self):
-        self.client = None
-        self.device_address = None
-        self.connected = False
+    # Device name to look for
+    TARGET_DEVICE_NAME = "Pico-Client"
+
+    # BLE Controller class
+    class BLEController:
+        """BLE Central controller that connects to Pico and sends emoji commands"""
         
-    async def scan_for_device(self, timeout=10):
-        """Scan for the target Pico device"""
-        print(f"Scanning for '{TARGET_DEVICE_NAME}' for {timeout} seconds...")
-        print("Make sure your Pico is running client.py...")
-        
-        devices = await BleakScanner.discover(timeout=timeout)
-        
-        print(f"Found {len(devices)} BLE devices:")
-        print("-" * 50)
-        
-        target_found = False
-        for i, device in enumerate(devices, 1):
-            name = device.name or "(No Name)"
-            print(f"{i:2d}. {name:<20} | {device.address}")
+        def __init__(self):
+            self.client = None
+            self.device_address = None
+            self.connected = False
             
-            if device.name == TARGET_DEVICE_NAME:
-                print(f"    *** FOUND TARGET DEVICE! ***")
-                self.device_address = device.address
-                target_found = True
-        
-        print("-" * 50)
-        
-        if target_found:
-            print(f"✓ Found {TARGET_DEVICE_NAME} at address: {self.device_address}")
-            return True
-        else:
-            print(f"✗ Could not find '{TARGET_DEVICE_NAME}'")
-            print("\nTroubleshooting tips:")
-            print("1. Make sure Pico is running client.py")
-            print("2. Check that Pico shows 'Starting advertising...'")
-            print("3. Try moving devices closer together")
-            print("4. Restart both devices")
-            return False
-    
-    async def connect_to_device(self):
-        """Connect to the discovered Pico device"""
-        if not self.device_address:
-            print("No device address available. Run scan_for_device() first.")
-            return False
+        async def scan_for_device(self, timeout=10):
+            """Scan for the target Pico device"""
+            print(f"Scanning for '{TARGET_DEVICE_NAME}' for {timeout} seconds...")
+            print("Make sure your Pico is running client.py...")
             
-        try:
-            print(f"Connecting to {self.device_address}...")
-            self.client = BleakClient(self.device_address)
-            await self.client.connect()
+            devices = await BleakScanner.discover(timeout=timeout)
             
-            if self.client.is_connected:
-                print("✓ Successfully connected!")
-                self.connected = True
+            print(f"Found {len(devices)} BLE devices:")
+            print("-" * 50)
+            
+            target_found = False
+            for i, device in enumerate(devices, 1):
+                name = device.name or "(No Name)"
+                print(f"{i:2d}. {name:<20} | {device.address}")
+                
+                if device.name == TARGET_DEVICE_NAME:
+                    print(f"    *** FOUND TARGET DEVICE! ***")
+                    self.device_address = device.address
+                    target_found = True
+            
+            print("-" * 50)
+            
+            if target_found:
+                print(f"✓ Found {TARGET_DEVICE_NAME} at address: {self.device_address}")
                 return True
             else:
-                print("✗ Failed to connect")
+                print(f"✗ Could not find '{TARGET_DEVICE_NAME}'")
+                print("\nTroubleshooting tips:")
+                print("1. Make sure Pico is running client.py")
+                print("2. Check that Pico shows 'Starting advertising...'")
+                print("3. Try moving devices closer together")
+                print("4. Restart both devices")
+                return False
+        
+        async def connect_to_device(self):
+            """Connect to the discovered Pico device"""
+            if not self.device_address:
+                print("No device address available. Run scan_for_device() first.")
                 return False
                 
-        except Exception as e:
-            print(f"✗ Connection error: {e}")
-            return False
-    
-    async def send_emoji_command(self, menu, pos, neg):
-        """Send emoji selection command to the connected Pico"""
-        if not self.client or not self.client.is_connected:
-            print("Not connected to any device")
-            return False
-            
-        try:
-            # Create command string: "MENU:POS:NEG"
-            command = f"{menu}:{pos}:{neg}"
-            command_bytes = command.encode('utf-8')
-            
-            # Write to the RX characteristic
-            await self.client.write_gatt_char(UART_RX_CHAR_UUID, command_bytes)
-            print(f"✓ Sent emoji command: '{command}'")
-            return True
-            
-        except Exception as e:
-            print(f"✗ Error sending emoji command '{command}': {e}")
-            return False
-    
-    async def disconnect(self):
-        """Disconnect from the device"""
-        if self.client and self.client.is_connected:
-            await self.client.disconnect()
-            print("Disconnected from Pico")
-            self.connected = False
+            try:
+                print(f"Connecting to {self.device_address}...")
+                self.client = BleakClient(self.device_address)
+                await self.client.connect()
+                
+                if self.client.is_connected:
+                    print("✓ Successfully connected!")
+                    self.connected = True
+                    return True
+                else:
+                    print("✗ Failed to connect")
+                    return False
+                    
+            except Exception as e:
+                print(f"✗ Connection error: {e}")
+                return False
+        
+        async def send_emoji_command(self, menu, pos, neg):
+            """Send emoji selection command to the connected Pico"""
+            if not self.client or not self.client.is_connected:
+                print("Not connected to any device")
+                return False
+                
+            try:
+                # Create command string: "MENU:POS:NEG"
+                command = f"{menu}:{pos}:{neg}"
+                command_bytes = command.encode('utf-8')
+                
+                # Write to the RX characteristic
+                await self.client.write_gatt_char(UART_RX_CHAR_UUID, command_bytes)
+                print(f"✓ Sent emoji command: '{command}'")
+                return True
+                
+            except Exception as e:
+                print(f"✗ Error sending emoji command '{command}': {e}")
+                return False
+        
+        async def disconnect(self):
+            """Disconnect from the device"""
+            if self.client and self.client.is_connected:
+                await self.client.disconnect()
+                print("Disconnected from Pico")
+                self.connected = False
 
-# Global BLE controller instance
-ble_controller = BLEController()
-ble_connection_thread = None
-ble_event_loop = None
+    # Global BLE controller instance
+    ble_controller = BLEController()
+    ble_connection_thread = None
+    ble_event_loop = None
+else:
+    # Dummy BLE controller for when BLE is not available
+    class BLEController:
+        def __init__(self):
+            self.connected = False
+        async def scan_for_device(self, timeout=10):
+            return False
+        async def connect_to_device(self):
+            return False
+        async def send_emoji_command(self, menu, pos, neg):
+            print(f"BLE not available - would send: {menu}:{pos}:{neg}")
+            return False
+        async def disconnect(self):
+            pass
+    
+    ble_controller = BLEController()
+    ble_connection_thread = None
+    ble_event_loop = None
 
 # 240x240 display with hardware SPI:
 disp = LCD_1in44.LCD()
@@ -367,6 +397,10 @@ def send_emoji_to_pico(menu_val, pos_val, neg_val):
     """Send emoji selection to Pico via BLE"""
     global ble_event_loop
     
+    if not BLE_AVAILABLE:
+        print(f"BLE not available - would send: {menu_val}:{pos_val}:{neg_val}")
+        return
+    
     if not ble_event_loop:
         print("BLE not initialized yet")
         return
@@ -558,10 +592,12 @@ def draw_display():
         draw_menu_row(draw, item, text_y_positions[i], font, is_selected)
     
     # === BLE Connection Status ===
-    if ble_controller.connected:
+    if BLE_AVAILABLE and ble_controller.connected:
         draw.text((200, 220), "BLE", font=font, fill="green")
-    else:
+    elif BLE_AVAILABLE:
         draw.text((200, 220), "BLE", font=font, fill="red")
+    else:
+        draw.text((200, 220), "OFF", font=font, fill="orange")
     
     # Update display
     disp.LCD_ShowImage(image,0,0)
@@ -576,16 +612,24 @@ except:
 draw_display()
 
 print("Emoji OS Zero v0.3.0 started with BLE Controller functionality")
+if BLE_AVAILABLE:
+    print("BLE functionality: ENABLED")
+else:
+    print("BLE functionality: DISABLED (offline mode)")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive")
 print("KEY2: Navigate/confirm")
 print("KEY3: Select negative")
 print("=" * 50)
 
-# === Initialize BLE Connection ===
+# === Initialize BLE Connection (only if available) ===
 def init_ble_connection():
     """Initialize BLE connection in a separate thread"""
     global ble_event_loop, ble_connection_thread
+    
+    if not BLE_AVAILABLE:
+        print("BLE not available - skipping connection initialization")
+        return
     
     def connect():
         global ble_event_loop
@@ -852,7 +896,8 @@ try:
 except KeyboardInterrupt:
     print("Exiting...")
     # Clean up BLE connection
-    if ble_event_loop:
+    global ble_event_loop
+    if BLE_AVAILABLE and ble_event_loop:
         try:
             # Schedule disconnect and stop the loop
             ble_event_loop.call_soon_threadsafe(
