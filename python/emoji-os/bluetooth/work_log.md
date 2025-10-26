@@ -390,3 +390,67 @@ exit 0
 *The error got Future <Future pending> attached to a different loop occurs because we're trying to use asyncio across different threads without proper event loop management. The BLE controller creates its own event loop in a separate thread, but when we try to send commands from the main thread, there's a conflict.*
 
 Solution: *implement proper event loop management using asyncio.run_coroutine_threadsafe() which allows safe communication between threads.*
+
+### v0.3.1 issues
+
+I run the client.py file on the pico and see this output:
+
+```sh
+>>> %Run -c $EDITOR_CONTENT
+BLE Client for Raspberry Pi Pico 2 W - Enhanced for Emoji Commands
+======================================================================
+Starting advertising...
+BLE Client started
+Waiting for connections...
+Supports emoji commands in format: 'MENU:POS:NEG'
+Legacy commands: ON, OFF, STATUS, BLINK
+Press Ctrl+C to stop
+```
+
+I run the Emoji OS Zero v0.3.1 script on the zero and see this output:
+
+```sh
+>>> %Run emoji_os_zero_1.py
+Emoji OS Zero v0.3.0 started with BLE Controller functionality
+Joystick: Navigate menus
+KEY1: Select positive
+KEY2: Navigate/confirm
+KEY3: Select negative
+==================================================
+Scanning for 'Pico-Client' for 5 seconds...
+Make sure your Pico is running client.py...
+Found 24 BLE devices:
+--------------------------------------------------
+ 1. (No Name)            | 0E:C1:D3:85:D2:91
+ 2. MPY BTSTACK          | 28:CD:C1:05:AB:A4
+ 3. (No Name)            | 7A:03:C9:18:F1:16
+ 4. (No Name)            | 4A:A9:3A:3F:53:E9
+ 5. (No Name)            | 64:72:E7:41:B1:BB
+ 6. (No Name)            | 49:06:0F:87:8B:84
+ 7. (No Name)            | 66:57:EF:18:01:B7
+ 8. (No Name)            | 4D:FE:44:8C:0E:9D
+ 9. (No Name)            | 77:01:58:02:50:D3
+10. (No Name)            | 00:16:BA:FE:B9:02
+11. S24 9B0A LE          | CD:4D:7C:66:43:1A
+12. (No Name)            | 40:AB:E2:FF:2C:13
+13. (No Name)            | E9:72:B8:35:0F:4C
+14. (No Name)            | E4:E3:70:3E:8B:02
+15. (No Name)            | C4:9D:A0:AD:C1:EF
+16. (No Name)            | D7:E1:B8:C8:2B:AE
+17. (No Name)            | C5:65:B8:EE:51:33
+18. (No Name)            | EC:CE:37:A2:AC:D4
+19. (No Name)            | F3:10:58:33:0D:EC
+20. PR BT 7CF6           | 00:1F:FF:A9:0F:06
+21. (No Name)            | 6B:AB:94:FD:66:C7
+22. (No Name)            | CC:A9:42:85:98:E8
+23. (No Name)            | 40:A1:13:F3:7E:AA
+24. (No Name)            | E0:A1:28:41:3D:91
+--------------------------------------------------
+✗ Could not find 'Pico-Client'
+
+Troubleshooting tips:
+1. Make sure Pico is running client.py
+2. Check that Pico shows 'Starting advertising...'
+3. Try moving devices closer together
+4. Restart both devices
+```

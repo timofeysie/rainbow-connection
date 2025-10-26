@@ -1,5 +1,5 @@
 """
-BLE Client for Raspberry Pi Pico 2 W
+BLE Client for Raspberry Pi Pico 2 W v1.1.0
 Acts as a BLE peripheral that receives emoji commands from a central device (Pi Zero 2 W)
 Enhanced to handle emoji selection commands in format "MENU:POS:NEG"
 """
@@ -216,7 +216,8 @@ def main():
     """Main function to run the BLE client"""
     global led
     
-    print("BLE Client for Raspberry Pi Pico 2 W - Enhanced for Emoji Commands")
+    print("BLE Client for Raspberry Pi Pico 2 W v1.1.0 - Enhanced for Emoji Commands")
+    print("Device Name: Pico-Client")
     print("=" * 70)
     
     # Initialize LED for visual feedback
