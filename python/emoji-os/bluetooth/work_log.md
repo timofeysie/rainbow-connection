@@ -454,3 +454,68 @@ Troubleshooting tips:
 3. Try moving devices closer together
 4. Restart both devices
 ```
+
+### v0.3.1 again
+
+I run the correct client file on the pico and see this output:
+
+```sh
+>>> %Run -c $EDITOR_CONTENT
+
+MPY: soft reboot
+BLE Client for Raspberry Pi Pico 2 W v1.1.0 - Enhanced for Emoji Commands
+Device Name: Pico-Client
+======================================================================
+Starting advertising...
+BLE Client started
+Waiting for connections...
+Supports emoji commands in format: 'MENU:POS:NEG'
+Legacy commands: ON, OFF, STATUS, BLINK
+Press Ctrl+C to stop
+```
+
+I run Emoji OS Zero v0.3.1 started with BLE Controller functionality on the zero and see this output:
+
+```sh
+>>> %Run emoji_os_zero_1.py
+Emoji OS Zero v0.3.1 started with BLE Controller functionality
+Joystick: Navigate menus
+KEY1: Select positive
+KEY2: Navigate/confirm
+KEY3: Select negative
+==================================================
+Scanning for 'Pico-Client' for 5 seconds...
+Make sure your Pico is running client.py...
+Found 18 BLE devices:
+--------------------------------------------------
+ 1. (No Name)            | 71:46:9E:FA:CF:78
+ 2. (No Name)            | 4B:CF:B3:FC:E6:68
+ 3. S24 9B0A LE          | CD:4D:7C:66:43:1A
+ 4. (No Name)            | 16:AC:7C:8F:7E:E5
+ 5. (No Name)            | C7:E6:45:9C:01:10
+ 6. (No Name)            | 73:67:51:08:2C:17
+ 7. (No Name)            | 5C:FF:01:E0:31:45
+ 8. (No Name)            | 56:CC:F7:82:2B:A7
+ 9. (No Name)            | 58:93:F8:9A:74:FF
+10. (No Name)            | 5E:ED:A2:4B:EC:73
+11. MPY BTSTACK          | 28:CD:C1:05:AB:A4
+12. (No Name)            | CF:4E:77:CA:91:2B
+13. (No Name)            | 40:CE:2A:44:0C:B2
+14. (No Name)            | FD:8C:FD:30:1C:D0
+15. (No Name)            | E2:F9:F4:A4:3A:93
+16. (No Name)            | D7:7F:86:E8:ED:0F
+17. (No Name)            | C3:98:54:F7:02:27
+18. (No Name)            | FF:00:A3:F7:C7:68
+--------------------------------------------------
+✗ Could not find 'Pico-Client'
+
+Troubleshooting tips:
+1. Make sure Pico is running client.py
+2. Check that Pico shows 'Starting advertising...'
+3. Try moving devices closer together
+4. Restart both devices
+```
+
+Why isn't the 'Pico-Client' in the device list?
+
+Did we use the device name "MPY BTSTACK" at any point?  I don't see that in the old commits...

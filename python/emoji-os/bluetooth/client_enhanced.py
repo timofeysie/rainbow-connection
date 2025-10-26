@@ -41,7 +41,11 @@ class BLESimplePeripheral:
     
     def __init__(self, ble, name="Pico-Client"):
         self._ble = ble
+        # Force BLE stack reset to clear cached name
+        self._ble.active(False)
+        time.sleep(0.1)
         self._ble.active(True)
+        time.sleep(0.1)
         self._ble.irq(self._irq)
         
         # Register the UART service

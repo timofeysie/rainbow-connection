@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.3.1 - Enhanced with BLE Controller functionality
+# Emoji OS Zero v0.3.2 - Enhanced with BLE Controller functionality
 import LCD_1in44
 import time
 import threading
@@ -19,7 +19,7 @@ UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # Write characterist
 UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # Notify characteristic
 
 # Device name to look for
-TARGET_DEVICE_NAME = "Pico-Client"
+TARGET_DEVICE_NAME = "MPY BTSTACK"  # Temporary: MicroPython BLE name caching issue
 
 # BLE Controller class
 class BLEController:
