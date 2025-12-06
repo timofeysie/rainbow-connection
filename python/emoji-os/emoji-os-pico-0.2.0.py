@@ -321,11 +321,15 @@ class BLESimplePeripheral:
     
     def __init__(self, ble, name="Pico-Client"):
         self._ble = ble
+        self._name = name
+        
         # Force BLE stack reset to clear cached name
+        # This helps ensure the device name is properly set
         self._ble.active(False)
-        time.sleep(0.1)
+        time.sleep(0.3)  # Longer delay to ensure stack fully resets
+        
         self._ble.active(True)
-        time.sleep(0.1)
+        time.sleep(0.3)  # Wait for BLE to fully initialize
         self._ble.irq(self._irq)
         
         # Register the UART service
@@ -333,7 +337,11 @@ class BLESimplePeripheral:
         
         self._connections = set()
         self._write_callback = None
+        
+        # Create advertising payload with explicit name
         self._payload = advertising_payload(name=name, services=[_UART_UUID])
+        print(f"BLE Device Name configured: {name}")
+        print(f"Advertising payload length: {len(self._payload)}")
         self._advertise()
 
     def _irq(self, event, data):
@@ -365,7 +373,7 @@ class BLESimplePeripheral:
 
     def _advertise(self, interval_us=500000):
         """Start advertising the BLE service"""
-        print("Starting advertising...")
+        print(f"Starting advertising as '{self._name}'...")
         self._ble.gap_advertise(interval_us, adv_data=self._payload)
 
     def on_write(self, callback):

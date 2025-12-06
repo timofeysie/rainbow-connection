@@ -519,3 +519,64 @@ Troubleshooting tips:
 Why isn't the 'Pico-Client' in the device list?
 
 Did we use the device name "MPY BTSTACK" at any point?  I don't see that in the old commits...
+
+## emoji os v0.2.0 and zero v0.3.1 testing
+
+On the Pico running the emoji os v0.2.0 - Enhanced with BLE Controller functionality, I see this output:`
+
+```sh
+>>> %Run -c $EDITOR_CONTENT
+Starting advertising...
+Emoji OS Pico v0.2.0 - Enhanced with BLE Controller functionality
+Device Name: Pico-Client
+Supports emoji commands in format: 'MENU:POS:NEG'
+Legacy commands: ON, OFF, STATUS, BLINK
+```
+
+On the Zero running the Emoji OS Zero v0.3.1 started with BLE Controller functionality, I see this output:
+
+```sh
+tim@raspberrypi:~/emoji-os $ python emoji_os_zero_1.py
+Emoji OS Zero v0.3.0 started with BLE Controller functionality
+Joystick: Navigate menus
+KEY1: Select positive
+KEY2: Navigate/confirm
+KEY3: Select negative
+==================================================
+Scanning for 'PR BT 7CF6' for 5 seconds...
+Make sure your Pico is running client.py...
+Found 10 BLE devices:
+--------------------------------------------------
+ 1. (No Name)            | 88:C6:26:AC:57:74
+ 2. (No Name)            | 10:4D:01:B1:9E:7E
+ 3. (No Name)            | 28:CD:C1:07:2C:E8
+ 4. (No Name)            | 54:42:34:E4:B3:58
+ 5. (No Name)            | 05:9A:0B:9C:23:C4
+ 6. PR BT 7CF6           | 00:1F:FF:A9:0F:06
+    *** FOUND TARGET DEVICE! ***
+ 7. (No Name)            | D0:BE:2C:A3:F8:0C
+ 8. (No Name)            | D4:16:4C:98:EA:8E
+ 9. (No Name)            | F2:F5:4C:F0:50:66
+10. (No Name)            | FE:46:DF:20:AC:D9
+--------------------------------------------------
+✓ Found PR BT 7CF6 at address: 00:1F:FF:A9:0F:06
+Connecting to 00:1F:FF:A9:0F:06...
+✗ Connection error: failed to discover services, device disconnected
+KEY2 - Menu: 0 State: start
+debug KEY1 - menu: 0 pos 0 neg 0 state start prev_pos 0 prev_neg 0 prev_state none
+KEY1 - Positive: 1 State: choosing
+Selected: Menu 0, Pos 1, Neg 0
+Not connected to any device
+KEY2 - Menu: 0 State: choosing
+KEY2 - Menu: 0 State: start
+debug KEY1 - menu: 0 pos 0 neg 0 state start prev_pos 0 prev_neg 0 prev_state none
+KEY1 - Positive: 1 State: choosing
+debug KEY1 - menu: 0 pos 1 neg 0 state choosing prev_pos 0 prev_neg 0 prev_state none
+KEY1 - Positive: 2 State: choosing
+Selected: Menu 0, Pos 2, Neg 0
+Not connected to any device
+KEY2 - Menu: 0 State: choosing
+debug KEY3 - menu: 0 pos 0 neg 0 state none prev_pos 2 prev_neg 0 prev_state done
+KEY3 - Toggle from pos to neg, menu: 0 pos 0 neg 2
+Not connected to any device
+```

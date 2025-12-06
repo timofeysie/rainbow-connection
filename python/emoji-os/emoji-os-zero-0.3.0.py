@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.3.2 - Enhanced with BLE Controller functionality
+# Emoji OS Zero v0.3.3 - Enhanced with BLE Controller functionality
 import LCD_1in44
 import time
 import threading
@@ -18,8 +18,8 @@ UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # Write characteristic
 UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # Notify characteristic
 
-# Device name to look for
-TARGET_DEVICE_NAME = "Pico-Client"
+# Device name to look for - MUST match the name advertised by the Pico
+TARGET_DEVICE_NAME = "Pico-Client"  # DO NOT CHANGE - must match Pico's advertising name
 
 # BLE Controller class
 class BLEController:
@@ -34,6 +34,7 @@ class BLEController:
         """Scan for the target Pico device"""
         print(f"Scanning for '{TARGET_DEVICE_NAME}' for {timeout} seconds...")
         print("Make sure your Pico is running client.py...")
+        print(f"Expected device name: '{TARGET_DEVICE_NAME}'")
         
         devices = await BleakScanner.discover(timeout=timeout)
         
@@ -41,14 +42,20 @@ class BLEController:
         print("-" * 50)
         
         target_found = False
+        partial_matches = []  # Track devices with similar names
+        
         for i, device in enumerate(devices, 1):
             name = device.name or "(No Name)"
             print(f"{i:2d}. {name:<20} | {device.address}")
             
+            # Exact match
             if device.name == TARGET_DEVICE_NAME:
                 print(f"    *** FOUND TARGET DEVICE! ***")
                 self.device_address = device.address
                 target_found = True
+            # Partial match (case-insensitive, contains "pico" or "client")
+            elif name.lower() != "(no name)" and ("pico" in name.lower() or "client" in name.lower()):
+                partial_matches.append((name, device.address))
         
         print("-" * 50)
         
@@ -57,11 +64,18 @@ class BLEController:
             return True
         else:
             print(f"✗ Could not find '{TARGET_DEVICE_NAME}'")
+            if partial_matches:
+                print(f"\n⚠ Found {len(partial_matches)} device(s) with similar names:")
+                for name, addr in partial_matches:
+                    print(f"   - '{name}' at {addr}")
+                print("   (These might be the Pico with a different name)")
             print("\nTroubleshooting tips:")
-            print("1. Make sure Pico is running client.py")
-            print("2. Check that Pico shows 'Starting advertising...'")
-            print("3. Try moving devices closer together")
-            print("4. Restart both devices")
+            print("1. Make sure Pico is running emoji-os-pico-0.2.0.py")
+            print("2. Check that Pico shows 'Starting advertising as 'Pico-Client'...'")
+            print("3. Verify TARGET_DEVICE_NAME in Zero script matches Pico's name")
+            print("4. Try moving devices closer together")
+            print("5. Restart both devices (power cycle the Pico)")
+            print("6. Check Pico output for BLE initialization errors")
             return False
     
     async def connect_to_device(self):
@@ -77,14 +91,40 @@ class BLEController:
             
             if self.client.is_connected:
                 print("✓ Successfully connected!")
-                self.connected = True
-                return True
+                # Verify we can discover services
+                try:
+                    print("Discovering services...")
+                    services = await self.client.get_services()
+                    uart_service = None
+                    for service in services:
+                        if str(service.uuid).upper() == UART_SERVICE_UUID.upper():
+                            uart_service = service
+                            print(f"✓ Found UART service: {service.uuid}")
+                            break
+                    
+                    if not uart_service:
+                        print("⚠ Warning: UART service not found, but connection established")
+                    else:
+                        print("✓ Service discovery successful")
+                    
+                    self.connected = True
+                    return True
+                except Exception as e:
+                    print(f"⚠ Connected but service discovery failed: {e}")
+                    print("This might indicate the device disconnected or doesn't have the expected services")
+                    await self.client.disconnect()
+                    return False
             else:
                 print("✗ Failed to connect")
                 return False
                 
         except Exception as e:
             print(f"✗ Connection error: {e}")
+            if "disconnected" in str(e).lower() or "discover" in str(e).lower():
+                print("   This usually means:")
+                print("   1. The device disconnected during connection")
+                print("   2. The device doesn't support the required BLE services")
+                print("   3. There's a compatibility issue with the BLE stack")
             return False
     
     async def send_emoji_command(self, menu, pos, neg):
@@ -575,7 +615,7 @@ except:
 # === Initial display ===
 draw_display()
 
-print("Emoji OS Zero v0.3.0 started with BLE Controller functionality")
+print("Emoji OS Zero v0.3.3 started with BLE Controller functionality")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive")
 print("KEY2: Navigate/confirm")
