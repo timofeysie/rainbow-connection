@@ -1,4 +1,4 @@
-# emoji os v0.2.0 - Enhanced with BLE Controller functionality
+# emoji os v0.2.1 - Enhanced with BLE Controller functionality
 import glowbit
 from machine import Pin
 import time
@@ -470,7 +470,7 @@ p = BLESimplePeripheral(ble, "Pico-Client")
 # Set up command handler
 p.on_write(handle_command)
 
-print("Emoji OS Pico v0.2.0 - Enhanced with BLE Controller functionality")
+print("Emoji OS Pico v0.2.1 - Enhanced with BLE Controller functionality")
 print("Device Name: Pico-Client")
 print("Supports emoji commands in format: 'MENU:POS:NEG'")
 print("Legacy commands: ON, OFF, STATUS, BLINK")

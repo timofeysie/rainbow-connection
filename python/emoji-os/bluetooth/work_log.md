@@ -580,3 +580,79 @@ debug KEY3 - menu: 0 pos 0 neg 0 state none prev_pos 2 prev_neg 0 prev_state don
 KEY3 - Toggle from pos to neg, menu: 0 pos 0 neg 2
 Not connected to any device
 ```
+
+### Issue 1: Zero script scanning for wrong device name
+
+The Zero output shows it's scanning for "PR BT 7CF6" instead of "Pico-Client". This suggests the running script (emoji_os_zero_1.py) has a different TARGET_DEVICE_NAME.
+Fix: Ensure your Zero script has:
+### Issue 2: Pico BLE name not advertising correctly
+
+The Pico may not be advertising as "Pico-Client" (it may appear as "MPY BTSTACK" or another name).
+
+#### Fixes applied:
+
+Improved BLE stack reset with longer delays to clear cached names
+Added logging to show the configured device name
+Enhanced advertising messages to confirm the name being advertised
+
+### Changes made:
+
+#### emoji-os-pico-0.2.0.py:
+
+Longer BLE reset delays (0.3s instead of 0.1s)
+Added logging: "BLE Device Name configured: Pico-Client"
+Enhanced advertising message to show the name being advertised
+
+#### emoji-os-zero-0.3.0.py:
+
+- Added comment warning not to change TARGET_DEVICE_NAME
+- Enhanced scanning to show partial matches (devices with "pico" or "client" in name)
+- Better error messages with troubleshooting steps
+- Service discovery verification after connection
+
+When I run the new version, I see this ouput on the zero: ``````
+>>> %Run emoji_os_zero_1.py
+Emoji OS Zero v0.3.3 started with BLE Controller functionality
+Joystick: Navigate menus
+KEY1: Select positive
+KEY2: Navigate/confirm
+KEY3: Select negative
+==================================================
+Scanning for 'PR BT 7CF6' for 5 seconds...
+Make sure your Pico is running client.py...
+Expected device name: 'PR BT 7CF6'
+Found 12 BLE devices:
+--------------------------------------------------
+ 1. (No Name)            | 88:C6:26:AC:57:74
+ 2. (No Name)            | 28:CD:C1:07:2C:E8
+ 3. (No Name)            | 27:E2:D2:23:31:4E
+ 4. (No Name)            | 4C:E1:DF:70:9F:7F
+ 5. (No Name)            | 72:FA:15:DA:E7:E3
+ 6. Charge 6             | C3:ED:E7:B4:53:A3
+ 7. PR BT 7CF6           | 00:1F:FF:A9:0F:06
+    *** FOUND TARGET DEVICE! ***
+ 8. (No Name)            | 7A:9A:7E:79:86:91
+ 9. (No Name)            | D8:B6:63:75:B3:AB
+10. (No Name)            | 76:A8:18:D6:64:02
+11. (No Name)            | CC:7E:F4:FE:E8:D5
+12. (No Name)            | E7:15:EB:BF:5A:E5
+--------------------------------------------------
+✓ Found PR BT 7CF6 at address: 00:1F:FF:A9:0F:06
+Connecting to 00:1F:FF:A9:0F:06...
+✗ Connection error: failed to discover services, device disconnected
+   This usually means:
+   1. The device disconnected during connection
+   2. The device doesn't support the required BLE services
+   3. There's a compatibility issue with the BLE stack
+...
+```  I changed the name it was searching for to "PR BT 7CF6" as that is what I saw on the list, not "Pico Client" as you had said could be used.  Are you sure we can choose the device name?  I am happy using whatever name the pico uses at this point.  Anyhow, the error shows "failed to discover services".  What is the problem with that?
+
+### The Problem
+"PR BT 7CF6" is not your Pico; it's a different device (possibly a Bluetooth speaker or similar). That device doesn't have the Nordic UART Service, which is why you're seeing "failed to discover services" — you're connecting to the wrong device.
+
+### The Solution
+
+The script now scans by service UUID instead of relying on device name:
+First, it tries to scan directly for devices advertising the Nordic UART Service (most reliable)
+If that doesn't work, it does a general scan and then connects to candidate devices to verify they have the service
+Device name is now optional — it's nice to have a match, but the script will find the Pico by its service UUID regardless
