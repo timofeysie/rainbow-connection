@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Timelapse Gallery & Sensor Data</title>
+    <link rel="stylesheet" type="text/css" href="/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+        }
+        
+        h3 {
+            margin: 10px 0;
+        }
+        
+        .main-container {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            height: 95vh;
+        }
+        
+        .image-section {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sensor-section {
+            flex: 1;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-height: 95vh;
+        }
+        
+        .sensor-card {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .sensor-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .sensor-value {
+            font-size: 1.2em;
+            color: #2196F3;
+        }
+        
+        .sensor-unit {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .sensor-timestamp {
+            font-size: 0.8em;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-online {
+            background-color: #4CAF50;
+        }
+        
+        .status-offline {
+            background-color: #f44336;
+        }
+        
+        .gallery-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .image-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+        
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        #controls-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        #play-button {
+            margin-bottom: 10px;
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        #play-button:hover {
+            background-color: #45a049;
+        }
+        
+        select {
+            max-height: 80vh;
+            overflow-y: auto;
+            min-width: 200px;
+        }
+        
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        
+        .air-quality-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <h3>Timelapse Gallery & Sensor Data</h3>
+    
+    <div class="main-container">
+        <div class="image-section">
+            <div class="gallery-container">
+                <div class="image-container">
+                    <img id="displayed-image" src="" alt="Displayed Image">
+                </div>
+            </div>
+            
+            <div id="controls-container">
+                <button id="play-button">Play</button>
+                <select id="image-select" size="10">
+                </select>
+            </div>
+        </div>
+        
+        <div class="sensor-section">
+            <h4>
+                <span id="status-indicator" class="status-indicator status-offline"></span>
+                Sensor Data
+            </h4>
+            
+            <div class="sensor-grid">
+                <div class="sensor-card">
+                    <div class="sensor-label">Soil Moisture</div>
+                    <div class="sensor-value">
+                        <span id="moisture-value">--</span>
+                        <span class="sensor-unit">%</span>
+                    </div>
+                    <div class="sensor-timestamp" id="moisture-timestamp">--</div>
+                </div>
+                
+                <div class="sensor-card">
+                    <div class="sensor-label">Temperature</div>
+                    <div class="sensor-value">
+                        <span id="temperature-value">--</span>
+                        <span class="sensor-unit">°C</span>
+                    </div>
+                    <div class="sensor-timestamp" id="temperature-timestamp">--</div>
+                </div>
+                
+                <div class="sensor-card">
+                    <div class="sensor-label">Humidity</div>
+                    <div class="sensor-value">
+                        <span id="humidity-value">--</span>
+                        <span class="sensor-unit">%RH</span>
+                    </div>
+                    <div class="sensor-timestamp" id="humidity-timestamp">--</div>
+                </div>
+                
+                <div class="sensor-card">
+                    <div class="sensor-label">Pressure</div>
+                    <div class="sensor-value">
+                        <span id="pressure-value">--</span>
+                        <span class="sensor-unit">hPa</span>
+                    </div>
+                    <div class="sensor-timestamp" id="pressure-timestamp">--</div>
+                </div>
+            </div>
+            
+            <div class="air-quality-section">
+                <h4>Air Quality</h4>
+                <div class="sensor-grid">
+                    <div class="sensor-card">
+                        <div class="sensor-label">AQI (Air Quality Index)</div>
+                        <div class="sensor-value">
+                            <span id="aqi-value">--</span>
+                        </div>
+                        <div class="sensor-timestamp" id="aqi-timestamp">--</div>
+                    </div>
+                    
+                    <div class="sensor-card">
+                        <div class="sensor-label">TVOC (Total Volatile Organic Compounds)</div>
+                        <div class="sensor-value">
+                            <span id="tvoc-value">--</span>
+                            <span class="sensor-unit">ppb</span>
+                        </div>
+                        <div class="sensor-timestamp" id="tvoc-timestamp">--</div>
+                    </div>
+                    
+                    <div class="sensor-card">
+                        <div class="sensor-label">eCO2 (Equivalent CO2)</div>
+                        <div class="sensor-value">
+                            <span id="eco2-value">--</span>
+                            <span class="sensor-unit">ppm</span>
+                        </div>
+                        <div class="sensor-timestamp" id="eco2-timestamp">--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sensor-timestamp" style="margin-top: 20px; text-align: center;">
+                Last Update: <span id="last-update">--</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Image gallery functionality (from original script.js)
+        document.addEventListener("DOMContentLoaded", function () {
+            const imageContainer = document.getElementById("displayed-image");
+            const imageSelect = document.getElementById("image-select");
+            const playButton = document.getElementById("play-button");
+            let imageList = [];
+            let playInterval = null;
+
+            // Function to fetch the list of images from the /images directory
+            function fetchImagesList() {
+                fetch("/images/")
+                    .then((response) => response.text())
+                    .then((data) => {
+                        console.log('data', data);
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(data, "text/html");
+                        const links = doc.querySelectorAll("a");
+
+                        imageList = Array.from(links)
+                            .map((link) => link.getAttribute("href"))
+                            .filter((href) => href.endsWith(".jpg") || href.endsWith(".jpeg"));
+
+                        // Populate the select element with image options
+                        populateImageSelect();
+
+                        // Set the default image to the last image in the list
+                        if (imageList.length > 0) {
+                            updateDisplayedImage(imageList[imageList.length - 1]);
+                        }
+                    })
+                    .catch((error) => console.error("Error fetching images:", error));
+            }
+
+            // Function to populate the select element with image options
+            function populateImageSelect() {
+                imageSelect.innerHTML = ""; // Clear existing options
+                imageList.forEach((image) => {
+                    const option = document.createElement("option");
+                    option.value = image;
+                    option.text = image;
+                    imageSelect.appendChild(option);
+                });
+                console.log('imageList', imageList);
+            }
+
+            // Function to update the displayed image
+            function updateDisplayedImage(imagePath) {
+                imageContainer.src = `/images/${imagePath}`;
+                console.log('imageContainer.src', imageContainer.src);
+            }
+
+            // Event listener for the select element
+            imageSelect.addEventListener("change", function () {
+                const selectedImage = imageSelect.value;
+                console.log('selectedImage', selectedImage);
+                updateDisplayedImage(selectedImage);
+            });
+
+            // Event listener for the "Play" button
+            playButton.addEventListener("click", function () {
+                if (playInterval) {
+                    // Stop playing
+                    clearInterval(playInterval);
+                    playInterval = null;
+                    playButton.textContent = "Play";
+                } else {
+                    // Start playing
+                    let currentIndex = 0;
+                    playInterval = setInterval(function () {
+                        if (currentIndex >= imageList.length) {
+                            currentIndex = 0; // Loop back to start
+                        }
+                        const currentImage = imageList[currentIndex];
+                        updateDisplayedImage(currentImage);
+                        // Select the current image in the dropdown
+                        imageSelect.value = currentImage;
+                        currentIndex++;
+                        console.log('currentIndex', currentIndex);
+                    }, 1000); // Change images every 1 second
+                    playButton.textContent = "Stop";
+                }
+            });
+
+            // Fetch the list of images when the page loads
+            fetchImagesList();
+            
+            // Refresh image list every 30 seconds
+            setInterval(fetchImagesList, 30000);
+        });
+
+        // Sensor data functionality
+        function updateSensorData() {
+            fetch("/sensor-data.json")
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error("Sensor data not available");
+                    }
+                    return response.json();
+                })
+                .then((data) => {
+                    // Update status indicator
+                    const statusIndicator = document.getElementById("status-indicator");
+                    statusIndicator.className = "status-indicator status-online";
+                    
+                    // Update sensor values
+                    document.getElementById("moisture-value").textContent = data.moisture_percent || "--";
+                    document.getElementById("temperature-value").textContent = 
+                        data.temperature_c !== undefined ? data.temperature_c.toFixed(1) : "--";
+                    document.getElementById("humidity-value").textContent = 
+                        data.humidity_rh !== undefined ? data.humidity_rh.toFixed(1) : "--";
+                    document.getElementById("pressure-value").textContent = 
+                        data.pressure_hpa !== undefined ? data.pressure_hpa.toFixed(1) : "--";
+                    document.getElementById("aqi-value").textContent = data.aqi || "--";
+                    document.getElementById("tvoc-value").textContent = data.tvoc || "--";
+                    document.getElementById("eco2-value").textContent = data.eco2 || "--";
+                    
+                    // Update timestamp
+                    if (data.last_update) {
+                        document.getElementById("last-update").textContent = data.last_update;
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error fetching sensor data:", error);
+                    const statusIndicator = document.getElementById("status-indicator");
+                    statusIndicator.className = "status-indicator status-offline";
+                });
+        }
+
+        // Update sensor data immediately and then every 2 seconds
+        updateSensorData();
+        setInterval(updateSensorData, 2000);
+    </script>
+</body>
+</html>
+
