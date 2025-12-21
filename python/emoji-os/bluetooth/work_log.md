@@ -656,3 +656,50 @@ The script now scans by service UUID instead of relying on device name:
 First, it tries to scan directly for devices advertising the Nordic UART Service (most reliable)
 If that doesn't work, it does a general scan and then connects to candidate devices to verify they have the service
 Device name is now optional — it's nice to have a match, but the script will find the Pico by its service UUID regardless
+
+The new version causes this error:
+
+```sh
+tim@raspberrypi:~/emoji-os $ python emoji_os_zero_1.py
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/gpiozero/pins/pi.py", line 411, in pin
+    pin = self.pins[info]
+          ~~~~~~~~~^^^^^^
+KeyError: PinInfo(number=13, name='GPIO27', names=frozenset({'J8:13', '27', 'BCM27', 'GPIO27', 27, 'WPI2', 'BOARD13'}), pull='', row=7, col=1, interfaces=frozenset({'', 'gpio', 'dpi', 'sdio', 'spi', 'jtag'}))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/tim/emoji-os/emoji_os_zero_1.py", line 216, in <module>
+    disp = LCD_1in44.LCD()
+           ^^^^^^^^^^^^^^^
+  File "/home/tim/emoji-os/config.py", line 53, in __init__
+    self.GPIO_RST_PIN= self.gpio_mode(rst,self.OUTPUT)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tim/emoji-os/config.py", line 82, in gpio_mode
+    return DigitalOutputDevice(Pin,active_high = True,initial_value =False)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/gpiozero/devices.py", line 108, in __call__
+    self = super().__call__(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/gpiozero/output_devices.py", line 192, in __init__
+    super().__init__(pin, active_high=active_high,
+  File "/usr/lib/python3/dist-packages/gpiozero/output_devices.py", line 74, in __init__
+    super().__init__(pin, pin_factory=pin_factory)
+  File "/usr/lib/python3/dist-packages/gpiozero/mixins.py", line 75, in __init__
+    super().__init__(*args, **kwargs)
+  File "/usr/lib/python3/dist-packages/gpiozero/devices.py", line 553, in __init__
+    pin = self.pin_factory.pin(pin)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/gpiozero/pins/pi.py", line 413, in pin
+    pin = self.pin_class(self, info)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/gpiozero/pins/lgpio.py", line 126, in __init__
+    lgpio.gpio_claim_input(
+  File "/usr/lib/python3/dist-packages/lgpio.py", line 755, in gpio_claim_input
+    return _u2i(_lgpio._gpio_claim_input(handle&0xffff, lFlags, gpio))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/lgpio.py", line 458, in _u2i
+    raise error(error_text(v))
+lgpio.error: 'GPIO busy'
+```
