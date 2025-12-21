@@ -8,7 +8,8 @@ This script:
 1. Connects to the Pico via USB serial
 2. Parses sensor data from the Pico's print statements
 3. Writes sensor data to a JSON file that the web interface can read
-4. Optionally serves sensor data via HTTP endpoint
+4. Captures timelapse images using rpicam-still
+5. Optionally serves sensor data via HTTP endpoint
 
 Usage:
     python3 sensor-timelapse-script.py
@@ -31,6 +32,8 @@ import re
 import json
 import time
 import os
+import subprocess
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -39,6 +42,8 @@ SERIAL_BAUDRATE = 115200
 SERIAL_TIMEOUT = 1
 DATA_FILE = "/var/www/html/sensor-data.json"
 LOG_FILE = "/var/log/sensor-timelapse.log"
+IMAGE_DIR = "/var/www/html/images"
+TIMELAPSE_INTERVAL = 60  # Capture image every 60 seconds (adjust as needed)
 
 # Sensor data structure
 sensor_data = {
@@ -132,6 +137,71 @@ def log_message(message):
         print(f"Error logging: {e}")
 
 
+def capture_image():
+    """Capture a timelapse image using rpicam-still"""
+    try:
+        # Ensure image directory exists
+        os.makedirs(IMAGE_DIR, exist_ok=True)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"image_{timestamp}.jpg"
+        filepath = os.path.join(IMAGE_DIR, filename)
+        
+        # Capture image using rpicam-still
+        # -o specifies output file
+        # --timeout 0 means capture immediately (no preview delay)
+        # --nopreview disables preview window
+        result = subprocess.run(
+            ["rpicam-still", "-o", filepath, "--timeout", "0", "--nopreview"],
+            capture_output=True,
+            text=True,
+            timeout=30  # 30 second timeout for capture
+        )
+        
+        if result.returncode == 0:
+            # Set permissions so web server can serve the image
+            os.chmod(filepath, 0o644)
+            message = f"Captured image: {filename}"
+            print(message)
+            log_message(message)
+            return True
+        else:
+            error_msg = f"Failed to capture image: {result.stderr}"
+            print(error_msg)
+            log_message(error_msg)
+            return False
+            
+    except subprocess.TimeoutExpired:
+        error_msg = "Image capture timed out"
+        print(error_msg)
+        log_message(error_msg)
+        return False
+    except FileNotFoundError:
+        error_msg = "rpicam-still not found. Make sure it's installed."
+        print(error_msg)
+        log_message(error_msg)
+        return False
+    except Exception as e:
+        error_msg = f"Error capturing image: {e}"
+        print(error_msg)
+        log_message(error_msg)
+        return False
+
+
+def timelapse_worker():
+    """Worker thread function to capture timelapse images periodically"""
+    while True:
+        try:
+            capture_image()
+            time.sleep(TIMELAPSE_INTERVAL)
+        except Exception as e:
+            error_msg = f"Error in timelapse worker: {e}"
+            print(error_msg)
+            log_message(error_msg)
+            time.sleep(TIMELAPSE_INTERVAL)  # Wait before retrying
+
+
 def main():
     """Main function to read serial data and update sensor data file"""
     port = None
@@ -139,6 +209,12 @@ def main():
     
     print("Sensor Timelapse Script Starting...")
     log_message("Sensor Timelapse Script Starting")
+    
+    # Start timelapse capture thread
+    timelapse_thread = threading.Thread(target=timelapse_worker, daemon=True)
+    timelapse_thread.start()
+    print(f"Timelapse capture started (interval: {TIMELAPSE_INTERVAL} seconds)")
+    log_message(f"Timelapse capture started (interval: {TIMELAPSE_INTERVAL} seconds)")
     
     # Find and connect to Pico
     while True:
@@ -204,6 +280,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nShutting down...")
         log_message("Script stopped by user")
-        if ser and ser.is_open:
-            ser.close()
 
