@@ -28,6 +28,75 @@ See the [PiicoDev wiki](https://core-electronics.com.au/piicodev.html) for more 
 
 This sensor platform can be integrated with a Raspberry Pi 5 running a timelapse camera project. The Pico connects via USB to the Pi 5, and sensor data is collected and displayed alongside timelapse images in a web interface.
 
+### Nginx Web Server Setup
+
+Before setting up the sensor integration, you need to install and configure Nginx web server on your Raspberry Pi 5. This matches the setup used in the original timelapse project.
+
+1. Install Nginx:
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install nginx -y
+   ```
+
+2. Check Nginx status:
+
+   ```bash
+   sudo systemctl status nginx.service
+   ```
+
+3. Create the web directory structure:
+
+   ```bash
+   sudo mkdir -p /var/www/html/images
+   sudo chmod 755 /var/www/html/images
+   ```
+
+4. Configure Nginx to serve the web interface. Edit the default site configuration:
+
+   ```bash
+   sudo nano /etc/nginx/sites-available/default
+   ```
+
+   Add or verify the following location block for the images directory:
+
+   ```nginx
+   server {
+       listen 80 default_server;
+       listen [::]:80 default_server;
+       
+       root /var/www/html;
+       index index.html;
+       
+       server_name _;
+       
+       location /images/ {
+           alias /var/www/html/images/;
+           autoindex on;
+       }
+   }
+   ```
+
+5. Test Nginx configuration:
+
+   ```bash
+   sudo nginx -t
+   ```
+
+6. Restart Nginx to apply changes:
+
+   ```bash
+   sudo systemctl restart nginx.service
+   ```
+
+   Or use:
+
+   ```bash
+   sudo service nginx restart
+   ```
+
+7. Verify Nginx is running by visiting your Raspberry Pi's IP address in a web browser. You should see the default Nginx page or your custom index.html.
+
 ### Setup Instructions
 
 1. Install required Python package on Raspberry Pi 5:
