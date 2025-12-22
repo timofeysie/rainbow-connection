@@ -148,10 +148,13 @@ def capture_image():
         filename = f"image_{timestamp}.jpg"
         filepath = os.path.join(IMAGE_DIR, filename)
         
+        log_message(f"Attempting to capture image to: {filepath}")
+        
         # Capture image using rpicam-still
         # -o specifies output file
         # --timeout 0 means capture immediately (no preview delay)
         # --nopreview disables preview window
+        # Note: On Raspberry Pi, camera access may require sudo or user in video group
         result = subprocess.run(
             ["rpicam-still", "-o", filepath, "--timeout", "0", "--nopreview"],
             capture_output=True,
@@ -160,45 +163,92 @@ def capture_image():
         )
         
         if result.returncode == 0:
-            # Set permissions so web server can serve the image
-            os.chmod(filepath, 0o644)
-            message = f"Captured image: {filename}"
-            print(message)
-            log_message(message)
-            return True
+            # Verify file was created
+            if os.path.exists(filepath):
+                # Set permissions so web server can serve the image
+                os.chmod(filepath, 0o644)
+                file_size = os.path.getsize(filepath)
+                message = f"Captured image: {filename} ({file_size} bytes)"
+                print(message)
+                log_message(message)
+                return True
+            else:
+                error_msg = f"rpicam-still returned success but file not created: {filepath}"
+                print(f"ERROR: {error_msg}")
+                log_message(error_msg)
+                return False
         else:
-            error_msg = f"Failed to capture image: {result.stderr}"
-            print(error_msg)
+            error_msg = f"Failed to capture image. Return code: {result.returncode}"
+            if result.stderr:
+                error_msg += f" Stderr: {result.stderr}"
+            if result.stdout:
+                error_msg += f" Stdout: {result.stdout}"
+            print(f"ERROR: {error_msg}")
             log_message(error_msg)
             return False
             
     except subprocess.TimeoutExpired:
-        error_msg = "Image capture timed out"
-        print(error_msg)
+        error_msg = "Image capture timed out after 30 seconds"
+        print(f"ERROR: {error_msg}")
         log_message(error_msg)
         return False
     except FileNotFoundError:
-        error_msg = "rpicam-still not found. Make sure it's installed."
-        print(error_msg)
+        error_msg = "rpicam-still not found. Install with: sudo apt install -y rpicam-apps"
+        print(f"ERROR: {error_msg}")
         log_message(error_msg)
         return False
     except Exception as e:
         error_msg = f"Error capturing image: {e}"
-        print(error_msg)
+        print(f"ERROR: {error_msg}")
         log_message(error_msg)
+        import traceback
+        log_message(f"Traceback: {traceback.format_exc()}")
         return False
 
 
 def timelapse_worker():
     """Worker thread function to capture timelapse images periodically"""
+    # Wait a bit before first capture to let system settle
+    time.sleep(5)
+    
+    # Test if rpicam-still is available
+    try:
+        result = subprocess.run(
+            ["which", "rpicam-still"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode != 0:
+            error_msg = "rpicam-still not found in PATH. Install it with: sudo apt install -y rpicam-apps"
+            print(f"ERROR: {error_msg}")
+            log_message(error_msg)
+            return
+        else:
+            log_message(f"rpicam-still found at: {result.stdout.strip()}")
+    except Exception as e:
+        error_msg = f"Error checking for rpicam-still: {e}"
+        print(f"ERROR: {error_msg}")
+        log_message(error_msg)
+    
+    log_message("Timelapse worker thread started")
+    print("Timelapse worker thread started")
+    
     while True:
         try:
-            capture_image()
+            log_message(f"Attempting to capture image (interval: {TIMELAPSE_INTERVAL}s)")
+            success = capture_image()
+            if success:
+                log_message("Image capture successful")
+            else:
+                log_message("Image capture failed - check logs for details")
             time.sleep(TIMELAPSE_INTERVAL)
         except Exception as e:
             error_msg = f"Error in timelapse worker: {e}"
-            print(error_msg)
+            print(f"ERROR: {error_msg}")
             log_message(error_msg)
+            import traceback
+            log_message(f"Traceback: {traceback.format_exc()}")
             time.sleep(TIMELAPSE_INTERVAL)  # Wait before retrying
 
 

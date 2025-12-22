@@ -127,3 +127,76 @@ Before setting up the sensor integration, you need to install and configure Ngin
 5. Connect your Raspberry Pi Pico to the Raspberry Pi 5 via USB. The script will automatically detect the Pico's serial port.
 
 The web interface will display both timelapse images and live sensor data. Sensor data updates every 2 seconds, and the status indicator shows green when data is being received.
+
+### Troubleshooting
+
+If sensor data is showing but no images are being captured:
+
+1. Check the log file for errors:
+
+   ```bash
+   sudo tail -f /var/log/sensor-timelapse.log
+   ```
+
+2. Verify `rpicam-still` is installed:
+
+   ```bash
+   which rpicam-still
+   ```
+
+   If not found, install it:
+
+   ```bash
+   sudo apt update
+   sudo apt install -y rpicam-apps
+   ```
+
+3. Test camera capture manually:
+
+   ```bash
+   rpicam-still -o /var/www/html/images/test.jpg --timeout 0 --nopreview
+   ```
+
+   If you get permission errors, try with sudo:
+
+   ```bash
+   sudo rpicam-still -o /var/www/html/images/test.jpg --timeout 0 --nopreview
+   ```
+
+   If sudo works, you may need to add your user to the video group:
+
+   ```bash
+   sudo usermod -a -G video $USER
+   ```
+
+   Then log out and back in, or reboot.
+
+4. Check if the script is running:
+
+   ```bash
+   ps aux | grep sensor-timelapse-script.py
+   ```
+
+5. Verify the script has proper permissions and is executable:
+
+   ```bash
+   ls -l /home/tim/python/sensor-timelapse-script.py
+   sudo chmod +x /home/tim/python/sensor-timelapse-script.py
+   ```
+
+6. Run the script manually to see output:
+
+   ```bash
+   sudo python3 /home/tim/python/sensor-timelapse-script.py
+   ```
+
+   Look for messages like "Timelapse worker thread started" and "Attempting to capture image".
+
+7. Check image directory permissions:
+
+   ```bash
+   ls -ld /var/www/html/images
+   sudo chmod 755 /var/www/html/images
+   ```
+
+The script captures images every 60 seconds by default (configurable via `TIMELAPSE_INTERVAL` in the script).
