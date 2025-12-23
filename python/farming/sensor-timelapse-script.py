@@ -152,15 +152,19 @@ def capture_image():
         
         # Capture image using rpicam-still
         # -o specifies output file
-        # --timeout 0 means capture immediately (no preview delay)
+        # --timeout 1 means capture after 1 second (small delay for camera to initialize)
         # --nopreview disables preview window
+        # --immediate captures immediately without preview delay
         # Note: On Raspberry Pi, camera access may require sudo or user in video group
-        result = subprocess.run(
-            ["rpicam-still", "-o", filepath, "--timeout", "0", "--nopreview"],
-            capture_output=True,
-            text=True,
-            timeout=30  # 30 second timeout for capture
-        )
+        # Redirect stderr to avoid blocking on verbose camera initialization messages
+        with open(os.devnull, 'w') as devnull:
+            result = subprocess.run(
+                ["rpicam-still", "-o", filepath, "--timeout", "1", "--nopreview", "--immediate"],
+                stdout=devnull,
+                stderr=devnull,
+                timeout=60,  # Increased timeout to 60 seconds for camera initialization
+                check=False  # Don't raise exception on non-zero return code
+            )
         
         if result.returncode == 0:
             # Verify file was created
@@ -178,17 +182,13 @@ def capture_image():
                 log_message(error_msg)
                 return False
         else:
-            error_msg = f"Failed to capture image. Return code: {result.returncode}"
-            if result.stderr:
-                error_msg += f" Stderr: {result.stderr}"
-            if result.stdout:
-                error_msg += f" Stdout: {result.stdout}"
+            error_msg = f"Failed to capture image. Return code: {result.returncode}. Check camera permissions and that rpicam-still is working."
             print(f"ERROR: {error_msg}")
             log_message(error_msg)
             return False
             
     except subprocess.TimeoutExpired:
-        error_msg = "Image capture timed out after 30 seconds"
+        error_msg = "Image capture timed out after 60 seconds"
         print(f"ERROR: {error_msg}")
         log_message(error_msg)
         return False

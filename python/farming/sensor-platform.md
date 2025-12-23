@@ -105,26 +105,67 @@ Before setting up the sensor integration, you need to install and configure Ngin
    pip3 install pyserial
    ```
 
-2. Copy the Python script to your Pi and make it executable:
+2. Clone or update the repository on your Raspberry Pi 5 (if not already done):
 
    ```bash
-   sudo cp python/farming/sensor-timelapse-script.py /home/tim/python/
+   # If cloning for the first time:
+   cd ~/repos
+   git clone <your-repo-url> rainbow-connection
+   
+   # Or if already cloned, just pull updates:
+   cd ~/repos/rainbow-connection
+   git pull
+   ```
+
+3. Make the script executable:
+
+   ```bash
+   chmod +x ~/repos/rainbow-connection/python/farming/sensor-timelapse-script.py
+   ```
+
+4. Set up proper permissions for the images directory:
+
+   ```bash
+   sudo mkdir -p /var/www/html/images
+   sudo chmod 775 /var/www/html/images
+   sudo chown -R www-data:www-data /var/www/html/images
+   # Add your user to www-data group to write images
+   sudo usermod -a -G www-data $USER
+   ```
+
+   **Note:** You'll need to log out and back in (or reboot) for group changes to take effect. Alternatively, you can run the script with sudo.
+
+5. Copy the HTML file to replace the existing index.html:
+
+   ```bash
+   sudo cp ~/repos/rainbow-connection/python/farming/farming-index.html /var/www/html/index.html
+   ```
+
+6. Run the sensor script (as a service or manually) from the repo location:
+
+   ```bash
+   sudo python3 ~/repos/rainbow-connection/python/farming/sensor-timelapse-script.py
+   ```
+
+   **Note:** Running from the repo means when you `git pull` to get updates, you'll automatically use the latest version of the script. The path is `~/repos/rainbow-connection` based on your setup.
+
+7. Connect your Raspberry Pi Pico to the Raspberry Pi 5 via USB. The script will automatically detect the Pico's serial port.
+
+**Alternative:** If you prefer to copy the script to a fixed location (like `/home/tim/python/`), first create the directory:
+
+   ```bash
+   mkdir -p /home/tim/python
+   sudo cp ~/repos/rainbow-connection/python/farming/sensor-timelapse-script.py /home/tim/python/
    sudo chmod +x /home/tim/python/sensor-timelapse-script.py
    ```
 
-3. Copy the HTML file to replace the existing index.html:
-
-   ```bash
-   sudo cp python/farming/farming-index.html /var/www/html/index.html
-   ```
-
-4. Run the sensor script (as a service or manually):
+   Then run it from there:
 
    ```bash
    sudo python3 /home/tim/python/sensor-timelapse-script.py
    ```
 
-5. Connect your Raspberry Pi Pico to the Raspberry Pi 5 via USB. The script will automatically detect the Pico's serial port.
+   **Note:** If you use this approach, you'll need to re-copy the script after each `git pull` to get updates.
 
 The web interface will display both timelapse images and live sensor data. Sensor data updates every 2 seconds, and the status indicator shows green when data is being received.
 
@@ -154,14 +195,16 @@ If sensor data is showing but no images are being captured:
 3. Test camera capture manually:
 
    ```bash
-   rpicam-still -o /var/www/html/images/test.jpg --timeout 0 --nopreview
+   rpicam-still -o /var/www/html/images/test.jpg --timeout 1 --nopreview --immediate
    ```
 
    If you get permission errors, try with sudo:
 
    ```bash
-   sudo rpicam-still -o /var/www/html/images/test.jpg --timeout 0 --nopreview
+   sudo rpicam-still -o /var/www/html/images/test.jpg --timeout 1 --nopreview --immediate
    ```
+
+   **Note:** `--timeout 0` can cause the command to hang. Use `--timeout 1` with `--immediate` for faster capture.
 
    If sudo works, you may need to add your user to the video group:
 
@@ -180,15 +223,33 @@ If sensor data is showing but no images are being captured:
 5. Verify the script has proper permissions and is executable:
 
    ```bash
-   ls -l /home/tim/python/sensor-timelapse-script.py
-   sudo chmod +x /home/tim/python/sensor-timelapse-script.py
+   ls -l ~/rainbow-connection/python/farming/sensor-timelapse-script.py
+   chmod +x ~/rainbow-connection/python/farming/sensor-timelapse-script.py
    ```
 
 6. Run the script manually to see output:
 
    ```bash
-   sudo python3 /home/tim/python/sensor-timelapse-script.py
+   sudo python3 ~/repos/rainbow-connection/python/farming/sensor-timelapse-script.py
    ```
+
+7. To find where the script is located:
+
+   ```bash
+   find ~ -name "sensor-timelapse-script.py" 2>/dev/null
+   # Or check if it's in the repo:
+   ls -l ~/repos/rainbow-connection/python/farming/sensor-timelapse-script.py
+   ```
+
+8. Fix image directory permissions if you can't write images:
+
+   ```bash
+   sudo chmod 775 /var/www/html/images
+   sudo chown -R www-data:www-data /var/www/html/images
+   sudo usermod -a -G www-data $USER
+   ```
+
+   Then log out and back in, or reboot for group changes to take effect.
 
    Look for messages like "Timelapse worker thread started" and "Attempting to capture image".
 
