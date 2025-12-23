@@ -1,0 +1,14 @@
+#!/bin/sh -e
+
+sleep 10
+
+echo "=== rc.local starting ===" >> /home/tim/rc.local.log
+echo "Running sensor-timelapse-script.py..." >> /home/tim/rc.local.log
+
+# Run the sensor timelapse script in the background
+# The script's own log file (/var/log/sensor-timelapse.log) will be created automatically
+/usr/bin/python3 /home/tim/repos/rainbow-connection/python/farming/sensor-timelapse-script.py >> /home/tim/rc.local.log 2>&1 &
+
+echo "=== rc.local done ===" >> /home/tim/rc.local.log
+
+exit 0

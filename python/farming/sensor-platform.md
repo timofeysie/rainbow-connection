@@ -141,6 +141,8 @@ Before setting up the sensor integration, you need to install and configure Ngin
    sudo cp ~/repos/rainbow-connection/python/farming/farming-index.html /var/www/html/index.html
    ```
 
+   **Note:** Whenever you modify `farming-index.html` in the repo, you must copy it again to `/var/www/html/index.html` for the changes to appear on the website. Nginx serves files from `/var/www/html/`, not from the repo location.
+
 6. Run the sensor script (as a service or manually) from the repo location:
 
    ```bash
@@ -261,3 +263,11 @@ If sensor data is showing but no images are being captured:
    ```
 
 The script captures images every 60 seconds by default (configurable via `TIMELAPSE_INTERVAL` in the script).
+
+**Daylight Hours:** By default, images are only captured during daylight hours (9 AM to 5 PM) to avoid dark images and save storage space. This can be configured in the script:
+
+- `CAPTURE_START_HOUR = 9` - Start capturing at 9 AM
+- `CAPTURE_END_HOUR = 17` - Stop capturing at 5 PM (17:00)
+- `ENABLE_DAYLIGHT_ONLY = True` - Set to `False` to capture 24/7
+
+To adjust these settings, edit the configuration section at the top of `sensor-timelapse-script.py`.

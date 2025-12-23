@@ -45,6 +45,11 @@ LOG_FILE = "/var/log/sensor-timelapse.log"
 IMAGE_DIR = "/var/www/html/images"
 TIMELAPSE_INTERVAL = 60  # Capture image every 60 seconds (adjust as needed)
 
+# Daylight hours configuration (24-hour format)
+CAPTURE_START_HOUR = 9   # Start capturing at 9 AM
+CAPTURE_END_HOUR = 17    # Stop capturing at 5 PM (17:00)
+ENABLE_DAYLIGHT_ONLY = True  # Set to False to capture 24/7
+
 # Sensor data structure
 sensor_data = {
     "moisture_percent": 0,
@@ -137,9 +142,26 @@ def log_message(message):
         print(f"Error logging: {e}")
 
 
+def is_daylight_hours():
+    """Check if current time is within daylight capture hours"""
+    if not ENABLE_DAYLIGHT_ONLY:
+        return True
+    
+    current_time = datetime.now().time()
+    start_time = datetime.strptime(f"{CAPTURE_START_HOUR:02d}:00:00", "%H:%M:%S").time()
+    end_time = datetime.strptime(f"{CAPTURE_END_HOUR:02d}:00:00", "%H:%M:%S").time()
+    
+    return start_time <= current_time <= end_time
+
+
 def capture_image():
     """Capture a timelapse image using rpicam-still"""
     try:
+        # Check if we should capture based on daylight hours
+        if not is_daylight_hours():
+            log_message(f"Skipping capture - outside daylight hours ({CAPTURE_START_HOUR}:00-{CAPTURE_END_HOUR}:00)")
+            return False
+        
         # Ensure image directory exists
         os.makedirs(IMAGE_DIR, exist_ok=True)
         

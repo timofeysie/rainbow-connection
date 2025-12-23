@@ -259,8 +259,9 @@
             let playInterval = null;
 
             // Function to fetch the list of images from the /images directory
+            // Returns a promise that resolves with the new image count
             function fetchImagesList() {
-                fetch("/images/")
+                return fetch("/images/")
                     .then((response) => response.text())
                     .then((data) => {
                         console.log('data', data);
@@ -268,19 +269,27 @@
                         const doc = parser.parseFromString(data, "text/html");
                         const links = doc.querySelectorAll("a");
 
-                        imageList = Array.from(links)
+                        const newImageList = Array.from(links)
                             .map((link) => link.getAttribute("href"))
                             .filter((href) => href.endsWith(".jpg") || href.endsWith(".jpeg"));
+
+                        const previousCount = imageList.length;
+                        imageList = newImageList;
 
                         // Populate the select element with image options
                         populateImageSelect();
 
-                        // Set the default image to the last image in the list
-                        if (imageList.length > 0) {
+                        // Set the default image to the last image in the list (only on initial load)
+                        if (imageList.length > 0 && previousCount === 0) {
                             updateDisplayedImage(imageList[imageList.length - 1]);
                         }
+                        
+                        return imageList.length;
                     })
-                    .catch((error) => console.error("Error fetching images:", error));
+                    .catch((error) => {
+                        console.error("Error fetching images:", error);
+                        return imageList.length;
+                    });
             }
 
             // Function to populate the select element with image options
@@ -336,8 +345,24 @@
             // Fetch the list of images when the page loads
             fetchImagesList();
             
-            // Refresh image list every 30 seconds
-            setInterval(fetchImagesList, 30000);
+            // Refresh image list every 60 seconds to match timelapse capture interval
+            // This ensures new images appear automatically when captured
+            setInterval(function() {
+                const previousImageCount = imageList.length;
+                fetchImagesList().then(function(newCount) {
+                    // Check if a new image was added
+                    if (newCount > previousImageCount) {
+                        // New image detected - automatically display the latest one
+                        if (imageList.length > 0) {
+                            const latestImage = imageList[imageList.length - 1];
+                            updateDisplayedImage(latestImage);
+                            // Update the select dropdown to show the new image
+                            imageSelect.value = latestImage;
+                            console.log('New image detected and displayed:', latestImage);
+                        }
+                    }
+                });
+            }, 60000); // 60 seconds to match TIMELAPSE_INTERVAL
         });
 
         // Sensor data functionality
