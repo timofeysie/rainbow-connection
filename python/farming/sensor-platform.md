@@ -271,3 +271,103 @@ The script captures images every 60 seconds by default (configurable via `TIMELA
 - `ENABLE_DAYLIGHT_ONLY = True` - Set to `False` to capture 24/7
 
 To adjust these settings, edit the configuration section at the top of `sensor-timelapse-script.py`.
+
+### Verification After Setup
+
+After setting up and rebooting, use these commands to verify everything is working:
+
+1. **Check if the script is running:**
+
+   ```bash
+   ps aux | grep sensor-timelapse-script.py
+   ```
+
+   You should see a process running. If not, check the rc.local log:
+
+   ```bash
+   cat /home/tim/rc.local.log
+   ```
+
+2. **Check the script's log file for activity:**
+
+   ```bash
+   sudo tail -f /var/log/sensor-timelapse.log
+   ```
+
+   Look for:
+   - "Sensor Timelapse Script Starting"
+   - "Connected to Pico on /dev/ttyACM0"
+   - "Timelapse worker thread started"
+   - "Attempting to capture image"
+   - "Captured image: ..." or "Skipping capture - outside daylight hours"
+
+3. **Verify Pico is connected:**
+
+   ```bash
+   ls -l /dev/ttyACM*
+   ```
+
+   Should show `/dev/ttyACM0` or similar.
+
+4. **Check if sensor data is being updated:**
+
+   ```bash
+   cat /var/www/html/sensor-data.json
+   ```
+
+   Should show current sensor values with a recent timestamp.
+
+5. **Verify images directory exists and has files:**
+
+   ```bash
+   ls -lh /var/www/html/images/ | tail -10
+   ```
+
+   Should show recent image files if captures are happening.
+
+6. **Test camera manually:**
+
+   ```bash
+   rpicam-still -o /var/www/html/images/test-manual.jpg --timeout 1 --nopreview --immediate
+   ls -lh /var/www/html/images/test-manual.jpg
+   ```
+
+   If this works, the camera is functional.
+
+7. **Check nginx is running:**
+
+   ```bash
+   sudo systemctl status nginx
+   ```
+
+8. **Verify web page is accessible:**
+
+   ```bash
+   hostname -I
+   ```
+
+   Then visit `http://<ip-address>` in a browser.
+
+9. **Check if it's daylight hours:**
+
+   ```bash
+   date
+   ```
+
+   If it's outside 9 AM - 5 PM, images won't be captured (unless `ENABLE_DAYLIGHT_ONLY = False`).
+
+10. **If script isn't running, start it manually to see errors:**
+
+    ```bash
+    sudo python3 ~/repos/rainbow-connection/python/farming/sensor-timelapse-script.py
+    ```
+
+    Watch for any error messages.
+
+**Common Issues:**
+
+- **No images:** Check if it's daylight hours, or set `ENABLE_DAYLIGHT_ONLY = False` temporarily
+- **Script not running:** Check `/home/tim/rc.local.log` for errors
+- **Pico not connected:** Verify USB connection and check `/dev/ttyACM*`
+- **Camera not working:** Test manually with `rpicam-still` command
+- **Web page not updating:** Clear browser cache or do a hard refresh (Ctrl+F5)
