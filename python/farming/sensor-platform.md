@@ -153,7 +153,30 @@ Before setting up the sensor integration, you need to install and configure Ngin
 
 7. Connect your Raspberry Pi Pico to the Raspberry Pi 5 via USB. The script will automatically detect the Pico's serial port.
 
-**Alternative:** If you prefer to copy the script to a fixed location (like `/home/tim/python/`), first create the directory:
+7. **Set up automatic startup with rc.local:**
+
+   Copy the rc.local file to `/etc/rc.local`:
+
+   ```bash
+   sudo cp ~/repos/rainbow-connection/python/farming/rc.local /etc/rc.local
+   sudo chmod +x /etc/rc.local
+   ```
+
+   Create the log file with proper permissions:
+
+   ```bash
+   sudo touch /home/tim/rc.local.log
+   sudo chown tim:tim /home/tim/rc.local.log
+   ```
+
+   Verify rc-local service is enabled:
+
+   ```bash
+   sudo systemctl enable rc-local.service
+   sudo systemctl status rc-local.service
+   ```
+
+   **Alternative:** If you prefer to copy the script to a fixed location (like `/home/tim/python/`), first create the directory:
 
    ```bash
    mkdir -p /home/tim/python
@@ -288,6 +311,38 @@ After setting up and rebooting, use these commands to verify everything is worki
    cat /home/tim/rc.local.log
    ```
 
+   **If the log file doesn't exist**, it means rc.local either hasn't run yet or failed before creating the log. Check:
+
+   ```bash
+   # Verify rc.local exists and is executable
+   ls -l /etc/rc.local
+   sudo chmod +x /etc/rc.local
+   
+   # Check rc-local service status
+   sudo systemctl status rc-local.service
+   
+   # Create the log file manually if needed
+   sudo touch /home/tim/rc.local.log
+   sudo chown tim:tim /home/tim/rc.local.log
+   
+   # Test rc.local manually to see if it works
+   sudo /etc/rc.local
+   cat /home/tim/rc.local.log
+   ```
+
+   **If the script isn't running after reboot**, verify:
+   
+   ```bash
+   # Check if rc.local content is correct
+   sudo cat /etc/rc.local
+   
+   # Make sure rc-local service is enabled
+   sudo systemctl enable rc-local.service
+   
+   # Check service logs for errors
+   sudo journalctl -u rc-local.service -n 50
+   ```
+
 2. **Check the script's log file for activity:**
 
    ```bash
@@ -371,3 +426,13 @@ After setting up and rebooting, use these commands to verify everything is worki
 - **Pico not connected:** Verify USB connection and check `/dev/ttyACM*`
 - **Camera not working:** Test manually with `rpicam-still` command
 - **Web page not updating:** Clear browser cache or do a hard refresh (Ctrl+F5)
+
+## Plant io setup
+
+Based on the [](https://youtu.be/0wI8gDeB3WM), 
+
+The code is in the [official repo](https://github.com/CoreElectronics/CE-Makerverse-Plant_io)
+
+We will need 
+
+- CE-Makerverse-Plant_io/code/Plant_io.py
