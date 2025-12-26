@@ -1,5 +1,5 @@
 """
-BLE Controller v1.1 for Raspberry Pi Zero 2 W
+BLE Controller v1.2 for Raspberry Pi Zero 2 W
 Acts as a BLE central that connects to Pico 2 W and sends commands
 Enhanced with better error handling and connection stability
 """
@@ -101,7 +101,7 @@ class BLEController:
         print("Note: If you know your Pico's MAC address, you can connect directly")
         
         # Known Pico MAC addresses from previous successful connections
-        known_pico_addresses = ["28:CD:C1:05:AB:A4", "28:CD:C1:07:2C:E8"]
+        known_pico_addresses = ["28:CD:C1:05:AB:A4", "28:CD:C1:07:2C:E8", "2C:CF:67:05:A4:F4"]
         
         # First, check if any known Pico addresses are in the scan
         for known_addr in known_pico_addresses:
@@ -113,18 +113,34 @@ class BLEController:
                     try:
                         test_client = BleakClient(device.address)
                         await test_client.connect(timeout=5.0)
-                        services = await test_client.get_services()
+                        # Get services - handle different bleak versions
+                        try:
+                            services = test_client.services
+                            if not services:
+                                services = await test_client.get_services()
+                        except AttributeError:
+                            # Fallback for older bleak versions
+                            services = await test_client.get_services()
+                        
+                        # Check if UART service exists
+                        uart_found = False
                         for service in services:
-                            if service.uuid.lower() == UART_SERVICE_UUID.lower():
-                                await test_client.disconnect()
-                                self.device_address = device.address
-                                print(f"✓ FOUND!")
-                                print(f"\n✓ Found Pico device with Nordic UART Service:")
-                                print(f"  Name: {name}")
-                                print(f"  Address: {self.device_address}")
-                                return True
+                            if hasattr(service, 'uuid'):
+                                if str(service.uuid).lower() == UART_SERVICE_UUID.lower():
+                                    uart_found = True
+                                    break
+                        
                         await test_client.disconnect()
-                        print("✗ (no UART service)")
+                        
+                        if uart_found:
+                            self.device_address = device.address
+                            print(f"✓ FOUND!")
+                            print(f"\n✓ Found Pico device with Nordic UART Service:")
+                            print(f"  Name: {name}")
+                            print(f"  Address: {self.device_address}")
+                            return True
+                        else:
+                            print("✗ (no UART service)")
                     except Exception as e:
                         print(f"✗ (connection failed: {str(e)[:50]})")
         
@@ -136,21 +152,37 @@ class BLEController:
                 
             name = device.name or "(No Name)"
             print(f"  Checking {name} ({device.address})...", end=" ")
-            try:
-                test_client = BleakClient(device.address)
-                await test_client.connect(timeout=5.0)  # Increased timeout
-                services = await test_client.get_services()
-                for service in services:
-                    if service.uuid.lower() == UART_SERVICE_UUID.lower():
+                    try:
+                        test_client = BleakClient(device.address)
+                        await test_client.connect(timeout=5.0)  # Increased timeout
+                        # Get services - handle different bleak versions
+                        try:
+                            services = test_client.services
+                            if not services:
+                                services = await test_client.get_services()
+                        except AttributeError:
+                            # Fallback for older bleak versions
+                            services = await test_client.get_services()
+                        
+                        # Check if UART service exists
+                        uart_found = False
+                        for service in services:
+                            if hasattr(service, 'uuid'):
+                                if str(service.uuid).lower() == UART_SERVICE_UUID.lower():
+                                    uart_found = True
+                                    break
+                        
                         await test_client.disconnect()
-                        self.device_address = device.address
-                        print(f"✓ FOUND!")
-                        print(f"\n✓ Found Pico device with Nordic UART Service:")
-                        print(f"  Name: {name}")
-                        print(f"  Address: {self.device_address}")
-                        return True
-                await test_client.disconnect()
-                print("✗ (no UART service)")
+                        
+                        if uart_found:
+                            self.device_address = device.address
+                            print(f"✓ FOUND!")
+                            print(f"\n✓ Found Pico device with Nordic UART Service:")
+                            print(f"  Name: {name}")
+                            print(f"  Address: {self.device_address}")
+                            return True
+                        else:
+                            print("✗ (no UART service)")
             except Exception as e:
                 error_msg = str(e)
                 # Show more detail for connection failures
@@ -158,8 +190,12 @@ class BLEController:
                     print("✗ (timeout)")
                 elif "not found" in error_msg.lower() or "not available" in error_msg.lower():
                     print("✗ (not available)")
+                elif "attribute" in error_msg.lower() and "'g'" in error_msg:
+                    # This is a known issue with some bleak versions - try alternative approach
+                    print("✗ (service discovery issue)")
                 else:
-                    print(f"✗ (failed: {error_msg[:40]})")
+                    # Show full error for debugging
+                    print(f"✗ (failed: {error_msg})")
                 continue  # Try next device
         
         print(f"\n✗ Could not find Pico device")
@@ -285,7 +321,7 @@ async def main():
     controller = BLEController()
     
     try:
-        print("BLE Controller v1.1 for Raspberry Pi Zero 2 W")
+        print("BLE Controller v1.2 for Raspberry Pi Zero 2 W")
         print("=" * 50)
         
         # Allow manual MAC address specification
@@ -303,7 +339,8 @@ async def main():
                 print("2. Check Pico output shows 'Starting advertising...'")
                 print("3. Try power cycling the Pico (unplug and replug USB)")
                 print("4. Try running with a known MAC address:")
-                print("   python controller-1.py 28:CD:C1:05:AB:A4")
+                print("   python controller-1.py 2C:CF:67:05:A4:F4")
+                print("   (or try: python controller-1.py 28:CD:C1:05:AB:A4)")
                 print("=" * 50)
                 print("\nExiting - could not find target device")
                 return
