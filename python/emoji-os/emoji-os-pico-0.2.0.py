@@ -1,4 +1,4 @@
-# emoji os v0.2.1 - Enhanced with BLE Controller functionality
+# emoji os v0.2.2 - Enhanced with working BLE Controller functionality (from client_enhanced.py)
 import glowbit
 from machine import Pin
 import time
@@ -317,31 +317,83 @@ def draw_emoji():
 
 # === BLE Classes ===
 class BLESimplePeripheral:
-    """BLE Peripheral that advertises UART service and receives emoji commands"""
+    """BLE Peripheral that advertises UART service and receives emoji commands
+    Enhanced version with MAC address logging and proper BLE stack reset
+    """
     
     def __init__(self, ble, name="Pico-Client"):
         self._ble = ble
-        self._name = name
-        
         # Force BLE stack reset to clear cached name
-        # This helps ensure the device name is properly set
         self._ble.active(False)
-        time.sleep(0.3)  # Longer delay to ensure stack fully resets
-        
+        time.sleep(0.1)
         self._ble.active(True)
-        time.sleep(0.3)  # Wait for BLE to fully initialize
+        time.sleep(0.1)
         self._ble.irq(self._irq)
+        
+        # Get and log the BLE MAC address
+        mac_str = "Unknown"
+        try:
+            mac_data = self._ble.config('mac')
+            
+            # Handle tuple format: (addr_type, mac_bytes)
+            # The MAC address is in the second element as bytes
+            if isinstance(mac_data, tuple) and len(mac_data) >= 2:
+                # Extract the bytes object from the tuple
+                mac_bytes = mac_data[1]
+                if isinstance(mac_bytes, bytes) and len(mac_bytes) == 6:
+                    # Convert bytes to list of integers
+                    mac_ints = [b for b in mac_bytes]
+                    # Format MAC address as XX:XX:XX:XX:XX:XX
+                    mac_parts = [f'{b:02X}' for b in mac_ints]
+                    mac_str = ':'.join(mac_parts)
+                    print(f"BLE MAC Address: {mac_str}")
+                else:
+                    mac_str = "Unknown"
+            elif isinstance(mac_data, bytes) and len(mac_data) == 6:
+                # Direct bytes object
+                mac_ints = [b for b in mac_data]
+                mac_parts = [f'{b:02X}' for b in mac_ints]
+                mac_str = ':'.join(mac_parts)
+                print(f"BLE MAC Address: {mac_str}")
+            elif isinstance(mac_data, (tuple, list)) and len(mac_data) == 6:
+                # Already a sequence of 6 integers
+                mac_ints = [int(x) if not isinstance(x, int) else x for x in mac_data]
+                mac_parts = [f'{b:02X}' for b in mac_ints]
+                mac_str = ':'.join(mac_parts)
+                print(f"BLE MAC Address: {mac_str}")
+        except Exception as e:
+            print(f"Could not retrieve MAC address (method 1): {e}")
+            # Try alternative method
+            try:
+                # Some MicroPython versions use 'addr' instead of 'mac'
+                mac_data = self._ble.config('addr')
+                # Handle tuple format: (addr_type, mac_bytes)
+                if isinstance(mac_data, tuple) and len(mac_data) >= 2:
+                    mac_bytes = mac_data[1]
+                    if isinstance(mac_bytes, bytes) and len(mac_bytes) == 6:
+                        mac_ints = [b for b in mac_bytes]
+                        mac_parts = [f'{b:02X}' for b in mac_ints]
+                        mac_str = ':'.join(mac_parts)
+                        print(f"BLE MAC Address (via 'addr'): {mac_str}")
+                    else:
+                        mac_str = "Unknown"
+                elif isinstance(mac_data, bytes) and len(mac_data) == 6:
+                    mac_ints = [b for b in mac_data]
+                    mac_parts = [f'{b:02X}' for b in mac_ints]
+                    mac_str = ':'.join(mac_parts)
+                    print(f"BLE MAC Address (via 'addr'): {mac_str}")
+                else:
+                    mac_str = "Unknown"
+            except Exception as e2:
+                mac_str = "Unknown"
         
         # Register the UART service
         ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((_UART_SERVICE,))
         
         self._connections = set()
         self._write_callback = None
-        
-        # Create advertising payload with explicit name
         self._payload = advertising_payload(name=name, services=[_UART_UUID])
-        print(f"BLE Device Name configured: {name}")
-        print(f"Advertising payload length: {len(self._payload)}")
+        self._mac_address = mac_str
         self._advertise()
 
     def _irq(self, event, data):
@@ -373,7 +425,7 @@ class BLESimplePeripheral:
 
     def _advertise(self, interval_us=500000):
         """Start advertising the BLE service"""
-        print(f"Starting advertising as '{self._name}'...")
+        print("Starting advertising...")
         self._ble.gap_advertise(interval_us, adv_data=self._payload)
 
     def on_write(self, callback):
@@ -470,7 +522,7 @@ p = BLESimplePeripheral(ble, "Pico-Client")
 # Set up command handler
 p.on_write(handle_command)
 
-print("Emoji OS Pico v0.2.1 - Enhanced with BLE Controller functionality")
+print("Emoji OS Pico v0.2.2 - Enhanced with working BLE Controller functionality")
 print("Device Name: Pico-Client")
 print("Supports emoji commands in format: 'MENU:POS:NEG'")
 print("Legacy commands: ON, OFF, STATUS, BLINK")
