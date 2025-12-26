@@ -1,5 +1,5 @@
 """
-BLE Client for Raspberry Pi Pico 2 W v1.1.0
+BLE Client enhanced for Raspberry Pi Pico 2 W v1.1.0
 Acts as a BLE peripheral that receives emoji commands from a central device (Pi Zero 2 W)
 Enhanced to handle emoji selection commands in format "MENU:POS:NEG"
 """
