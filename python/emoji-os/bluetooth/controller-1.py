@@ -152,37 +152,37 @@ class BLEController:
                 
             name = device.name or "(No Name)"
             print(f"  Checking {name} ({device.address})...", end=" ")
-                    try:
-                        test_client = BleakClient(device.address)
-                        await test_client.connect(timeout=5.0)  # Increased timeout
-                        # Get services - handle different bleak versions
-                        try:
-                            services = test_client.services
-                            if not services:
-                                services = await test_client.get_services()
-                        except AttributeError:
-                            # Fallback for older bleak versions
-                            services = await test_client.get_services()
-                        
-                        # Check if UART service exists
-                        uart_found = False
-                        for service in services:
-                            if hasattr(service, 'uuid'):
-                                if str(service.uuid).lower() == UART_SERVICE_UUID.lower():
-                                    uart_found = True
-                                    break
-                        
-                        await test_client.disconnect()
-                        
-                        if uart_found:
-                            self.device_address = device.address
-                            print(f"✓ FOUND!")
-                            print(f"\n✓ Found Pico device with Nordic UART Service:")
-                            print(f"  Name: {name}")
-                            print(f"  Address: {self.device_address}")
-                            return True
-                        else:
-                            print("✗ (no UART service)")
+            try:
+                test_client = BleakClient(device.address)
+                await test_client.connect(timeout=5.0)  # Increased timeout
+                # Get services - handle different bleak versions
+                try:
+                    services = test_client.services
+                    if not services:
+                        services = await test_client.get_services()
+                except AttributeError:
+                    # Fallback for older bleak versions
+                    services = await test_client.get_services()
+                
+                # Check if UART service exists
+                uart_found = False
+                for service in services:
+                    if hasattr(service, 'uuid'):
+                        if str(service.uuid).lower() == UART_SERVICE_UUID.lower():
+                            uart_found = True
+                            break
+                
+                await test_client.disconnect()
+                
+                if uart_found:
+                    self.device_address = device.address
+                    print(f"✓ FOUND!")
+                    print(f"\n✓ Found Pico device with Nordic UART Service:")
+                    print(f"  Name: {name}")
+                    print(f"  Address: {self.device_address}")
+                    return True
+                else:
+                    print("✗ (no UART service)")
             except Exception as e:
                 error_msg = str(e)
                 # Show more detail for connection failures
