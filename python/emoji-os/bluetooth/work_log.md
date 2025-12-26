@@ -703,3 +703,177 @@ Traceback (most recent call last):
     raise error(error_text(v))
 lgpio.error: 'GPIO busy'
 ```
+
+## Dusting off the client controller code
+
+After failing to get the emoji and zero communicating, I have gone back to the client and controller demo code to see what was working before.  However, I couldn't get any combination to run from this directory.
+
+Out of all the client files, which according to git is the most recently updated?
+
+python\emoji-os\bluetooth\client.py
+python\emoji-os\bluetooth\client_simple_test.py
+python\emoji-os\bluetooth\client_enhanced.py
+
+Most recently updated: client_enhanced.py (October 26, 2025 at 13:52:13 +1100).
+Order:
+client_enhanced.py — October 26, 2025 at 13:52:13 +1100
+client.py — October 25, 2025 at 11:00:32 +1100
+client_simple_test.py — October 25, 2025 at 09:40:30 +1100
+
+And do the same for the control:
+python\emoji-os\bluetooth\controller_debug.py
+python\emoji-os\bluetooth\controller.py
+
+Most recently updated: controller.py (October 25, 2025 at 11:00:32 +1100).
+Order:
+controller.py — October 25, 2025 at 11:00:32 +1100
+controller_debug.py — October 25, 2025 at 09:40:30 +1100
+controller.py was updated about 1 hour and 20 minutes after controller_debug.py.
+
+How about the other files in this directory: python\emoji-os\bluetooth\?
+I was able to successfully send commands from a controller to a client script previously, but can't remember which version now this succeeded in.
+
+Running the controller.py on the raspberry pi 5, and client.py currently has the following result:
+
+On the pico:
+
+```
+>>> %Run -c $EDITOR_CONTENT
+BLE Client for Raspberry Pi Pico 2 W v1.1.0 - Enhanced for Emoji Commands
+Device Name: Pico-Client
+======================================================================
+Starting advertising...
+BLE Client started
+Waiting for connections...
+Supports emoji commands in format: 'MENU:POS:NEG'
+Legacy commands: ON, OFF, STATUS, BLINK
+Press Ctrl+C to stop
+```
+
+On the raspberry pi 5:
+
+```
+tim@raspberrypi:~/repos/rainbow-connection/python/emoji-os/bluetooth $ python controller.py
+BLE Controller for Raspberry Pi Zero 2 W
+==================================================
+Scanning for 'Pico-Client' for 10 seconds...
+Make sure your Pico is running client.py...
+Found 11 BLE devices:
+--------------------------------------------------
+ 1. (No Name)            | 07:39:31:9B:DA:5A
+ 2. (No Name)            | 88:C6:26:AC:57:74
+ 3. (No Name)            | 74:F6:16:1B:9F:83
+ 4. (No Name)            | 47:3E:09:D2:68:91
+ 5. (No Name)            | 2C:CF:67:05:A4:F4
+ 6. PR BT 7CF6           | 00:1F:FF:A9:0F:06
+ 7. (No Name)            | C2:DD:52:C9:4A:D3
+ 8. (No Name)            | 7C:D6:89:B2:7C:10
+ 9. (No Name)            | C7:90:BF:2B:8D:03
+10. (No Name)            | 41:B1:AD:1E:D8:A6
+11. (No Name)            | DE:7F:79:82:6C:D2
+--------------------------------------------------
+✗ Could not find 'Pico-Client'
+
+Troubleshooting tips:
+1. Make sure Pico is running client.py
+2. Check that Pico shows 'Starting advertising...'
+3. Try moving devices closer together
+4. Restart both devices
+
+Exiting - could not find target device
+```
+
+After the printing out the MAC address in the client, and then running the controller with the new debugging, we see this:
+
+```
+>>> %Run -c $EDITOR_CONTENT
+BLE Client enhanced for Raspberry Pi Pico 2 W v1.2.0 - Enhanced for Emoji Commands
+Device Name: Pico-Client
+======================================================================
+BLE MAC Address: 2C:CF:67:05:A4:F4
+Starting advertising...
+BLE Client started
+BLE MAC Address: 2C:CF:67:05:A4:F4
+Waiting for connections...
+Supports emoji commands in format: 'MENU:POS:NEG'
+Legacy commands: ON, OFF, STATUS, BLINK
+Press Ctrl+C to stop
+✓ Connected: 64
+```
+
+and the controller:
+```
+tim@raspberrypi:~/repos/rainbow-connection/python/emoji-os/bluetooth $ python controller-1.py
+BLE Controller v1.1 for Raspberry Pi Zero 2 W
+==================================================
+Scanning for Pico device (preferred name: 'Pico-Client')...
+Will also search for Nordic UART Service if name doesn't match
+Make sure your Pico is running client.py or client_enhanced.py...
+
+Attempting to scan by service UUID...
+
+Performing general scan for 10 seconds...
+Found 12 BLE devices:
+--------------------------------------------------
+ 1. (No Name)            | 2C:CF:67:05:A4:F4
+ 2. (No Name)            | 88:C6:26:AC:57:74
+ 3. (No Name)            | 21:C6:65:1C:08:45
+ 4. (No Name)            | 7F:2B:6F:05:C5:16
+ 5. (No Name)            | 7E:02:28:D3:7C:22
+ 6. (No Name)            | FA:5A:34:A1:0D:6D
+ 7. (No Name)            | 70:FD:B1:4A:08:62
+ 8. (No Name)            | 5A:D6:C2:11:E6:51
+ 9. (No Name)            | FB:A5:E8:2A:82:3F
+10. (No Name)            | F6:20:70:0F:9A:C1
+11. (No Name)            | C5:F7:4F:55:20:D9
+12. (No Name)            | FA:77:7A:F9:58:9B
+--------------------------------------------------
+
+No exact name match found. Checking devices for Nordic UART Service...
+
+Verifying devices by attempting connection...
+(This may take a moment - checking up to 15 devices)...
+Note: If you know your Pico's MAC address, you can connect directly
+  Checking (No Name) (2C:CF:67:05:A4:F4)... ✗ (failed: 'BleakClient' object has no attribute 'g)
+  Checking (No Name) (88:C6:26:AC:57:74)... ✗ (failed: 'BleakClient' object has no attribute 'g)
+  Checking (No Name) (21:C6:65:1C:08:45)... ✗ (not available)
+  Checking (No Name) (7F:2B:6F:05:C5:16)... ✗ (failed: 'BleakClient' object has no attribute 'g)
+  Checking (No Name) (7E:02:28:D3:7C:22)... ✗ (failed: )
+  Checking (No Name) (FA:5A:34:A1:0D:6D)... ✗ (not available)
+  Checking (No Name) (70:FD:B1:4A:08:62)... ✗ (failed: 'BleakClient' object has no attribute 'g)
+  Checking (No Name) (5A:D6:C2:11:E6:51)... ✗ (failed: 'BleakClient' object has no attribute 'g)
+  Checking (No Name) (FB:A5:E8:2A:82:3F)... ✗ (not available)
+  Checking (No Name) (F6:20:70:0F:9A:C1)... ✗ (not available)
+  Checking (No Name) (C5:F7:4F:55:20:D9)... ✗ (not available)
+  Checking (No Name) (FA:77:7A:F9:58:9B)... ✗ (not available)
+
+✗ Could not find Pico device
+
+Troubleshooting tips:
+1. Make sure Pico is running client.py or client_enhanced.py
+2. Check that Pico shows 'Starting advertising...'
+3. Try moving devices closer together
+4. Restart both devices
+5. Device may be advertising with a different name
+
+==================================================
+TROUBLESHOOTING:
+1. Make sure client_enhanced.py is running on the Pico
+2. Check Pico output shows 'Starting advertising...'
+3. Try power cycling the Pico (unplug and replug USB)
+4. Try running with a known MAC address:
+   python controller-1.py 28:CD:C1:05:AB:A4
+==================================================
+
+Exiting - could not find target device
+```
+
+Notice the client advertises '2C:CF:67:05:A4:F4' but the controller shows:
+"checking (No Name) (2C:CF:67:05:A4:F4)... ✗ (failed: 'BleakClient' object has no attribute 'g)"
+
+After this I am proud to report that the controller is now working to send messages to the pico.
+
+The files working are:
+
+python\emoji-os\bluetooth\controller-1.py
+python\emoji-os\bluetooth\client_enhanced.py
