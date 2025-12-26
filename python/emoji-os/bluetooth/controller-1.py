@@ -1,5 +1,5 @@
 """
-BLE Controller v1 for Raspberry Pi Zero 2 W
+BLE Controller v1.1 for Raspberry Pi Zero 2 W
 Acts as a BLE central that connects to Pico 2 W and sends commands
 Enhanced with better error handling and connection stability
 """
@@ -98,12 +98,47 @@ class BLEController:
         # Last resort: try connecting to devices to verify service (slower but more reliable)
         print("\nVerifying devices by attempting connection...")
         print("(This may take a moment - checking up to 15 devices)...")
+        print("Note: If you know your Pico's MAC address, you can connect directly")
+        
+        # Known Pico MAC addresses from previous successful connections
+        known_pico_addresses = ["28:CD:C1:05:AB:A4", "28:CD:C1:07:2C:E8"]
+        
+        # First, check if any known Pico addresses are in the scan
+        for known_addr in known_pico_addresses:
+            for device in devices:
+                if device.address.upper() == known_addr.upper():
+                    name = device.name or "(No Name)"
+                    print(f"\n  Found known Pico address: {name} ({device.address})")
+                    print(f"  Attempting connection...", end=" ")
+                    try:
+                        test_client = BleakClient(device.address)
+                        await test_client.connect(timeout=5.0)
+                        services = await test_client.get_services()
+                        for service in services:
+                            if service.uuid.lower() == UART_SERVICE_UUID.lower():
+                                await test_client.disconnect()
+                                self.device_address = device.address
+                                print(f"✓ FOUND!")
+                                print(f"\n✓ Found Pico device with Nordic UART Service:")
+                                print(f"  Name: {name}")
+                                print(f"  Address: {self.device_address}")
+                                return True
+                        await test_client.disconnect()
+                        print("✗ (no UART service)")
+                    except Exception as e:
+                        print(f"✗ (connection failed: {str(e)[:50]})")
+        
+        # Then check all other devices
         for device in devices[:15]:  # Check more devices
+            # Skip if we already checked this as a known address
+            if device.address.upper() in [a.upper() for a in known_pico_addresses]:
+                continue
+                
             name = device.name or "(No Name)"
             print(f"  Checking {name} ({device.address})...", end=" ")
             try:
                 test_client = BleakClient(device.address)
-                await test_client.connect(timeout=3.0)
+                await test_client.connect(timeout=5.0)  # Increased timeout
                 services = await test_client.get_services()
                 for service in services:
                     if service.uuid.lower() == UART_SERVICE_UUID.lower():
@@ -117,7 +152,14 @@ class BLEController:
                 await test_client.disconnect()
                 print("✗ (no UART service)")
             except Exception as e:
-                print("✗ (connection failed)")
+                error_msg = str(e)
+                # Show more detail for connection failures
+                if "timeout" in error_msg.lower():
+                    print("✗ (timeout)")
+                elif "not found" in error_msg.lower() or "not available" in error_msg.lower():
+                    print("✗ (not available)")
+                else:
+                    print(f"✗ (failed: {error_msg[:40]})")
                 continue  # Try next device
         
         print(f"\n✗ Could not find Pico device")
@@ -138,17 +180,40 @@ class BLEController:
         try:
             print(f"Connecting to {self.device_address}...")
             self.client = BleakClient(self.device_address)
-            await self.client.connect()
+            await self.client.connect(timeout=10.0)  # Increased timeout
             
             if self.client.is_connected:
                 print("✓ Successfully connected!")
+                # Verify the service exists
+                try:
+                    services = await self.client.get_services()
+                    uart_found = False
+                    for service in services:
+                        if service.uuid.lower() == UART_SERVICE_UUID.lower():
+                            uart_found = True
+                            print(f"✓ Verified Nordic UART Service is available")
+                            break
+                    if not uart_found:
+                        print("⚠ Warning: Connected but Nordic UART Service not found!")
+                        print("  This might not be the correct device.")
+                except Exception as e:
+                    print(f"⚠ Warning: Could not verify services: {e}")
+                
                 return True
             else:
-                print("✗ Failed to connect")
+                print("✗ Failed to connect (not connected after connect() call)")
                 return False
                 
+        except asyncio.TimeoutError:
+            print(f"✗ Connection timeout - device may not be in range or not advertising")
+            return False
         except Exception as e:
-            print(f"✗ Connection error: {e}")
+            error_msg = str(e)
+            print(f"✗ Connection error: {error_msg}")
+            if "not found" in error_msg.lower() or "not available" in error_msg.lower():
+                print("  → Device may not be advertising or is out of range")
+            elif "timeout" in error_msg.lower():
+                print("  → Connection timed out - device may be busy or not responding")
             return False
     
     async def send_command(self, command):
@@ -215,16 +280,33 @@ class BLEController:
 
 async def main():
     """Main function"""
+    import sys
+    
     controller = BLEController()
     
     try:
-        print("BLE Controller v1 for Raspberry Pi Zero 2 W")
+        print("BLE Controller v1.1 for Raspberry Pi Zero 2 W")
         print("=" * 50)
         
-        # Scan for the Pico device
-        if not await controller.scan_for_device():
-            print("\nExiting - could not find target device")
-            return
+        # Allow manual MAC address specification
+        if len(sys.argv) > 1:
+            manual_address = sys.argv[1].upper()
+            print(f"Using manually specified MAC address: {manual_address}")
+            print("Skipping scan and connecting directly...")
+            controller.device_address = manual_address
+        else:
+            # Scan for the Pico device
+            if not await controller.scan_for_device():
+                print("\n" + "=" * 50)
+                print("TROUBLESHOOTING:")
+                print("1. Make sure client_enhanced.py is running on the Pico")
+                print("2. Check Pico output shows 'Starting advertising...'")
+                print("3. Try power cycling the Pico (unplug and replug USB)")
+                print("4. Try running with a known MAC address:")
+                print("   python controller-1.py 28:CD:C1:05:AB:A4")
+                print("=" * 50)
+                print("\nExiting - could not find target device")
+                return
         
         # Connect to the device
         if not await controller.connect_to_device():

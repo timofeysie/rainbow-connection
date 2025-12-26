@@ -1,7 +1,8 @@
 """
-BLE Client enhanced for Raspberry Pi Pico 2 W v1.1.0
+BLE Client enhanced for Raspberry Pi Pico 2 W v1.2.0
 Acts as a BLE peripheral that receives emoji commands from a central device (Pi Zero 2 W)
 Enhanced to handle emoji selection commands in format "MENU:POS:NEG"
+Includes MAC address logging for debugging
 """
 
 import bluetooth
@@ -48,12 +49,91 @@ class BLESimplePeripheral:
         time.sleep(0.1)
         self._ble.irq(self._irq)
         
+        # Get and log the BLE MAC address
+        mac_str = "Unknown"
+        try:
+            mac_data = self._ble.config('mac')
+            
+            # Handle tuple format: (addr_type, mac_bytes)
+            # The MAC address is in the second element as bytes
+            if isinstance(mac_data, tuple) and len(mac_data) >= 2:
+                # Extract the bytes object from the tuple
+                mac_bytes = mac_data[1]
+                if isinstance(mac_bytes, bytes) and len(mac_bytes) == 6:
+                    # Convert bytes to list of integers
+                    mac_ints = [b for b in mac_bytes]
+                    # Format MAC address as XX:XX:XX:XX:XX:XX
+                    mac_parts = [f'{b:02X}' for b in mac_ints]
+                    mac_str = ':'.join(mac_parts)
+                    print(f"BLE MAC Address: {mac_str}")
+                else:
+                    print(f"Unexpected MAC bytes format: type={type(mac_bytes)}, len={len(mac_bytes) if hasattr(mac_bytes, '__len__') else 'N/A'}")
+                    mac_str = "Unknown"
+            elif isinstance(mac_data, bytes) and len(mac_data) == 6:
+                # Direct bytes object
+                mac_ints = [b for b in mac_data]
+                mac_parts = [f'{b:02X}' for b in mac_ints]
+                mac_str = ':'.join(mac_parts)
+                print(f"BLE MAC Address: {mac_str}")
+            elif isinstance(mac_data, (tuple, list)) and len(mac_data) == 6:
+                # Already a sequence of 6 integers
+                mac_ints = [int(x) if not isinstance(x, int) else x for x in mac_data]
+                mac_parts = [f'{b:02X}' for b in mac_ints]
+                mac_str = ':'.join(mac_parts)
+                print(f"BLE MAC Address: {mac_str}")
+            else:
+                print(f"Unexpected MAC format: type={type(mac_data)}, value={mac_data}")
+                mac_str = "Unknown"
+        except Exception as e:
+            print(f"Could not retrieve MAC address (method 1): {e}")
+            # Try alternative method
+            try:
+                # Some MicroPython versions use 'addr' instead of 'mac'
+                mac_data = self._ble.config('addr')
+                # Handle tuple format: (addr_type, mac_bytes)
+                if isinstance(mac_data, tuple) and len(mac_data) >= 2:
+                    mac_bytes = mac_data[1]
+                    if isinstance(mac_bytes, bytes) and len(mac_bytes) == 6:
+                        mac_ints = [b for b in mac_bytes]
+                        mac_parts = [f'{b:02X}' for b in mac_ints]
+                        mac_str = ':'.join(mac_parts)
+                        print(f"BLE MAC Address (via 'addr'): {mac_str}")
+                    else:
+                        mac_str = "Unknown"
+                elif isinstance(mac_data, bytes) and len(mac_data) == 6:
+                    mac_ints = [b for b in mac_data]
+                    mac_parts = [f'{b:02X}' for b in mac_ints]
+                    mac_str = ':'.join(mac_parts)
+                    print(f"BLE MAC Address (via 'addr'): {mac_str}")
+                else:
+                    mac_str = "Unknown"
+            except Exception as e2:
+                print(f"Could not retrieve MAC address (method 2): {e2}")
+                # Try one more method - get MAC from network interface (Pico W specific)
+                try:
+                    import network
+                    wlan = network.WLAN(network.STA_IF)
+                    if wlan.active():
+                        mac_bytes = wlan.config('mac')
+                        if mac_bytes and len(mac_bytes) == 6:
+                            mac_parts = [f'{b:02X}' for b in mac_bytes]
+                            mac_str = ':'.join(mac_parts)
+                            print(f"BLE MAC Address (via WLAN): {mac_str}")
+                        else:
+                            mac_str = "Unknown"
+                    else:
+                        mac_str = "Unknown"
+                except Exception as e3:
+                    print(f"Could not retrieve MAC address (method 3): {e3}")
+                    mac_str = "Unknown"
+        
         # Register the UART service
         ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((_UART_SERVICE,))
         
         self._connections = set()
         self._write_callback = None
         self._payload = advertising_payload(name=name, services=[_UART_UUID])
+        self._mac_address = mac_str
         self._advertise()
 
     def _irq(self, event, data):
@@ -220,7 +300,7 @@ def main():
     """Main function to run the BLE client"""
     global led
     
-    print("BLE Client for Raspberry Pi Pico 2 W v1.1.0 - Enhanced for Emoji Commands")
+    print("BLE Client enhanced for Raspberry Pi Pico 2 W v1.2.0 - Enhanced for Emoji Commands")
     print("Device Name: Pico-Client")
     print("=" * 70)
     
@@ -236,6 +316,7 @@ def main():
     peripheral.on_write(handle_command)
     
     print("BLE Client started")
+    print(f"BLE MAC Address: {peripheral._mac_address}")
     print("Waiting for connections...")
     print("Supports emoji commands in format: 'MENU:POS:NEG'")
     print("Legacy commands: ON, OFF, STATUS, BLINK")
