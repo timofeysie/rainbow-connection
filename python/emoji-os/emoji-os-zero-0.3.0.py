@@ -261,12 +261,13 @@ ble_controller = BLEController()
 ble_connection_thread = None
 ble_event_loop = None
 
-# Clean up any existing GPIO pin usage before initializing LCD
-# This prevents "GPIO busy" errors from previous script instances
+# Initialize GPIO before LCD initialization to ensure lgpio allocation works
+# LCD_Config.GPIO_Init() will set up the specific pins, but we need mode set first
 try:
-    GPIO.cleanup()
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
 except:
-    pass  # Ignore errors if GPIO wasn't initialized yet
+    pass  # Ignore if already set
 
 # 240x240 display with hardware SPI:
 disp = LCD_1in44.LCD()
