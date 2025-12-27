@@ -65,6 +65,16 @@ class LCD:
 		self.LCD_Scan_Dir = SCAN_DIR_DFT
 		self.LCD_X_Adjust = LCD_X
 		self.LCD_Y_Adjust = LCD_Y
+		
+		# GPIO pin definitions for Waveshare LCD HAT buttons
+		self.GPIO_KEY_UP_PIN     = 6
+		self.GPIO_KEY_DOWN_PIN   = 19
+		self.GPIO_KEY_LEFT_PIN   = 5
+		self.GPIO_KEY_RIGHT_PIN  = 26
+		self.GPIO_KEY_PRESS_PIN  = 13
+		self.GPIO_KEY1_PIN       = 21
+		self.GPIO_KEY2_PIN       = 20
+		self.GPIO_KEY3_PIN       = 16
 
 	"""    Hardware reset     """
 	def  LCD_Reset(self):
@@ -243,6 +253,22 @@ class LCD:
 		if (LCD_Config.GPIO_Init() != 0):
 			return -1
 		
+		# Set up button GPIO pins as inputs with pull-up resistors
+		# Buttons are active low (pressed when GPIO reads 0)
+		try:
+			GPIO.setup(self.GPIO_KEY_UP_PIN,     GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(self.GPIO_KEY_DOWN_PIN,   GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(self.GPIO_KEY_LEFT_PIN,   GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(self.GPIO_KEY_RIGHT_PIN,  GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(self.GPIO_KEY_PRESS_PIN,  GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(self.GPIO_KEY1_PIN,       GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(self.GPIO_KEY2_PIN,       GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(self.GPIO_KEY3_PIN,       GPIO.IN, pull_up_down=GPIO.PUD_UP)
+		except Exception as e:
+			# If GPIO setup fails (e.g., pins already in use), continue anyway
+			# The digital_read method will handle errors gracefully
+			pass
+		
 		#Turn on the backlight
 		GPIO.output(LCD_Config.LCD_BL_PIN,GPIO.HIGH)
 		
@@ -262,6 +288,17 @@ class LCD:
 		
 		#Turn on the LCD display
 		self.LCD_WriteReg(0x29)
+	
+	"""    Read digital GPIO pin state     """
+	def digital_read(self, pin):
+		"""Read the state of a GPIO pin. Returns 1 for HIGH, 0 for LOW.
+		Buttons are active low, so pressed = 0, not pressed = 1.
+		"""
+		try:
+			return GPIO.input(pin)
+		except Exception:
+			# If GPIO read fails (e.g., pin not set up), return 1 (not pressed)
+			return 1
 		
 	#/********************************************************************************
 	#function:	Sets the start position and size of the display area

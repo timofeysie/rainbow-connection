@@ -960,3 +960,47 @@ We have seen this error before.  Please look in the following files to see what 
 - python\emoji-os\emoji-od-issues.md
 - python\emoji-os\bluetooth\work_log.md
 
+### 'LCD' object has no attribute 'digital_read'
+
+Then we see this error:
+
+```
+tim@raspberrypi:~/repos/rainbow-connection/python/emoji-os $ python emoji-os-zero-0.3.0.py
+Emoji OS Zero v0.3.7 started with BLE Controller functionality
+Joystick: Navigate menus
+KEY1: Select positive
+KEY2: Navigate/confirm
+KEY3: Select negative
+==================================================
+Traceback (most recent call last):
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/emoji-os-zero-0.3.0.py", line 769, in <module>
+Scanning for Pico device (preferred name: 'Pico-Client')...
+Will also search for Nordic UART Service if name doesn't match
+Make sure your Pico is running emoji-os-pico-0.2.0.py...
+
+Attempting to scan by service UUID...
+    up_pressed = disp.digital_read(disp.GPIO_KEY_UP_PIN) == 0
+                 ^^^^^^^^^^^^^^^^^
+AttributeError: 'LCD' object has no attribute 'digital_read'
+```
+
+Fix Applied
+
+In LCD_1in44.py:
+
+- Added GPIO pin constants to __init__:
+- GPIO_KEY_UP_PIN, GPIO_KEY_DOWN_PIN, GPIO_KEY_LEFT_PIN, GPIO_KEY_RIGHT_PIN
+GPIO_KEY_PRESS_PIN, GPIO_KEY1_PIN, GPIO_KEY2_PIN, GPIO_KEY3_PIN
+
+Added GPIO setup in LCD_Init:
+
+- Sets up all button pins as inputs with pull-up resistors
+- Wrapped in try/except to handle cases where pins are already in use
+
+Added digital_read method:
+
+- Uses GPIO.input() to read pin state
+- Returns 1 (HIGH) or 0 (LOW)
+- Includes error handling to return 1 (not pressed) if the read fails
+
+The LCD object now has the digital_read method and pin constants used by emoji-os-zero-0.3.0.py. Buttons are active low (pressed = 0, not pressed = 1), which matches the code that checks == 0 for pressed state.
