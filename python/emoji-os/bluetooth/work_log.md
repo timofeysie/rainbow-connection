@@ -877,3 +877,86 @@ The files working are:
 
 python\emoji-os\bluetooth\controller-1.py
 python\emoji-os\bluetooth\client_enhanced.py
+
+## 'GPIO not allocated' and 'GPIO busy' errors
+
+​timothy curchod​
+tim@raspberrypi:~/repos/rainbow-connection/python/emoji-os $ python emoji-os-zero-0.3.0.py
+Traceback (most recent call last):
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/emoji-os-zero-0.3.0.py", line 274, in <module>
+    disp.LCD_Init(Lcd_ScanDir)
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/LCD_1in44.py", line 243, in LCD_Init
+    if (LCD_Config.GPIO_Init() != 0):
+        ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/LCD_Config.py", line 54, in GPIO_Init
+    GPIO.setup(LCD_CS_PIN, GPIO.OUT)
+  File "/usr/lib/python3/dist-packages/RPi/GPIO/__init__.py", line 704, in setup
+    initial = _check(lgpio.gpio_read(_chip, gpio))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/lgpio.py", line 903, in gpio_read
+    return _u2i(_lgpio._gpio_read(handle&0xffff, gpio))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/lgpio.py", line 458, in _u2i
+    raise error(error_text(v))
+lgpio.error: 'GPIO not allocated'
+
+```
+tim@raspberrypi:~/repos/rainbow-connection/python/emoji-os $ python emoji-os-zero-0.3.0.py
+Traceback (most recent call last):
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/emoji-os-zero-0.3.0.py", line 275, in <module>
+    disp.LCD_Init(Lcd_ScanDir)
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/LCD_1in44.py", line 243, in LCD_Init
+    if (LCD_Config.GPIO_Init() != 0):
+        ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/LCD_Config.py", line 54, in GPIO_Init
+    GPIO.setup(LCD_CS_PIN, GPIO.OUT)
+  File "/usr/lib/python3/dist-packages/RPi/GPIO/__init__.py", line 704, in setup
+    initial = _check(lgpio.gpio_read(_chip, gpio))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/lgpio.py", line 903, in gpio_read
+    return _u2i(_lgpio._gpio_read(handle&0xffff, gpio))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/lgpio.py", line 458, in _u2i
+    raise error(error_text(v))
+lgpio.error: 'GPIO not allocated'
+```
+
+Fix Applied In LCD_Config.py:
+
+- Added initial=GPIO.LOW to all GPIO.setup() calls
+- This sets the initial value without reading the pin first
+- Avoids the "GPIO not allocated" error with the lgpio backend
+
+In emoji-os-zero-0.3.0.py:
+
+- Set GPIO mode (BCM) and disabled warnings before LCD initialization
+- This ensures the GPIO system is ready
+
+After this:
+
+```
+tim@raspberrypi:~/repos/rainbow-connection/python/emoji-os $ python emoji-os-zero-0.3.0.py
+Traceback (most recent call last):
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/emoji-os-zero-0.3.0.py", line 276, in <module>
+    disp.LCD_Init(Lcd_ScanDir)
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/LCD_1in44.py", line 243, in LCD_Init
+    if (LCD_Config.GPIO_Init() != 0):
+        ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tim/repos/rainbow-connection/python/emoji-os/LCD_Config.py", line 56, in GPIO_Init
+    GPIO.setup(LCD_CS_PIN, GPIO.OUT, initial=GPIO.LOW)
+  File "/usr/lib/python3/dist-packages/RPi/GPIO/__init__.py", line 705, in setup
+    _check(lgpio.gpio_claim_output(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/lgpio.py", line 781, in gpio_claim_output
+    return _u2i(_lgpio._gpio_claim_output(handle&0xffff, lFlags, gpio, level))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/lgpio.py", line 458, in _u2i
+    raise error(error_text(v))
+lgpio.error: 'GPIO busy'
+```
+
+We have seen this error before.  Please look in the following files to see what was tried and what the final solution was from these two files if possible:
+
+- python\emoji-os\emoji-od-issues.md
+- python\emoji-os\bluetooth\work_log.md
+

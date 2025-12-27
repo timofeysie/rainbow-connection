@@ -53,8 +53,19 @@ def GPIO_Init():
     # This ensures GPIO is allocated before trying to read initial state
     GPIO.setup(LCD_RST_PIN, GPIO.OUT, initial=GPIO.LOW)
     GPIO.setup(LCD_DC_PIN, GPIO.OUT, initial=GPIO.LOW)
-    GPIO.setup(LCD_CS_PIN, GPIO.OUT, initial=GPIO.LOW)
+    
+    # CS pin (GPIO 8) might be managed by SPI - try to set it up, but continue if it fails
+    # SPI device 0 typically uses GPIO 8 (CE0) and might have already claimed it
+    try:
+        GPIO.setup(LCD_CS_PIN, GPIO.OUT, initial=GPIO.LOW)
+    except Exception as e:
+        # If CS pin is busy (likely claimed by SPI), that's okay - SPI will manage it
+        # This is expected behavior - SPI driver manages CS pin automatically
+        pass
+    
     GPIO.setup(LCD_BL_PIN, GPIO.OUT, initial=GPIO.LOW)
+    
+    # Configure SPI (device is already open from SpiDev(0, 0) constructor)
     SPI.max_speed_hz = 9000000
     SPI.mode = 0b00
     return 0
