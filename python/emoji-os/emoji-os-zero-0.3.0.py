@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.3.6 - Enhanced with working BLE Controller functionality (from controller-1.3.py)
+# Emoji OS Zero v0.3.7 - Enhanced with working BLE Controller functionality (from controller-1.3.py)
 import LCD_1in44
 import time
 import threading
@@ -262,7 +262,8 @@ ble_connection_thread = None
 ble_event_loop = None
 
 # Initialize GPIO before LCD initialization to ensure lgpio allocation works
-# LCD_Config.GPIO_Init() will set up the specific pins, but we need mode set first
+# LCD_Config.GPIO_Init() will set up the specific pins with initial values
+# to avoid the "GPIO not allocated" error with lgpio backend
 try:
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
@@ -725,7 +726,7 @@ except:
 # === Initial display ===
 draw_display()
 
-print("Emoji OS Zero v0.3.6 started with BLE Controller functionality")
+print("Emoji OS Zero v0.3.7 started with BLE Controller functionality")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive")
 print("KEY2: Navigate/confirm")

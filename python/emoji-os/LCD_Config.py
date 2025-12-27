@@ -49,10 +49,12 @@ def SPI_Write_Byte(data):
 def GPIO_Init():
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
-    GPIO.setup(LCD_RST_PIN, GPIO.OUT)
-    GPIO.setup(LCD_DC_PIN, GPIO.OUT)
-    GPIO.setup(LCD_CS_PIN, GPIO.OUT)
-    GPIO.setup(LCD_BL_PIN, GPIO.OUT)
+    # Set up pins with initial values to avoid read-before-allocate issue with lgpio
+    # This ensures GPIO is allocated before trying to read initial state
+    GPIO.setup(LCD_RST_PIN, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(LCD_DC_PIN, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(LCD_CS_PIN, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(LCD_BL_PIN, GPIO.OUT, initial=GPIO.LOW)
     SPI.max_speed_hz = 9000000
     SPI.mode = 0b00
     return 0
