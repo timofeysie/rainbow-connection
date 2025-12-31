@@ -151,7 +151,6 @@ class BLEController:
         print("3. Try moving devices closer together")
         print("4. Restart both devices")
         print("5. Device may be advertising with a different name")
-        global ble_connection_status
         ble_connection_status = "disconnected"
         draw_connection_indicator()
         disp.LCD_ShowImage(image,0,0)
