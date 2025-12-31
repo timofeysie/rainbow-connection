@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji matrices and helper functions for emoji-os-zero.py
-
+# v0.0.2 for emoji os zero v0.3.8
 from animations_zero import fireworks_preview_matrix, rain_preview_matrix, Animation
 
 # === Emoji Matrix Data ===
@@ -279,3 +279,42 @@ rain_animation = Animation(
     duration=200,
     preview=rain_preview_matrix
 )
+
+# === Connection Status Indicator Matrices ===
+# These are small 8x8 indicators for BLE connection status in lower left corner
+
+# Connecting indicator (loading circle/spinner)
+connecting_matrix = [
+    [' ', ' ', ' ', 'C', 'C', ' ', ' ', ' '],
+    [' ', ' ', 'C', 'C', 'C', 'C', ' ', ' '],
+    [' ', 'C', 'C', ' ', ' ', 'C', 'C', ' '],
+    ['C', 'C', ' ', ' ', ' ', ' ', 'C', 'C'],
+    ['C', 'C', ' ', ' ', ' ', ' ', 'C', 'C'],
+    [' ', 'C', 'C', ' ', ' ', 'C', 'C', ' '],
+    [' ', ' ', 'C', 'C', 'C', 'C', ' ', ' '],
+    [' ', ' ', ' ', 'C', 'C', ' ', ' ', ' '],
+]
+
+# Connected indicator (checkmark)
+connected_matrix = [
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', 'G', 'G', ' '],
+    [' ', ' ', ' ', ' ', 'G', 'G', ' ', ' '],
+    [' ', ' ', ' ', 'G', 'G', ' ', ' ', ' '],
+    [' ', 'G', 'G', 'G', ' ', ' ', ' ', ' '],
+    [' ', 'G', 'G', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+# Not connected indicator (X)
+not_connected_matrix = [
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', 'R', 'R', ' ', ' ', 'R', 'R', ' '],
+    [' ', ' ', 'R', 'R', 'R', 'R', ' ', ' '],
+    [' ', ' ', ' ', 'R', 'R', ' ', ' ', ' '],
+    [' ', ' ', ' ', 'R', 'R', ' ', ' ', ' '],
+    [' ', ' ', 'R', 'R', 'R', 'R', ' ', ' '],
+    [' ', 'R', 'R', ' ', ' ', 'R', 'R', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]

@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.3.7 - Enhanced with working BLE Controller functionality (from controller-1.3.py)
+# Emoji OS Zero v0.3.8 - Enhanced with working BLE Controller functionality (from controller-1.3.py)
 import LCD_1in44
 import time
 import threading
@@ -11,7 +11,7 @@ import RPi.GPIO as GPIO
 from PIL import Image,ImageDraw,ImageFont,ImageColor
 from emojis_zero import *
 from animations_zero import fireworks_animation as fw_anim_func, rain_animation as rain_anim_func
-from emojis_zero import fireworks_animation, rain_animation
+from emojis_zero import fireworks_animation, rain_animation, connecting_matrix, connected_matrix, not_connected_matrix
 
 # === BLE Configuration ===
 # Nordic UART Service UUIDs
@@ -35,6 +35,12 @@ class BLEController:
         
     async def scan_for_device(self, timeout=10):
         """Scan for the target Pico device by name or service UUID"""
+        global ble_connection_status
+        ble_connection_status = "connecting"
+        # Update display to show connecting indicator
+        draw_connection_indicator()
+        disp.LCD_ShowImage(image,0,0)
+        
         print(f"Scanning for Pico device (preferred name: '{TARGET_DEVICE_NAME}')...")
         print("Will also search for Nordic UART Service if name doesn't match")
         print("Make sure your Pico is running emoji-os-pico-0.2.0.py...")
@@ -145,6 +151,10 @@ class BLEController:
         print("3. Try moving devices closer together")
         print("4. Restart both devices")
         print("5. Device may be advertising with a different name")
+        global ble_connection_status
+        ble_connection_status = "disconnected"
+        draw_connection_indicator()
+        disp.LCD_ShowImage(image,0,0)
         return False
     
     async def _test_device_connection(self, address):
@@ -185,18 +195,29 @@ class BLEController:
     
     async def connect_to_device(self):
         """Connect to the discovered Pico device"""
+        global ble_connection_status
         if not self.device_address:
             print("No device address available. Run scan_for_device() first.")
+            ble_connection_status = "disconnected"
+            draw_connection_indicator()
+            disp.LCD_ShowImage(image,0,0)
             return False
             
         try:
             print(f"Connecting to {self.device_address}...")
+            ble_connection_status = "connecting"
+            draw_connection_indicator()
+            disp.LCD_ShowImage(image,0,0)
+            
             self.client = BleakClient(self.device_address)
             await self.client.connect(timeout=10.0)  # Increased timeout
             
             if self.client.is_connected:
                 print("✓ Successfully connected!")
                 self.connected = True
+                ble_connection_status = "connected"
+                draw_connection_indicator()
+                disp.LCD_ShowImage(image,0,0)
                 # Verify the service exists
                 try:
                     services = await self.client.get_services()
@@ -215,10 +236,16 @@ class BLEController:
                 return True
             else:
                 print("✗ Failed to connect (not connected after connect() call)")
+                ble_connection_status = "disconnected"
+                draw_connection_indicator()
+                disp.LCD_ShowImage(image,0,0)
                 return False
                 
         except asyncio.TimeoutError:
             print(f"✗ Connection timeout - device may not be in range or not advertising")
+            ble_connection_status = "disconnected"
+            draw_connection_indicator()
+            disp.LCD_ShowImage(image,0,0)
             return False
         except Exception as e:
             error_msg = str(e)
@@ -227,6 +254,9 @@ class BLEController:
                 print("  → Device may not be advertising or is out of range")
             elif "timeout" in error_msg.lower():
                 print("  → Connection timed out - device may be busy or not responding")
+            ble_connection_status = "disconnected"
+            draw_connection_indicator()
+            disp.LCD_ShowImage(image,0,0)
             return False
     
     async def send_emoji_command(self, menu, pos, neg):
@@ -251,15 +281,22 @@ class BLEController:
     
     async def disconnect(self):
         """Disconnect from the device"""
+        global ble_connection_status
         if self.client and self.client.is_connected:
             await self.client.disconnect()
             print("Disconnected from Pico")
             self.connected = False
+            ble_connection_status = "disconnected"
+            draw_connection_indicator()
+            disp.LCD_ShowImage(image,0,0)
 
 # Global BLE controller instance
 ble_controller = BLEController()
 ble_connection_thread = None
 ble_event_loop = None
+
+# Connection status state: "idle", "connecting", "connected", "disconnected"
+ble_connection_status = "idle"
 
 # Initialize GPIO before LCD initialization to ensure lgpio allocation works
 # LCD_Config.GPIO_Init() will set up the specific pins with initial values
@@ -667,6 +704,36 @@ def start_emoji_animation():
         pos = 0
         neg = 0
 
+def draw_connection_indicator(clear_area=True):
+    """Draw the BLE connection status indicator in the lower left corner
+    
+    Args:
+        clear_area: If True, clear the indicator area before drawing (for standalone updates)
+    """
+    global ble_connection_status
+    
+    # Position in lower left corner (small scale for compact indicator)
+    indicator_scale = 2
+    indicator_size = indicator_scale * 8
+    indicator_x = 2
+    indicator_y = disp.height - indicator_size - 2  # 2 pixels from bottom
+    
+    # Clear the indicator area if requested (for standalone updates)
+    if clear_area:
+        draw.rectangle((indicator_x, indicator_y, indicator_x + indicator_size, indicator_y + indicator_size), 
+                      outline=0, fill=0)
+    
+    # Select the appropriate matrix based on connection status
+    if ble_connection_status == "connecting":
+        indicator_matrix = connecting_matrix
+    elif ble_connection_status == "connected":
+        indicator_matrix = connected_matrix
+    else:  # "idle" or "disconnected"
+        indicator_matrix = not_connected_matrix
+    
+    # Draw the indicator
+    draw_emoji(draw, indicator_matrix, color_map, indicator_scale, indicator_x, indicator_y)
+
 def draw_display():
     """Draw the complete display"""
     # Clear screen
@@ -708,11 +775,8 @@ def draw_display():
         is_selected = (i == menu and (state == "start" or state == "choosing"))
         draw_menu_row(draw, item, text_y_positions[i], font, is_selected)
     
-    # === BLE Connection Status ===
-    if ble_controller.connected:
-        draw.text((200, 220), "BLE", font=font, fill="green")
-    else:
-        draw.text((200, 220), "BLE", font=font, fill="red")
+    # === BLE Connection Status Indicator (lower left) ===
+    draw_connection_indicator(clear_area=False)  # Don't clear since we already cleared the whole screen
     
     # Update display
     disp.LCD_ShowImage(image,0,0)
@@ -726,7 +790,7 @@ except:
 # === Initial display ===
 draw_display()
 
-print("Emoji OS Zero v0.3.7 started with BLE Controller functionality")
+print("Emoji OS Zero v0.3.8 started with BLE Controller functionality")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive")
 print("KEY2: Navigate/confirm")
