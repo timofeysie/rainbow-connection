@@ -1004,3 +1004,10 @@ Added digital_read method:
 - Includes error handling to return 1 (not pressed) if the read fails
 
 The LCD object now has the digital_read method and pin constants used by emoji-os-zero-0.3.0.py. Buttons are active low (pressed = 0, not pressed = 1), which matches the code that checks == 0 for pressed state.
+
+## Working files
+
+- Emoji OS Zero v0.3.7
+- emoji os v0.2.2
+
+Next up we need a discovery mode for the controller and the pico with visual connection indicators when completed or error display otherwise.

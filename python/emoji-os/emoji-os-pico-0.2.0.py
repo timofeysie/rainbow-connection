@@ -1,4 +1,4 @@
-# emoji os v0.2.2 - Enhanced with working BLE Controller functionality (from client_enhanced.py)
+# emoji os pico v0.2.2 - Enhanced with working BLE Controller functionality (from client_enhanced.py)
 import glowbit
 from machine import Pin
 import time

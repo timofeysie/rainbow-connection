@@ -1,4 +1,4 @@
-# for emoji os v0.1.4
+# emojis for emoji os v0.1.4
 import glowbit
 import time
 from large_image import large_image
