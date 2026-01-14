@@ -2,11 +2,21 @@
 
 This project describes a range of sensors for the Raspberry Pi Pico.
 
+The core of the project consists of two files running on a Raspberry Pi & Raspberry Pi Pico.
+
+- `python/farming/sensor-platform.py`: Sensor Platform for the Raspberry Pi Pico v0.0.2
+- `python/farming/sensor-timelapse-script.py`: Raspberry Pi Sensor Timelapse Script that reads sensor data from Raspberry Pi Pico via USB serial connection
+and serves it for display in the timelapse web interface.
+
+## Sensors
+
 Moisture readings are done via the Capacitive Soil Moisture Sensor SKU SEN0193 connected now to a Raspberry Pi Pico.
 
-The other sensors are the PiicoDev Atmospheric Sensor BME280 + Air Quality ENS160 + OLED Display Demo
+The other sensors are the PiicoDev Atmospheric Sensor BME280 + Air Quality ENS160 + OLED Display Demo.
 
 This program reads Temperature, Pressure, Relative Humidity, AQI, TVOC, and eCO2 and displays Moisture, Temp+Humidity, Pressure as text rows, and air quality values as a single text line.
+
+A PiicoDev Ambient Light Sensor VEML6030 reads the light in a location.  It is used to calculate the hours of direct sunlight per day at a particular location.
 
 ## Moisture Sensor
 
