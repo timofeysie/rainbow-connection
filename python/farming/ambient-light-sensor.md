@@ -6,6 +6,8 @@ We want to use a PiicoDev Ambient Light Sensor VEML6030 with a Raspberry Pi Pico
 
 This guide shows how to use a **PiicoDev Ambient Light Sensor (VEML6030)** with a **Raspberry Pi Pico** to estimate how many **hours of direct sunlight per day** a specific spot in your garden receives. This is ideal for deciding whether a location is suitable for sun-loving plants like zucchini.
 
+Lux is the SI unit of illuminance (light intensity). It stands for lumen per square meter.
+
 The basic idea is:
 
 1. Measure **ambient light (lux)** at regular intervals
@@ -34,3 +36,87 @@ For garden planning, this rule works well:
 ```text
 DIRECT_SUN_LUX = 40,000
 ```
+
+## Implementation: `ambient-light-sensor.py`
+
+The `ambient-light-sensor.py` script provides a complete implementation for continuous light monitoring on a Raspberry Pi Pico W. It's designed to run all day in a sealed plastic box with a clear cover placed in a garden spot.
+
+### Features
+
+- **Continuous light monitoring**: Reads lux values every 500ms (2 readings per second)
+- **Timestamped logging**: Records all lux readings to CSV file with timestamps
+- **Sunlight hour tracking**: Calculates and tracks cumulative direct sunlight hours per day
+- **Daily summaries**: Automatically saves daily sunlight hour totals to a text file
+- **Error handling**: Gracefully handles sensor errors and file write failures
+- **Minimal dependencies**: Uses only the PiicoDev VEML6030 sensor and standard libraries
+
+### Output Files
+
+The script creates two output files:
+
+1. **`lux_readings.csv`**: CSV file containing timestamped lux readings
+   - Format: `timestamp,lux`
+   - Example: `1234567890.12,42356.78`
+   - Appends new readings continuously
+
+2. **`sunlight_hours.txt`**: Text file containing daily sunlight hour summaries
+   - Format: `Day X: Y.YY hours`
+   - Example: `Day 0: 6.35 hours`
+   - Automatically appended when each day completes
+
+### Core Functionality
+
+#### Light Reading (`read_light()`)
+
+- Reads the current lux value from the VEML6030 sensor
+- Returns 0 if reading fails (handles sensor errors gracefully)
+
+#### Lux Logging (`write_lux_reading()`)
+
+- Appends timestamp and lux value to `lux_readings.csv`
+- Uses append mode to preserve all historical data
+- Silently fails if file write is unavailable (e.g., no SD card)
+
+#### Sunlight Tracking (`update_sunlight_tracking()`)
+
+- Tracks cumulative time when lux exceeds `DIRECT_SUN_LUX` (40,000 lux)
+- Resets daily tracking every 24 hours (based on boot time)
+- Returns current day's sunlight hours in decimal format
+- Automatically saves previous day's total when day resets
+
+#### Main Loop
+
+- Continuously reads light sensor every 500ms
+- Logs each reading with timestamp
+- Updates sunlight hour tracking
+- Prints current status to console: `Light: XXXX lux | Sun: Y.YYh`
+
+### Usage
+
+1. **Setup**: Connect PiicoDev VEML6030 to Raspberry Pi Pico W via I2C
+2. **Deploy**: Place the Pico W in a sealed plastic box with clear cover in the garden
+3. **Run**: Upload and execute `ambient-light-sensor.py`
+4. **Monitor**: Check console output or retrieve data files
+5. **Analyze**: Review CSV data for detailed patterns, or text file for daily summaries
+
+### Configuration
+
+The script uses a single configuration constant:
+
+- **`DIRECT_SUN_LUX = 40000`**: Threshold in lux for counting direct sunlight
+  - Any reading at or above this value counts toward sunlight hours
+  - Based on typical outdoor direct sunlight conditions (40,000+ lux)
+
+### Day Tracking
+
+The script tracks days based on seconds since boot (86400 seconds = 24 hours). For more accurate day tracking with actual calendar dates, you would need an RTC (Real-Time Clock) module, but for garden monitoring purposes, the simple boot-time-based tracking is sufficient.
+
+### Data Collection
+
+With readings every 500ms, the script generates approximately:
+
+- **172,800 readings per day** (2 per second × 86,400 seconds)
+- **CSV file size**: ~3-4 MB per day (depending on timestamp precision)
+- **Memory usage**: Minimal - only current tracking state kept in memory
+
+This high-frequency sampling ensures accurate sunlight hour calculations even with brief cloud cover or shadows passing over the sensor.
