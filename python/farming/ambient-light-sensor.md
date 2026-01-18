@@ -146,31 +146,28 @@ The script broadcasts sensor data via Bluetooth Low Energy (BLE), allowing mobil
 
 ### Data Format
 
-- **Lux Characteristic** (`...000000000001`): 4-byte float32 value (little-endian)
-  - In nRF Connect: After reading, change view format to "IEEE 754 32-bit" or "Float" to see decimal value
-  - Example: Hex `00 00 80 41` = 16.0 lux
+- **Lux Characteristic** (`...000000000001`): UTF-8 text string (decimal number with 2 decimal places)
+  - Format: `"16.00"` (example showing 16.00 lux)
+  - Readable directly in nRF Connect as text
+  - Example values: `"1234.56"`, `"0.00"`, `"89234.12"`
   
-- **Sunlight Hours Characteristic** (`...000000000002`): 4-byte float32 value (little-endian)
-  - Same format as Lux - use "IEEE 754 32-bit" or "Float" view format
-  - Example: Hex `00 00 00 00` = 0.0 hours
+- **Sunlight Hours Characteristic** (`...000000000002`): UTF-8 text string (decimal number with 2 decimal places)
+  - Format: `"4.23"` (example showing 4.23 hours)
+  - Readable directly in nRF Connect as text
+  - Example values: `"0.00"`, `"6.35"`, `"8.92"`
   
 - **Statistics Characteristic** (`...000000000003`): UTF-8 JSON string
-  - In nRF Connect: After reading, change view format to "UTF-8" or "Text" to see JSON
+  - Contains all data in one read: current_lux, sunlight_hours, readings_today, avg_lux, max_lux
+  - Readable directly in nRF Connect as text/JSON
   - Example: `{"current_lux": 12345.67, "sunlight_hours": 4.23, "readings_today": 172800, "avg_lux": 15234.56, "max_lux": 89345.12}`
 
 ### Viewing Data in nRF Connect
 
-By default, nRF Connect displays characteristic values in hexadecimal. To view human-readable values:
+All characteristics send UTF-8 text strings, so they're immediately readable:
 
-1. **For Lux and Hours (float32 values)**:
-   - Tap the characteristic → Tap "Read"
-   - Look for format selector (may show "Hex" by default)
-   - Select "IEEE 754 32-bit" or "Float" to view as decimal number
-
-2. **For Statistics (JSON string)**:
-   - Tap the characteristic → Tap "Read"
-   - Change view format to "UTF-8" or "Text" to view JSON
-   - The JSON shows current_lux, sunlight_hours, readings_today, avg_lux, and max_lux
+1. **Tap any characteristic** → **Tap "Read"** → Values appear as human-readable text
+2. **For Lux/Hours**: Shows decimal numbers like `"16.00"` or `"4.23"`
+3. **For Statistics**: Shows JSON text with all values in one read
 
 ### Usage Tips
 

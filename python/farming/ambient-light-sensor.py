@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# Ambient Light Sensor Logger for Raspberry Pi Pico W v0.2.0
+# Ambient Light Sensor Logger for Raspberry Pi Pico W v0.2.1
 # PiicoDev Ambient Light Sensor VEML6030
 # Records light readings all day and tracks direct sunlight hours
 # Designed to run in a sealed plastic box with clear cover in a garden spot
@@ -194,9 +194,9 @@ class LightSensorPeripheral:
         # Ensure BLE-only advertising (not BR/EDR compatible)
         self._payload = advertising_payload(name=name, services=[_LIGHT_SERVICE_UUID], br_edr=False)
         
-        # Initialize characteristic values
-        self._lux_value = struct.pack("<f", 0.0)
-        self._hours_value = struct.pack("<f", 0.0)
+        # Initialize characteristic values (as text strings for better mobile readability)
+        self._lux_value = "0.0".encode('utf-8')
+        self._hours_value = "0.0".encode('utf-8')
         self._stats_value = json.dumps({}).encode('utf-8')[:512]
         
         # Write initial values
@@ -252,12 +252,12 @@ class LightSensorPeripheral:
     def update_values(self, lux, sunlight_hours, stats):
         """Update characteristic values with new sensor data"""
         try:
-            # Update lux characteristic (float32, little-endian)
-            self._lux_value = struct.pack("<f", float(lux))
+            # Update lux characteristic (as text string for mobile readability)
+            self._lux_value = f"{lux:.2f}".encode('utf-8')
             self._ble.gatts_write(self._handle_lux, self._lux_value)
             
-            # Update sunlight hours characteristic (float32, little-endian)
-            self._hours_value = struct.pack("<f", float(sunlight_hours))
+            # Update sunlight hours characteristic (as text string for mobile readability)
+            self._hours_value = f"{sunlight_hours:.2f}".encode('utf-8')
             self._ble.gatts_write(self._handle_hours, self._hours_value)
             
             # Update statistics characteristic (JSON string, max 512 bytes)
