@@ -120,3 +120,62 @@ With readings every 500ms, the script generates approximately:
 - **Memory usage**: Minimal - only current tracking state kept in memory
 
 This high-frequency sampling ensures accurate sunlight hour calculations even with brief cloud cover or shadows passing over the sensor.
+
+## Mobile Phone Access via Bluetooth
+
+The script broadcasts sensor data via Bluetooth Low Energy (BLE), allowing mobile phones to connect and read current values on-demand.
+
+### Connecting from a Mobile Device
+
+1. **Install a BLE Scanner App**:
+   - **iOS**: LightBlue (free) or nRF Connect
+   - **Android**: nRF Connect (free) or BLE Scanner
+
+2. **Discover the Device**:
+   - Enable Bluetooth on your phone
+   - Open the BLE scanner app and start scanning
+   - Look for device name: **"Garden-Light-Sensor"**
+   - Connect to the device
+
+3. **Read Data Characteristics**:
+   After connecting, navigate to the service with UUID `A5B1C2D3-E4F5-A6B7-C8D9-E0F1A2B3C4D5` and read the three characteristics:
+   
+   - **Lux Characteristic** (`...000000000001`): Current lux reading (float32, 4 bytes)
+   - **Sunlight Hours Characteristic** (`...000000000002`): Today's sunlight hours (float32, 4 bytes)
+   - **Statistics Characteristic** (`...000000000003`): JSON string with current_lux, sunlight_hours, readings_today, avg_lux, max_lux
+
+### Data Format
+
+- **Lux Characteristic** (`...000000000001`): 4-byte float32 value (little-endian)
+  - In nRF Connect: After reading, change view format to "IEEE 754 32-bit" or "Float" to see decimal value
+  - Example: Hex `00 00 80 41` = 16.0 lux
+  
+- **Sunlight Hours Characteristic** (`...000000000002`): 4-byte float32 value (little-endian)
+  - Same format as Lux - use "IEEE 754 32-bit" or "Float" view format
+  - Example: Hex `00 00 00 00` = 0.0 hours
+  
+- **Statistics Characteristic** (`...000000000003`): UTF-8 JSON string
+  - In nRF Connect: After reading, change view format to "UTF-8" or "Text" to see JSON
+  - Example: `{"current_lux": 12345.67, "sunlight_hours": 4.23, "readings_today": 172800, "avg_lux": 15234.56, "max_lux": 89345.12}`
+
+### Viewing Data in nRF Connect
+
+By default, nRF Connect displays characteristic values in hexadecimal. To view human-readable values:
+
+1. **For Lux and Hours (float32 values)**:
+   - Tap the characteristic → Tap "Read"
+   - Look for format selector (may show "Hex" by default)
+   - Select "IEEE 754 32-bit" or "Float" to view as decimal number
+
+2. **For Statistics (JSON string)**:
+   - Tap the characteristic → Tap "Read"
+   - Change view format to "UTF-8" or "Text" to view JSON
+   - The JSON shows current_lux, sunlight_hours, readings_today, avg_lux, and max_lux
+
+### Usage Tips
+
+- Characteristics are read-only - tap "Read" to get current values
+- Values update every 500ms in real-time
+- Device advertises continuously and can be accessed anytime
+- Connection status is shown on the Pico console: `BLE: CONNECTED` / `BLE: DISCONNECTED`
+- If you see hex values, change the view format in nRF Connect to see decoded floats/text
