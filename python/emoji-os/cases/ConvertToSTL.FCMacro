@@ -1,0 +1,62 @@
+# FreeCAD Macro to convert STEP to STL
+# To use: Open FreeCAD, go to Macro menu, execute this macro
+
+import FreeCAD
+import Part
+import Mesh
+import os
+
+# File paths
+base_dir = r"C:\Users\timof\repos\timo\rainbow-connection\python\emoji-os\cases"
+input_file = os.path.join(base_dir, "matrix-3-box-modified.step")
+output_file = os.path.join(base_dir, "matrix-3.stl")
+
+try:
+    # Open the STEP file
+    print(f"Opening STEP file: {input_file}")
+    doc = FreeCAD.openDocument(input_file)
+    
+    # Get all objects in the document
+    objects = doc.Objects
+    
+    if not objects:
+        print("Error: No objects found in STEP file")
+        raise Exception("No objects found")
+    
+    # Create a compound of all objects
+    shapes = []
+    for obj in objects:
+        if hasattr(obj, 'Shape') and obj.Shape:
+            shapes.append(obj.Shape)
+    
+    if not shapes:
+        print("Error: No shapes found in objects")
+        raise Exception("No shapes found")
+    
+    # Combine all shapes into a compound
+    if len(shapes) == 1:
+        compound = shapes[0]
+    else:
+        compound = Part.makeCompound(shapes)
+    
+    # Convert to mesh
+    print("Converting to mesh...")
+    mesh = compound.tessellate(0.1)  # 0.1mm tolerance
+    
+    # Create mesh object
+    mesh_obj = Mesh.Mesh()
+    mesh_obj.addFacets(mesh[0], mesh[1])
+    
+    # Export to STL
+    print(f"Exporting to STL: {output_file}")
+    mesh_obj.write(output_file)
+    
+    print(f"✓ Successfully converted to: {output_file}")
+    FreeCAD.Console.PrintMessage(f"✓ Successfully converted to: {output_file}\n")
+    
+except Exception as e:
+    print(f"Error: {e}")
+    import traceback
+    traceback.print_exc()
+    FreeCAD.Console.PrintError(f"Error: {e}\n")
+

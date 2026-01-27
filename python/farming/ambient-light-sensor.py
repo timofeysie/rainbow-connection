@@ -1,9 +1,10 @@
 # -*- coding:utf-8 -*-
-# Ambient Light Sensor Logger for Raspberry Pi Pico W v0.2.1
+# Ambient Light Sensor Logger for Raspberry Pi Pico W v0.2.4
 # PiicoDev Ambient Light Sensor VEML6030
 # Records light readings all day and tracks direct sunlight hours
 # Designed to run in a sealed plastic box with clear cover in a garden spot
 # Includes BLE broadcasting for mobile phone access
+# Optional WiFi/NTP time sync for accurate date/time stamps
 
 from PiicoDev_VEML6030 import PiicoDev_VEML6030
 from PiicoDev_Unified import sleep_ms
@@ -14,6 +15,15 @@ import json
 from ble_advertising import advertising_payload
 from micropython import const
 
+# Optional WiFi configuration for NTP time sync
+# Set to None if WiFi is not available (will use boot-time tracking)
+WIFI_SSID = None  # Set to your WiFi SSID if available, e.g., "YourNetwork"
+WIFI_PASSWORD = None  # Set to your WiFi password if available, e.g., "YourPassword"
+
+# Time sync configuration
+USE_NTP = False  # Set to True if you want to use NTP (requires WiFi)
+NTP_SERVER = "pool.ntp.org"
+
 # File paths for data logging
 LUX_LOG_FILE = "lux_readings.csv"
 SUNLIGHT_HOURS_FILE = "sunlight_hours.txt"
@@ -22,7 +32,12 @@ SUNLIGHT_HOURS_FILE = "sunlight_hours.txt"
 light_sensor = PiicoDev_VEML6030()
 
 # Direct sunlight threshold (lux) - based on ambient-light-sensor.md
-DIRECT_SUN_LUX = 40000
+# NOTE: Sensor readings in direct sunlight have been observed at:
+# - Device 1: ~1600-1700 lux max
+# - Device 2 (full sensor array): ~2500-3774 lux in direct sunlight
+# Typical direct sunlight: 60,000-100,000 lux, but sensor configuration may limit readings.
+# Adjust this threshold to match your sensor's actual range.
+DIRECT_SUN_LUX = 2500  # Adjusted to match observed sensor behavior
 
 # BLE constants
 _IRQ_CENTRAL_CONNECT = const(1)
@@ -54,20 +69,105 @@ def read_light():
     except:
         return 0
 
+def format_timestamp(timestamp, use_real_time=False):
+    """Format timestamp as readable date/time string"""
+    if use_real_time and has_real_time():
+        # Use real date/time if available
+        try:
+            # Format: YYYY-MM-DD HH:MM:SS
+            year, month, day, hour, minute, second, weekday, yearday = time.localtime(timestamp)
+            return f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}"
+        except:
+            pass
+    
+    # Fallback: Format as days since boot + time
+    days = int(timestamp) // 86400
+    seconds_today = int(timestamp) % 86400
+    hours = seconds_today // 3600
+    minutes = (seconds_today % 3600) // 60
+    seconds = seconds_today % 60
+    return f"Day{days} {hours:02d}:{minutes:02d}:{seconds:02d}"
+
+def has_real_time():
+    """Check if we have real date/time (not just boot-time)"""
+    return hasattr(time, 'localtime') and time.localtime()[0] >= 2024  # Year >= 2024 indicates synced time
+
+def sync_time_from_ntp():
+    """Attempt to sync time from NTP server via WiFi"""
+    if not USE_NTP or not WIFI_SSID:
+        return False
+    
+    try:
+        import network
+        import ntptime
+        
+        # Connect to WiFi
+        wlan = network.WLAN(network.STA_IF)
+        wlan.active(True)
+        wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+        
+        # Wait for connection (max 10 seconds)
+        max_wait = 10
+        while max_wait > 0:
+            if wlan.status() < 0 or wlan.status() >= 3:
+                break
+            max_wait -= 1
+            time.sleep(1)
+        
+        if wlan.status() != 3:
+            print("WiFi: Connection failed")
+            wlan.active(False)
+            return False
+        
+        print(f"WiFi: Connected to {WIFI_SSID}")
+        
+        # Sync time from NTP
+        try:
+            ntptime.host = NTP_SERVER
+            ntptime.settime()
+            print(f"Time: Synced from NTP server ({NTP_SERVER})")
+            
+            # Verify we got real time
+            year, month, day, hour, minute, second, weekday, yearday = time.localtime()
+            print(f"Time: {year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}")
+            
+            # Disconnect WiFi to save power
+            wlan.disconnect()
+            wlan.active(False)
+            return True
+        except Exception as e:
+            print(f"Time: NTP sync failed: {e}")
+            wlan.disconnect()
+            wlan.active(False)
+            return False
+            
+    except ImportError:
+        print("Time: NTP not available (ntptime module not found)")
+        return False
+    except Exception as e:
+        print(f"Time: WiFi/NTP sync error: {e}")
+        return False
+
 def write_lux_reading(lux, timestamp):
     """Write lux reading with timestamp to CSV file"""
     try:
+        timestamp_str = format_timestamp(timestamp, use_real_time=True)
         with open(LUX_LOG_FILE, "a") as f:
-            f.write(f"{timestamp},{lux:.2f}\n")
+            f.write(f"{timestamp_str},{lux:.2f}\n")
+            f.flush()  # Force write to disk immediately
     except Exception as e:
-        # Silently fail if file write doesn't work (e.g., no SD card)
-        pass
+        # Log error on first failure only to avoid console spam
+        if not hasattr(write_lux_reading, '_error_logged'):
+            print(f"WARNING: Failed to write to {LUX_LOG_FILE}: {e}")
+            print("         File writing will be disabled. Check file system permissions/storage.")
+            write_lux_reading._error_logged = True
 
-def save_sunlight_hours(hours, day_seconds):
-    """Save daily sunlight hours to file"""
+def save_sunlight_hours(hours, timestamp):
+    """Save daily sunlight hours to file with date/time stamp"""
     try:
+        timestamp_str = format_timestamp(timestamp, use_real_time=True)
         with open(SUNLIGHT_HOURS_FILE, "a") as f:
-            f.write(f"Day {day_seconds // 86400}: {hours:.2f} hours\n")
+            f.write(f"{timestamp_str}: {hours:.2f} hours\n")
     except Exception as e:
         # Silently fail if file write doesn't work
         pass
@@ -96,7 +196,9 @@ def update_sunlight_tracking(lux):
         prev_hours = sunlight_tracker["total_seconds"] / 3600.0
         prev_day = sunlight_tracker["last_day_saved"]
         if prev_day is not None:
-            save_sunlight_hours(prev_hours, prev_day * 86400)
+            # Calculate timestamp for end of previous day (just before midnight)
+            prev_day_end_timestamp = (prev_day * 86400) + 86399
+            save_sunlight_hours(prev_hours, prev_day_end_timestamp)
         
         # Reset for new day
         sunlight_tracker["day_start"] = day_seconds
@@ -282,10 +384,23 @@ class LightSensorPeripheral:
         """Check if any central device is connected"""
         return len(self._connections) > 0
 
-print("Ambient Light Sensor Logger Started")
+VERSION = "v0.2.4"
+print("=" * 50)
+print(f"Ambient Light Sensor Logger {VERSION}")
+print("=" * 50)
 print(f"Light sensor initialized. Direct sun threshold: {DIRECT_SUN_LUX} lux")
 print(f"Lux readings will be saved to: {LUX_LOG_FILE}")
 print(f"Sunlight hours will be saved to: {SUNLIGHT_HOURS_FILE}")
+
+# Attempt to sync time from NTP if configured
+time_synced = False
+if USE_NTP and WIFI_SSID:
+    print("Attempting to sync time from NTP...")
+    time_synced = sync_time_from_ntp()
+    if not time_synced:
+        print("Time: Using boot-time tracking (no real date/time)")
+else:
+    print("Time: Using boot-time tracking (WiFi/NTP not configured)")
 
 # Initialize BLE peripheral
 try:
@@ -301,17 +416,52 @@ except Exception as e:
     ble_peripheral = None
 
 # Initialize lux log file with header if it doesn't exist
+# Test file writing capability
+file_write_ok = False
 try:
-    with open(LUX_LOG_FILE, "r") as f:
-        pass  # File exists, don't overwrite
-except:
+    # Check if file exists
     try:
-        with open(LUX_LOG_FILE, "w") as f:
-            f.write("timestamp,lux\n")
-    except:
-        pass  # Can't write, might not have storage
+        with open(LUX_LOG_FILE, "r") as f:
+            first_line = f.readline().strip()
+            if first_line == "timestamp,lux":
+                print(f"File check: {LUX_LOG_FILE} exists with correct header")
+            else:
+                print(f"File check: {LUX_LOG_FILE} exists but header is '{first_line}' (expected 'timestamp,lux')")
+        file_write_ok = True
+    except OSError:
+        # File doesn't exist, create it
+        try:
+            with open(LUX_LOG_FILE, "w") as f:
+                f.write("timestamp,lux\n")  # Header: timestamp (date/time), lux value
+                f.flush()
+            file_write_ok = True
+            print(f"File check: Created {LUX_LOG_FILE} with header")
+        except Exception as e:
+            print(f"WARNING: Cannot create {LUX_LOG_FILE}: {e}")
+            print("         Data will not be saved to file. Check file system permissions/storage.")
+            file_write_ok = False
+    
+    # Test write capability
+    if file_write_ok:
+        try:
+            test_timestamp = format_timestamp(time.time(), use_real_time=True)
+            with open(LUX_LOG_FILE, "a") as f:
+                f.write(f"# Test write at startup: {test_timestamp}\n")
+                f.flush()
+            print(f"File check: Test write successful - file writing is enabled")
+        except Exception as e:
+            print(f"WARNING: Test write failed: {e}")
+            print("         File exists but cannot be written to. Check file system permissions.")
+            file_write_ok = False
+except Exception as e:
+    print(f"WARNING: File check failed: {e}")
+    file_write_ok = False
+
+# Counter for printing sensor readings (print every 10 readings = ~5 seconds)
+_print_counter = 0
 
 # Main loop: read and log light readings continuously
+print("Starting sensor readings...")
 while True:
     # Read light sensor
     lux = read_light()
@@ -332,13 +482,17 @@ while True:
     current_time = time.time()
     write_lux_reading(lux, current_time)
     
-    # Print connection status (commented out regular sensor output for debugging)
-    if ble_peripheral is not None:
-        if ble_peripheral.is_connected():
-            print(f"BLE: Connected | Light: {lux:.0f} lux | Sun: {sunlight_hours:.2f}h")
-        # else:
-        #     print(f"BLE: Advertising (not connected)")
-    # print(f"Light: {lux:.0f} lux | Sun: {sunlight_hours:.2f}h | Stats: {stats['readings_today']} readings, avg: {stats['avg_lux']:.0f}, max: {stats['max_lux']:.0f}")
+    # Print sensor readings (print every 10 readings = ~5 seconds to reduce console spam)
+    _print_counter += 1
+    if _print_counter % 10 == 0:
+        # Show BLE connection status if BLE is available
+        if ble_peripheral is not None:
+            if ble_peripheral.is_connected():
+                print(f"BLE: Connected | Light: {lux:.0f} lux | Sun: {sunlight_hours:.2f}h | Stats: {stats['readings_today']} readings, avg: {stats['avg_lux']:.0f}, max: {stats['max_lux']:.0f}")
+            else:
+                print(f"Light: {lux:.0f} lux | Sun: {sunlight_hours:.2f}h | Stats: {stats['readings_today']} readings, avg: {stats['avg_lux']:.0f}, max: {stats['max_lux']:.0f} | BLE: Advertising")
+        else:
+            print(f"Light: {lux:.0f} lux | Sun: {sunlight_hours:.2f}h | Stats: {stats['readings_today']} readings, avg: {stats['avg_lux']:.0f}, max: {stats['max_lux']:.0f}")
     
     # Wait before next reading (500ms = 2 readings per second)
     sleep_ms(500)
