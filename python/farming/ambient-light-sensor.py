@@ -1,15 +1,23 @@
 # -*- coding:utf-8 -*-
-# Ambient Light Sensor Logger for Raspberry Pi Pico W v0.2.4
+# Ambient Light Sensor Logger for Raspberry Pi Pico W v0.2.8
 # PiicoDev Ambient Light Sensor VEML6030
 # Records light readings all day and tracks direct sunlight hours
 # Designed to run in a sealed plastic box with clear cover in a garden spot
 # Includes BLE broadcasting for mobile phone access
-# Optional WiFi/NTP time sync for accurate date/time stamps
+# Optional PiicoDev RV-3028 RTC or WiFi/NTP for accurate date/time stamps
 
 from PiicoDev_VEML6030 import PiicoDev_VEML6030
 from PiicoDev_Unified import sleep_ms
 import time
 import bluetooth
+
+# Optional PiicoDev RV-3028 RTC for battery-backed real time (no WiFi needed)
+try:
+    from PiicoDev_RV3028 import PiicoDev_RV3028
+    _RTC_MODULE_AVAILABLE = True
+except ImportError:
+    _RTC_MODULE_AVAILABLE = False
+    PiicoDev_RV3028 = None
 import struct
 import json
 from ble_advertising import advertising_payload
@@ -21,8 +29,15 @@ WIFI_SSID = None  # Set to your WiFi SSID if available, e.g., "YourNetwork"
 WIFI_PASSWORD = None  # Set to your WiFi password if available, e.g., "YourPassword"
 
 # Time sync configuration
-USE_NTP = False  # Set to True if you want to use NTP (requires WiFi)
+USE_RTC = True   # Use PiicoDev RV-3028 RTC as source of truth (required for standalone use)
+USE_NTP = False  # Fallback: set to True to try NTP when RTC not available (requires WiFi)
 NTP_SERVER = "pool.ntp.org"
+
+# RTC one-time set: the module keeps whatever time you put in it. Set it once, then use it.
+# Set SET_RTC_ONCE = True and set RTC_SET_DATE to current date/time, run the script once,
+# then set SET_RTC_ONCE = False so it does not overwrite on every boot.
+SET_RTC_ONCE = True   # True = write RTC_SET_DATE to the RTC this run (then set to False)
+RTC_SET_DATE = (2026, 1, 30, 11, 55, 0)  # (year, month, day, hour, minute, second) 24h
 
 # File paths for data logging
 LUX_LOG_FILE = "lux_readings.csv"
@@ -91,6 +106,79 @@ def format_timestamp(timestamp, use_real_time=False):
 def has_real_time():
     """Check if we have real date/time (not just boot-time)"""
     return hasattr(time, 'localtime') and time.localtime()[0] >= 2024  # Year >= 2024 indicates synced time
+
+def _weekday_from_date(year, month, day):
+    """Return weekday 1=Monday .. 7=Sunday for PiicoDev RV-3028."""
+    if month < 3:
+        month += 12
+        year -= 1
+    # Zeller: 0=Saturday, 1=Sunday, ..., 6=Friday
+    w = (day + (13 * (month + 1)) // 5 + year + year // 4 - year // 100 + year // 400) % 7
+    # 1=Mon .. 7=Sun: Sat=0->7, Sun=1->1, Mon=2->2, ..., Fri=6->6
+    return ((w + 5) % 7) + 1
+
+def set_rtc_to_date(rtc, year, month, day, hour, minute, second):
+    """
+    Write (year, month, day, hour, minute, second) to PiicoDev RV-3028.
+    Use once to configure the RTC; then the battery keeps it across power loss.
+    """
+    try:
+        rtc.year = year
+        rtc.month = month
+        rtc.day = day
+        rtc.hour = hour
+        rtc.minute = minute
+        rtc.second = second
+        rtc.weekday = _weekday_from_date(year, month, day)
+        rtc.ampm = '24'
+        rtc.setDateTime()
+        return True
+    except Exception as e:
+        print(f"Time: Could not set RTC to date: {e}")
+        return False
+
+def sync_time_from_rtc(rtc):
+    """
+    Set system time from PiicoDev RV-3028 RTC so time.time() and time.localtime() are correct.
+    Returns True if sync succeeded.
+    """
+    try:
+        import machine
+        rtc.getDateTime()
+        # machine.RTC datetime: (year, month, day, weekday, hour, minute, second, subseconds)
+        # RV-3028 weekday is 1-7; MicroPython typically uses 0-6 (Mon-Sun), so convert
+        weekday_mp = (rtc.weekday - 1) % 7 if getattr(rtc, 'weekday', 1) else 0
+        machine.RTC().datetime((
+            rtc.year, rtc.month, rtc.day, weekday_mp,
+            rtc.hour, rtc.minute, rtc.second, 0
+        ))
+        return True
+    except Exception as e:
+        print(f"Time: RTC sync failed: {e}")
+        return False
+
+def sync_rtc_from_system(rtc):
+    """
+    Set PiicoDev RV-3028 RTC from current system time (e.g. after Thonny or NTP set the clock).
+    So on next standalone boot the RTC has the correct time.
+    Returns True if write succeeded.
+    """
+    try:
+        year, month, day, hour, minute, second, weekday, yearday = time.localtime()
+        # PiicoDev RV-3028: assign then call setDateTime()
+        rtc.year = year
+        rtc.month = month
+        rtc.day = day
+        rtc.hour = hour
+        rtc.minute = minute
+        rtc.second = second
+        rtc.weekday = (weekday + 1) if 0 <= weekday <= 6 else 1  # 0-6 -> 1-7
+        rtc.ampm = '24'
+        rtc.setDateTime()
+        return True
+    except Exception as e:
+        print(f"Time: Could not set RTC from system time: {e}")
+        return False
 
 def sync_time_from_ntp():
     """Attempt to sync time from NTP server via WiFi"""
@@ -384,7 +472,10 @@ class LightSensorPeripheral:
         """Check if any central device is connected"""
         return len(self._connections) > 0
 
-VERSION = "v0.2.4"
+# Optional RTC instance (set at startup if USE_RTC and hardware present)
+rtc = None
+
+VERSION = "v0.2.8"
 print("=" * 50)
 print(f"Ambient Light Sensor Logger {VERSION}")
 print("=" * 50)
@@ -392,15 +483,37 @@ print(f"Light sensor initialized. Direct sun threshold: {DIRECT_SUN_LUX} lux")
 print(f"Lux readings will be saved to: {LUX_LOG_FILE}")
 print(f"Sunlight hours will be saved to: {SUNLIGHT_HOURS_FILE}")
 
-# Attempt to sync time from NTP if configured
+# Sync time: RTC is source of truth for standalone use
 time_synced = False
-if USE_NTP and WIFI_SSID:
+if USE_RTC and _RTC_MODULE_AVAILABLE:
+    try:
+        rtc = PiicoDev_RV3028()
+        if SET_RTC_ONCE and RTC_SET_DATE:
+            # One-time: write configured date/time to the RTC module
+            y, mo, d, h, mi, s = RTC_SET_DATE[:6]
+            if set_rtc_to_date(rtc, y, mo, d, h, mi, s):
+                print(f"Time: RTC set to {y:04d}-{mo:02d}-{d:02d} {h:02d}:{mi:02d}:{s:02d}")
+                print("      Set SET_RTC_ONCE = False in the script and re-run for normal use.")
+        time_synced = sync_time_from_rtc(rtc)
+        if time_synced:
+            year, month, day, hour, minute, second, wd, yd = time.localtime()
+            print(f"Time: Synced from PiicoDev RV-3028 RTC: {year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}")
+        else:
+            rtc = None
+    except Exception as e:
+        print(f"Time: RTC init failed ({e}), falling back to NTP or boot-time")
+        rtc = None
+
+if not time_synced and USE_NTP and WIFI_SSID:
     print("Attempting to sync time from NTP...")
     time_synced = sync_time_from_ntp()
     if not time_synced:
         print("Time: Using boot-time tracking (no real date/time)")
-else:
-    print("Time: Using boot-time tracking (WiFi/NTP not configured)")
+elif not time_synced:
+    if not (USE_RTC and _RTC_MODULE_AVAILABLE):
+        print("Time: Using boot-time tracking (RTC not configured or module not found)")
+    else:
+        print("Time: Using boot-time tracking (RTC sync failed)")
 
 # Initialize BLE peripheral
 try:

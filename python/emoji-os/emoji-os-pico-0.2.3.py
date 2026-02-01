@@ -177,7 +177,7 @@ def reset_prev():
     prev_menu = 0
     prev_pos = 0
     prev_neg = 0
-    
+
 def buzz():
     buzzer.value(1)
     time.sleep(0.1)
@@ -336,7 +336,7 @@ class BLESimplePeripheral:
     """BLE Peripheral that advertises UART service and receives emoji commands
     Enhanced version with MAC address logging and proper BLE stack reset
     """
-    
+
     def __init__(self, ble, name="Pico-Client"):
         self._ble = ble
         # Force BLE stack reset to clear cached name
@@ -345,12 +345,12 @@ class BLESimplePeripheral:
         self._ble.active(True)
         time.sleep(0.1)
         self._ble.irq(self._irq)
-        
+
         # Get and log the BLE MAC address
         mac_str = "Unknown"
         try:
             mac_data = self._ble.config('mac')
-            
+
             # Handle tuple format: (addr_type, mac_bytes)
             # The MAC address is in the second element as bytes
             if isinstance(mac_data, tuple) and len(mac_data) >= 2:
@@ -402,10 +402,10 @@ class BLESimplePeripheral:
                     mac_str = "Unknown"
             except Exception as e2:
                 mac_str = "Unknown"
-        
+
         # Register the UART service
         ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((_UART_SERVICE,))
-        
+
         self._connections = set()
         self._write_callback = None
         self._display_callback = None  # called with "advertising" when we start/restart advertising
@@ -473,7 +473,7 @@ def handle_command(command_data):
         # Decode the command
         command = command_data.decode('utf-8').strip()
         print(f"✓ Received command: '{command}'")
-        
+
         # Check if this is an emoji command (format: "MENU:POS:NEG")
         if ':' in command:
             try:
@@ -482,15 +482,15 @@ def handle_command(command_data):
                     menu_val = int(parts[0])
                     pos_val = int(parts[1])
                     neg_val = int(parts[2])
-                    
+
                     print(f"Emoji Command - Menu: {menu_val}, Pos: {pos_val}, Neg: {neg_val}")
-                    
+
                     # Handle emoji selection
                     handle_emoji_selection(menu_val, pos_val, neg_val)
                     return
             except ValueError:
                 print(f"Invalid emoji command format: '{command}'")
-        
+
         # Process legacy commands
         if command == "ON":
             print("Command: Turning ON")
@@ -510,7 +510,7 @@ def handle_command(command_data):
                 time.sleep(0.2)
         else:
             print(f"Unknown command: '{command}'")
-            
+
     except Exception as e:
         print(f"✗ Error processing command: {e}")
 
@@ -518,25 +518,25 @@ def handle_command(command_data):
 def handle_emoji_selection(menu_val, pos_val, neg_val):
     """Handle emoji selection from the Pi Zero"""
     global menu, pos, neg, state
-    
+
     print(f"Processing emoji selection:")
     print(f"  Menu: {menu_val} ({get_menu_name(menu_val)})")
     print(f"  Position: {pos_val}")
     print(f"  Negative: {neg_val}")
-    
+
     # Set the global state variables
     menu = menu_val
     pos = pos_val
     neg = neg_val
     state = "choosing"
-    
+
     # Visual feedback with LED
     for _ in range(2):
         led_onboard.on()
         time.sleep(0.1)
         led_onboard.off()
         time.sleep(0.1)
-    
+
     # Display the emoji immediately
     matrix.pixelsFill(matrix.black())
     draw_emoji()
@@ -669,7 +669,7 @@ while True:
             neg = neg + 1
             check_neg()
             print('button 3 pressed, menu ', menu, "neg", neg, "state", state)
-            matrix.pixelsFill(matrix.black())            
+            matrix.pixelsFill(matrix.black())
             draw_menu()
             draw_neg()
         if prev_state == "done":
@@ -692,4 +692,3 @@ while True:
                 menu = prev_menu
                 print('button 3 pressed again, menu ', menu, "pos", pos, "neg", neg, "state", state)
                 draw_emoji()
-
