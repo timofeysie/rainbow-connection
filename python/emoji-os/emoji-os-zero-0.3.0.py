@@ -423,10 +423,14 @@ def get_main_emoji():
         if state == "choosing":
             if pos == 1:
                 return fireworks_animation.preview
+            elif pos == 2:
+                return chakana_matrix
             elif neg == 1:
                 return rain_animation.preview
         elif pos == 1:
             return fireworks_animation.preview
+        elif pos == 2:
+            return chakana_matrix
         elif neg == 1:
             return rain_animation.preview
     
@@ -472,6 +476,10 @@ def get_main_emoji_animation():
         elif neg == 4:
             return green_monster_wink_matrix
     
+    elif menu == 1:  # Animations menu - chakana is static (no animation)
+        if pos == 2:
+            return chakana_matrix
+    
     # Default to wink smiley for other menus
     return smiley_wink_matrix
 
@@ -480,7 +488,7 @@ def get_left_side_emojis():
     if menu == 0:
         return [regular_matrix, happy_matrix, wry_matrix, heart_matrix]
     elif menu == 1:
-        return [fireworks_animation.preview, smiley_matrix, smiley_matrix, smiley_matrix]
+        return [fireworks_animation.preview, chakana_matrix, smiley_matrix, smiley_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 

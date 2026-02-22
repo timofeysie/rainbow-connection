@@ -222,6 +222,19 @@ smiley_wink_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
+# Chakana (Andean cross) - static 8x8 from glowbit-style layers: W outer, Y, R, P center
+# Maps to: drawRectangleFill(0,0,7,7,W); (3,0,4,7),(0,3,7,4),(1,1,6,6)=Y; (3,1,4,6),(1,3,6,4),(2,2,5,5)=R; (3,2,4,5),(2,3,5,4),(3,3,4,4)=P
+chakana_matrix = [
+    ['W', 'W', 'W', 'Y', 'Y', 'W', 'W', 'W'],
+    ['W', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'W'],
+    ['W', 'Y', 'Y', 'R', 'R', 'Y', 'Y', 'W'],
+    ['Y', 'Y', 'R', 'P', 'P', 'R', 'Y', 'Y'],
+    ['Y', 'Y', 'R', 'P', 'P', 'R', 'Y', 'Y'],
+    ['W', 'Y', 'Y', 'R', 'R', 'Y', 'Y', 'W'],
+    ['W', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'W'],
+    ['W', 'W', 'W', 'Y', 'Y', 'W', 'W', 'W'],
+]
+
 # Color mapping
 color_map = {
     'Y': 'yellow',

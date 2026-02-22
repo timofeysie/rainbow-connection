@@ -64,6 +64,14 @@ The Emoji OS Zero provides a hierarchical menu system with 4 main categories, ea
 | | | 2. YES | 2. NO |
 | | | 3. Somi | 3. (None) |
 
+### About the implementation
+
+- Main menu (menu) is zero-based
+  - Valid range: 0–3 (Emojis, Animations, Characters, Other).
+
+- Sub-menu items (pos and neg) are one-based
+  - Valid selection range: 1–4 (e.g. pos == 1 … pos == 4, same for neg).
+
 ### Navigation Controls
 
 - **Joystick Up/Down**: Navigate between menu categories (0-3)
@@ -72,3 +80,24 @@ The Emoji OS Zero provides a hierarchical menu system with 4 main categories, ea
 - **KEY1**: Quick positive selection
 - **KEY2**: Menu navigation and confirmation
 - **KEY3**: Quick negative selection
+
+## Adding a New Emoji for the Display
+
+To show a new emoji in both the sub-menu (mini form) and the main menu (full-sized), do the following.
+
+### 1. Define the matrix in `emojis_zero.py`
+
+- Add an 8×8 matrix: a list of 8 rows, each row a list of 8 single-character color codes.
+- Row/column order is `matrix[row][col]` (row index = y, column index = x).
+- Use the same color codes as in `color_map`: `' '` (off/black), `'Y'` (yellow), `'R'` (red), `'G'` (green), `'W'` (white), `'B'` (black), `'P'` (purple), `'O'` (orange), `'C'` (cyan), `'M'` (magenta).
+- For a static emoji, define one matrix (e.g. `my_emoji_matrix`). For a simple two-frame animation, define a base matrix and a second matrix (e.g. wink or bounce) and use both in the main script.
+
+You can derive the 8×8 from GlowBit Pico code by mapping `drawRectangleFill(x1, y1, x2, y2, color)` to filling `matrix[y][x]` for `x` in `x1..x2`, `y` in `y1..y2` with the corresponding letter (`'W'`, `'Y'`, etc.).
+
+### 2. Wire it in `emoji-os-zero-0.3.0.py`
+
+- **Main emoji (full size):** In `get_main_emoji()`, add a branch for the correct `menu` and `pos` or `neg` (menu is 0-based, pos/neg are 1-based) and return your matrix.
+- **Animated state (if used):** In `get_main_emoji_animation()`, return the animation frame (or the same matrix if non-animated).
+- **Sub-menu mini form:** In `get_left_side_emojis()` and/or `get_right_side_emojis()`, for the right menu, put your matrix in the list at the index that matches the sub-menu item (index 0 = pos/neg 1, index 1 = pos/neg 2, etc.).
+
+After that, the new emoji will appear in the side strip when that sub-menu item is selected and in the main area when that option is chosen.
