@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero v0.3.8 - Enhanced with working BLE Controller functionality (from controller-1.3.py)
+# Emoji OS Zero - Enhanced with working BLE Controller functionality (from controller-1.3.py)
+VERSION = " v0.3.9"
 import LCD_1in44
 import time
 import threading
@@ -391,7 +392,7 @@ def get_main_emoji():
             elif pos == 3:
                 return wry_matrix
             elif pos == 4:
-                return heart_matrix
+                return heart_eyes_matrix
             elif neg == 1:
                 return thick_lips_matrix
             elif neg == 2:
@@ -408,7 +409,7 @@ def get_main_emoji():
         elif pos == 3:
             return wry_matrix
         elif pos == 4:
-            return heart_matrix
+            return heart_eyes_matrix
         elif neg == 1:
             return thick_lips_matrix
         elif neg == 2:
@@ -424,13 +425,21 @@ def get_main_emoji():
             if pos == 1:
                 return fireworks_animation.preview
             elif pos == 2:
+                return smiley_matrix  # Placeholder for Circular Rainbow
+            elif pos == 3:
                 return chakana_matrix
+            elif pos == 4:
+                return heart_matrix
             elif neg == 1:
                 return rain_animation.preview
         elif pos == 1:
             return fireworks_animation.preview
         elif pos == 2:
+            return smiley_matrix  # Placeholder for Circular Rainbow
+        elif pos == 3:
             return chakana_matrix
+        elif pos == 4:
+            return heart_matrix
         elif neg == 1:
             return rain_animation.preview
     
@@ -449,7 +458,7 @@ def get_main_emoji_animation():
             elif pos == 3:
                 return wry_wink_matrix
             elif pos == 4:
-                return heart_bounce_matrix
+                return heart_eyes_wink_matrix
             elif neg == 1:
                 return thick_lips_wink_matrix
             elif neg == 2:
@@ -466,7 +475,7 @@ def get_main_emoji_animation():
         elif pos == 3:
             return wry_wink_matrix
         elif pos == 4:
-            return heart_bounce_matrix
+            return heart_eyes_wink_matrix
         elif neg == 1:
             return thick_lips_wink_matrix
         elif neg == 2:
@@ -476,9 +485,11 @@ def get_main_emoji_animation():
         elif neg == 4:
             return green_monster_wink_matrix
     
-    elif menu == 1:  # Animations menu - chakana is static (no animation)
-        if pos == 2:
+    elif menu == 1:  # Animations menu - chakana and heart bounce are static
+        if pos == 3:
             return chakana_matrix
+        elif pos == 4:
+            return heart_bounce_matrix
     
     # Default to wink smiley for other menus
     return smiley_wink_matrix
@@ -486,9 +497,9 @@ def get_main_emoji_animation():
 def get_left_side_emojis():
     """Get the left side emoji matrices for menu 0 (Emojis) and menu 1 (Animations)"""
     if menu == 0:
-        return [regular_matrix, happy_matrix, wry_matrix, heart_matrix]
+        return [regular_matrix, happy_matrix, wry_matrix, heart_eyes_matrix]
     elif menu == 1:
-        return [fireworks_animation.preview, chakana_matrix, smiley_matrix, smiley_matrix]
+        return [fireworks_animation.preview, smiley_matrix, chakana_matrix, heart_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
@@ -673,7 +684,7 @@ def emoji_two_part_animation():
     time.sleep(0.5)  # Show normal state for 0.5 seconds
     
     # Then show the animation state
-    if menu == 0 and pos == 4:  # Heart bounce
+    if menu == 1 and pos == 4:  # Heart bounce (menu 1, pos 4)
         is_animating = True
         is_winking = False
     else:  # Wink animation for other emojis
@@ -797,7 +808,7 @@ except:
 # === Initial display ===
 draw_display()
 
-print("Emoji OS Zero v0.3.8 started with BLE Controller functionality")
+print("Emoji OS Zero " + VERSION + " started with BLE Controller functionality")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive")
 print("KEY2: Navigate/confirm")

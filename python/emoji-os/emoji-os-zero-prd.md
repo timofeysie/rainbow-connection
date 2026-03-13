@@ -51,11 +51,11 @@ The Emoji OS Zero provides a hierarchical menu system with 4 main categories, ea
 | 0 | **Emojis** | 1. Regular (smiley) | 1. Thick Lips |
 | | | 2. Happy | 2. Sad |
 | | | 3. Wry | 3. Angry |
-| | | 4. Heart Bounce | 4. Green Monster |
+| | | 4. Heart Eyes | 4. Green Monster |
 | 1 | **Animations** | 1. Fireworks | 1. Rain |
 | | | 2. Circular Rainbow | 2. (None) |
-| | | 3. Scroll Large Image | 3. (None) |
-| | | 4. Chakana | 4. (None) |
+| | | 3. Chakana | 3. (None) |
+| | | 4. Heart Bounce | 4. (None) |
 | 2 | **Characters** | 1. Finn | 1. Bald |
 | | | 2. Pikachu | 2. Surprise |
 | | | 3. Crab | 3. (None) |

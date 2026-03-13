@@ -124,6 +124,7 @@ def sad():
         row += 1
     matrix.pixelsShow()
 def happy():
+    print("happy")
     matrix.pixelsFill(matrix.black())
     T = [[0, 0, 1, 1, 1, 1, 0, 0],
          [0, 1, 0, 0, 0, 0, 1, 0],
@@ -277,6 +278,33 @@ def finn():
     for r in T:
         for c in r:
             color = matrix.black()
+            matrix.pixelSetXY(col, row, c)
+            col += 1
+            if (col > 7):
+                col = 0
+        row += 1
+    matrix.pixelsShow()
+    time.sleep(0.5)
+def heartEyes():
+    print("heart eyes")
+    matrix.pixelsFill(matrix.black())
+    # Black face with red heart eyes and white smile; all colours via rgbColour
+    black = matrix.rgbColour(0, 0, 0)
+    white = matrix.rgbColour(255, 255, 255)
+    red = matrix.rgbColour(255, 0, 0)
+    # 8x8: two red heart eyes (3x3 each), white smiley mouth
+    T = [[black, black, black, black, black, black, black, black],
+         [black, red,   black, black, black, black, red,   black],
+         [red,   red,   red,   black, black, red,   red,   red],
+         [black, red,   black, black, black, black, red,   black],
+         [black, black, black, black, black, black, black, black],
+         [white, black, black, black, black, black, black, white],
+         [black, white, black, black, black, black, white, black],
+         [black, black, white, white, white, white, black, black]]
+    row = 0
+    col = 0
+    for r in T:
+        for c in r:
             matrix.pixelSetXY(col, row, c)
             col += 1
             if (col > 7):

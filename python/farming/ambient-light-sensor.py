@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
-# Ambient Light Sensor Logger for Raspberry Pi Pico W v0.2.8
+# Ambient Light Sensor Logger for Raspberry Pi Pico W
+VERSION = "v0.2.9"
 # PiicoDev Ambient Light Sensor VEML6030
 # Records light readings all day and tracks direct sunlight hours
 # Designed to run in a sealed plastic box with clear cover in a garden spot
@@ -33,11 +34,9 @@ USE_RTC = True   # Use PiicoDev RV-3028 RTC as source of truth (required for sta
 USE_NTP = False  # Fallback: set to True to try NTP when RTC not available (requires WiFi)
 NTP_SERVER = "pool.ntp.org"
 
-# RTC one-time set: the module keeps whatever time you put in it. Set it once, then use it.
-# Set SET_RTC_ONCE = True and set RTC_SET_DATE to current date/time, run the script once,
-# then set SET_RTC_ONCE = False so it does not overwrite on every boot.
-SET_RTC_ONCE = True   # True = write RTC_SET_DATE to the RTC this run (then set to False)
-RTC_SET_DATE = (2026, 1, 30, 11, 55, 0)  # (year, month, day, hour, minute, second) 24h
+# RTC: we only read the time from the PiicoDev RV-3028 (set it using real-time-clock-setup.py).
+# When USE_RTC and the module is available, this is set at startup; otherwise None.
+rtc = None
 
 # File paths for data logging
 LUX_LOG_FILE = "lux_readings.csv"
@@ -84,17 +83,40 @@ def read_light():
     except:
         return 0
 
+def _get_rtc_timestamp_str(rtc_obj):
+    """Read current time from PiicoDev RV-3028 and return as YYYY-MM-DD HH:MM:SS."""
+    try:
+        rtc_obj.getDateTime()
+        return (
+            f"{rtc_obj.year:04d}-{rtc_obj.month:02d}-{rtc_obj.day:02d} "
+            f"{rtc_obj.hour:02d}:{rtc_obj.minute:02d}:{rtc_obj.second:02d}"
+        )
+    except Exception:
+        return None
+
+def _get_rtc_datetime(rtc_obj):
+    """Read current (year, month, day, hour, minute, second) from PiicoDev RV-3028."""
+    try:
+        rtc_obj.getDateTime()
+        return (
+            rtc_obj.year, rtc_obj.month, rtc_obj.day,
+            rtc_obj.hour, rtc_obj.minute, rtc_obj.second
+        )
+    except Exception:
+        return None
+
 def format_timestamp(timestamp, use_real_time=False):
     """Format timestamp as readable date/time string"""
+    if use_real_time and rtc is not None:
+        s = _get_rtc_timestamp_str(rtc)
+        if s:
+            return s
     if use_real_time and has_real_time():
-        # Use real date/time if available
         try:
-            # Format: YYYY-MM-DD HH:MM:SS
             year, month, day, hour, minute, second, weekday, yearday = time.localtime(timestamp)
             return f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}"
-        except:
+        except Exception:
             pass
-    
     # Fallback: Format as days since boot + time
     days = int(timestamp) // 86400
     seconds_today = int(timestamp) % 86400
@@ -104,81 +126,10 @@ def format_timestamp(timestamp, use_real_time=False):
     return f"Day{days} {hours:02d}:{minutes:02d}:{seconds:02d}"
 
 def has_real_time():
-    """Check if we have real date/time (not just boot-time)"""
-    return hasattr(time, 'localtime') and time.localtime()[0] >= 2024  # Year >= 2024 indicates synced time
-
-def _weekday_from_date(year, month, day):
-    """Return weekday 1=Monday .. 7=Sunday for PiicoDev RV-3028."""
-    if month < 3:
-        month += 12
-        year -= 1
-    # Zeller: 0=Saturday, 1=Sunday, ..., 6=Friday
-    w = (day + (13 * (month + 1)) // 5 + year + year // 4 - year // 100 + year // 400) % 7
-    # 1=Mon .. 7=Sun: Sat=0->7, Sun=1->1, Mon=2->2, ..., Fri=6->6
-    return ((w + 5) % 7) + 1
-
-def set_rtc_to_date(rtc, year, month, day, hour, minute, second):
-    """
-    Write (year, month, day, hour, minute, second) to PiicoDev RV-3028.
-    Use once to configure the RTC; then the battery keeps it across power loss.
-    """
-    try:
-        rtc.year = year
-        rtc.month = month
-        rtc.day = day
-        rtc.hour = hour
-        rtc.minute = minute
-        rtc.second = second
-        rtc.weekday = _weekday_from_date(year, month, day)
-        rtc.ampm = '24'
-        rtc.setDateTime()
+    """True if we have real date/time from RTC (or previously synced system time)."""
+    if rtc is not None:
         return True
-    except Exception as e:
-        print(f"Time: Could not set RTC to date: {e}")
-        return False
-
-def sync_time_from_rtc(rtc):
-    """
-    Set system time from PiicoDev RV-3028 RTC so time.time() and time.localtime() are correct.
-    Returns True if sync succeeded.
-    """
-    try:
-        import machine
-        rtc.getDateTime()
-        # machine.RTC datetime: (year, month, day, weekday, hour, minute, second, subseconds)
-        # RV-3028 weekday is 1-7; MicroPython typically uses 0-6 (Mon-Sun), so convert
-        weekday_mp = (rtc.weekday - 1) % 7 if getattr(rtc, 'weekday', 1) else 0
-        machine.RTC().datetime((
-            rtc.year, rtc.month, rtc.day, weekday_mp,
-            rtc.hour, rtc.minute, rtc.second, 0
-        ))
-        return True
-    except Exception as e:
-        print(f"Time: RTC sync failed: {e}")
-        return False
-
-def sync_rtc_from_system(rtc):
-    """
-    Set PiicoDev RV-3028 RTC from current system time (e.g. after Thonny or NTP set the clock).
-    So on next standalone boot the RTC has the correct time.
-    Returns True if write succeeded.
-    """
-    try:
-        year, month, day, hour, minute, second, weekday, yearday = time.localtime()
-        # PiicoDev RV-3028: assign then call setDateTime()
-        rtc.year = year
-        rtc.month = month
-        rtc.day = day
-        rtc.hour = hour
-        rtc.minute = minute
-        rtc.second = second
-        rtc.weekday = (weekday + 1) if 0 <= weekday <= 6 else 1  # 0-6 -> 1-7
-        rtc.ampm = '24'
-        rtc.setDateTime()
-        return True
-    except Exception as e:
-        print(f"Time: Could not set RTC from system time: {e}")
-        return False
+    return hasattr(time, 'localtime') and time.localtime()[0] >= 2024
 
 def sync_time_from_ntp():
     """Attempt to sync time from NTP server via WiFi"""
@@ -250,60 +201,71 @@ def write_lux_reading(lux, timestamp):
             print("         File writing will be disabled. Check file system permissions/storage.")
             write_lux_reading._error_logged = True
 
-def save_sunlight_hours(hours, timestamp):
-    """Save daily sunlight hours to file with date/time stamp"""
+def save_sunlight_hours(hours, timestamp, rtc_day_key=None):
+    """Save daily sunlight hours to file with date/time stamp.
+    If rtc_day_key is (year, month, day), use that for the label (e.g. end of that day)."""
     try:
-        timestamp_str = format_timestamp(timestamp, use_real_time=True)
+        if rtc_day_key is not None and rtc is not None:
+            y, mo, d = rtc_day_key
+            timestamp_str = f"{y:04d}-{mo:02d}-{d:02d} 23:59:59"
+        else:
+            timestamp_str = format_timestamp(timestamp, use_real_time=True)
         with open(SUNLIGHT_HOURS_FILE, "a") as f:
             f.write(f"{timestamp_str}: {hours:.2f} hours\n")
-    except Exception as e:
-        # Silently fail if file write doesn't work
+    except Exception:
         pass
 
 def update_sunlight_tracking(lux):
-    """Track direct sunlight hours per day"""
+    """Track direct sunlight hours per day. Uses RTC date when available, else seconds since boot."""
     current_time = time.time()
-    
-    # Get current day (simple approach: reset at midnight based on seconds since boot)
-    # For a more accurate day tracking, you'd need RTC, but this works for daily tracking
-    seconds_since_boot = current_time
-    # Approximate day reset: every 86400 seconds (24 hours)
-    # In practice, you might want to use RTC for actual day tracking
-    day_seconds = int(seconds_since_boot) % 86400
-    day_number = int(seconds_since_boot) // 86400
-    
-    # Initialize day tracking if needed
-    if sunlight_tracker["day_start"] is None:
-        sunlight_tracker["day_start"] = day_seconds
-        sunlight_tracker["total_seconds"] = 0
-        sunlight_tracker["last_day_saved"] = day_number
-    
-    # Check if new day (simple reset logic)
-    if day_seconds < sunlight_tracker["day_start"]:
-        # Day has rolled over - save previous day's total before resetting
-        prev_hours = sunlight_tracker["total_seconds"] / 3600.0
-        prev_day = sunlight_tracker["last_day_saved"]
-        if prev_day is not None:
-            # Calculate timestamp for end of previous day (just before midnight)
-            prev_day_end_timestamp = (prev_day * 86400) + 86399
-            save_sunlight_hours(prev_hours, prev_day_end_timestamp)
-        
-        # Reset for new day
-        sunlight_tracker["day_start"] = day_seconds
-        sunlight_tracker["total_seconds"] = 0
-        sunlight_tracker["last_day_saved"] = day_number
-        day_changed = True
-    
-    # If lux exceeds threshold, add time since last update
+    if rtc is not None:
+        dt = _get_rtc_datetime(rtc)
+        if dt:
+            year, month, day, hour, minute, second = dt
+            day_key = (year, month, day)
+            seconds_since_midnight = hour * 3600 + minute * 60 + second
+        else:
+            day_key = None
+            seconds_since_midnight = int(current_time) % 86400
+    else:
+        day_key = None
+        seconds_since_midnight = int(current_time) % 86400
+
+    if day_key is not None:
+        last_key = sunlight_tracker.get("last_day_saved")
+        if sunlight_tracker["day_start"] is None:
+            sunlight_tracker["day_start"] = seconds_since_midnight
+            sunlight_tracker["total_seconds"] = 0
+            sunlight_tracker["last_day_saved"] = day_key
+        elif last_key is not None and day_key != last_key:
+            prev_hours = sunlight_tracker["total_seconds"] / 3600.0
+            save_sunlight_hours(prev_hours, current_time, rtc_day_key=last_key)
+            sunlight_tracker["day_start"] = seconds_since_midnight
+            sunlight_tracker["total_seconds"] = 0
+            sunlight_tracker["last_day_saved"] = day_key
+    else:
+        seconds_since_boot = current_time
+        day_seconds = int(seconds_since_boot) % 86400
+        day_number = int(seconds_since_boot) // 86400
+        if sunlight_tracker["day_start"] is None:
+            sunlight_tracker["day_start"] = day_seconds
+            sunlight_tracker["total_seconds"] = 0
+            sunlight_tracker["last_day_saved"] = day_number
+        if day_seconds < sunlight_tracker["day_start"]:
+            prev_hours = sunlight_tracker["total_seconds"] / 3600.0
+            prev_day = sunlight_tracker["last_day_saved"]
+            if prev_day is not None:
+                prev_day_end_timestamp = (prev_day * 86400) + 86399
+                save_sunlight_hours(prev_hours, prev_day_end_timestamp)
+            sunlight_tracker["day_start"] = day_seconds
+            sunlight_tracker["total_seconds"] = 0
+            sunlight_tracker["last_day_saved"] = day_number
+
     time_delta = current_time - sunlight_tracker["last_update"]
     if lux >= DIRECT_SUN_LUX and time_delta > 0:
         sunlight_tracker["total_seconds"] += time_delta
-    
     sunlight_tracker["last_update"] = current_time
-    
-    # Convert to hours
     sunlight_hours = sunlight_tracker["total_seconds"] / 3600.0
-    
     return sunlight_hours
 
 # Statistics tracking
@@ -316,16 +278,15 @@ stats_tracker = {
 
 def calculate_statistics(lux):
     """Calculate statistics for today's readings"""
-    current_time = time.time()
-    seconds_since_boot = current_time
-    day_number = int(seconds_since_boot) // 86400
-    
-    # Reset stats if new day
+    if rtc is not None:
+        dt = _get_rtc_datetime(rtc)
+        day_number = (dt[:3] if dt else None)  # (year, month, day)
+    else:
+        current_time = time.time()
+        day_number = int(current_time) // 86400
     if stats_tracker["day_number"] is None:
         stats_tracker["day_number"] = day_number
-    
     if stats_tracker["day_number"] != day_number:
-        # New day - reset statistics
         stats_tracker["readings_today"] = 0
         stats_tracker["total_lux"] = 0.0
         stats_tracker["max_lux"] = 0.0
@@ -475,7 +436,6 @@ class LightSensorPeripheral:
 # Optional RTC instance (set at startup if USE_RTC and hardware present)
 rtc = None
 
-VERSION = "v0.2.8"
 print("=" * 50)
 print(f"Ambient Light Sensor Logger {VERSION}")
 print("=" * 50)
@@ -483,37 +443,20 @@ print(f"Light sensor initialized. Direct sun threshold: {DIRECT_SUN_LUX} lux")
 print(f"Lux readings will be saved to: {LUX_LOG_FILE}")
 print(f"Sunlight hours will be saved to: {SUNLIGHT_HOURS_FILE}")
 
-# Sync time: RTC is source of truth for standalone use
-time_synced = False
+# Read time from PiicoDev RV-3028 only (no sync to system clock)
 if USE_RTC and _RTC_MODULE_AVAILABLE:
     try:
         rtc = PiicoDev_RV3028()
-        if SET_RTC_ONCE and RTC_SET_DATE:
-            # One-time: write configured date/time to the RTC module
-            y, mo, d, h, mi, s = RTC_SET_DATE[:6]
-            if set_rtc_to_date(rtc, y, mo, d, h, mi, s):
-                print(f"Time: RTC set to {y:04d}-{mo:02d}-{d:02d} {h:02d}:{mi:02d}:{s:02d}")
-                print("      Set SET_RTC_ONCE = False in the script and re-run for normal use.")
-        time_synced = sync_time_from_rtc(rtc)
-        if time_synced:
-            year, month, day, hour, minute, second, wd, yd = time.localtime()
-            print(f"Time: Synced from PiicoDev RV-3028 RTC: {year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}")
-        else:
-            rtc = None
+        rtc.getDateTime()
+        print(f"Time: {rtc.hour:02d}:{rtc.minute:02d} (from PiicoDev RV-3028 RTC)")
+        print(f"Date: {rtc.year:04d}-{rtc.month:02d}-{rtc.day:02d}  Today: {rtc.weekdayName}")
     except Exception as e:
-        print(f"Time: RTC init failed ({e}), falling back to NTP or boot-time")
+        print(f"Time: RTC init failed ({e}), using boot-time tracking")
         rtc = None
-
-if not time_synced and USE_NTP and WIFI_SSID:
-    print("Attempting to sync time from NTP...")
-    time_synced = sync_time_from_ntp()
-    if not time_synced:
-        print("Time: Using boot-time tracking (no real date/time)")
-elif not time_synced:
+else:
     if not (USE_RTC and _RTC_MODULE_AVAILABLE):
         print("Time: Using boot-time tracking (RTC not configured or module not found)")
-    else:
-        print("Time: Using boot-time tracking (RTC sync failed)")
+    rtc = None
 
 # Initialize BLE peripheral
 try:

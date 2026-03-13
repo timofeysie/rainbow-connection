@@ -77,6 +77,30 @@ wry_wink_matrix = [
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
 ]
 
+# Heart eyes emoji - black face with red heart eyes and white smile
+heart_eyes_matrix = [
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'R', 'B', 'B', 'B', 'B', 'R', 'B'],
+    ['R', 'R', 'R', 'B', 'B', 'R', 'R', 'R'],
+    ['B', 'R', 'B', 'B', 'B', 'B', 'R', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['W', 'B', 'B', 'B', 'B', 'B', 'B', 'W'],
+    ['B', 'W', 'B', 'B', 'B', 'B', 'W', 'B'],
+    ['B', 'B', 'W', 'W', 'W', 'W', 'B', 'B'],
+]
+
+# Heart eyes emoji wink state (one eye winking)
+heart_eyes_wink_matrix = [
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'R', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['R', 'R', 'R', 'B', 'B', 'B', 'R', 'B'],
+    ['B', 'R', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['W', 'B', 'B', 'B', 'B', 'B', 'B', 'W'],
+    ['B', 'W', 'B', 'B', 'B', 'B', 'W', 'B'],
+    ['B', 'B', 'W', 'W', 'W', 'W', 'B', 'B'],
+]
+
 # Heart bounce emoji - state 1
 heart_matrix = [
     [' ', 'R', 'R', ' ', ' ', 'R', 'R', ' '],

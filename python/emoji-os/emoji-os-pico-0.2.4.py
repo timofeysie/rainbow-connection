@@ -1,4 +1,6 @@
-# emoji os pico v0.2.4 - Startup/connection indicator; white 5s then blue; red on BLE error
+# emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
+VERSION = "0.2.5"
+
 import glowbit
 from machine import Pin
 import time
@@ -210,10 +212,10 @@ def draw_emoji():
     if (menu == 0 and pos == 3):
         print("menu 0 pos 3 wry")
         wry()
-    # heart bounce
+    # heart eyes
     if (menu == 0 and pos == 4):
-        print("menu 0 pos 4 heart bounce")
-        heartBounce()
+        print("menu 0 pos 4 heart eyes")
+        heartEyes()
     # NEGATIVE 0
     # thick lips
     if (menu == 0 and neg == 1):
@@ -243,15 +245,15 @@ def draw_emoji():
         print("menu 1 pos 2 circularRainbow")
         matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond=20)
         matrix.circularRainbow()
-    # scroll_large_image
+    # chakana (was scroll_large_image)
     if (menu == 1 and pos == 3):
         print("menu 1 pos 3 scroll_large_image")
-        print("scrolling")
-        scroll_large_image()
-    # chakana
-    if (menu == 1 and pos == 4):
-        print("menu 1 pos 4 chacana")
+        print("chakana")
         chakana()
+    # heart bounce
+    if (menu == 1 and pos == 4):
+        print("menu 1 pos 4 heart bounce")
+        heartBounce()
     # NEGATIVE 1
     # rain
     if (menu == 1 and neg == 1):
@@ -577,7 +579,7 @@ except Exception as e:
     # Re-raise or enter a loop so script doesn't continue with undefined p
     raise
 
-print("Emoji OS Pico v0.2.4 - Startup/connection indicator; red = BLE error")
+print("Emoji OS Pico " + VERSION + " - Startup/connection indicator; red = BLE error")
 print("Device Name: Pico-Client")
 print("Supports emoji commands in format: 'MENU:POS:NEG'")
 print("Legacy commands: ON, OFF, STATUS, BLINK")
