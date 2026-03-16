@@ -49,8 +49,8 @@ The Emoji OS Zero provides a hierarchical menu system with 4 main categories, ea
 | Menu | Category | Positive Options | Negative Options |
 |------|----------|------------------|------------------|
 | 0 | **Emojis** | 1. Regular (smiley) | 1. Thick Lips |
-| | | 2. Happy | 2. Sad |
-| | | 3. Wry | 3. Angry |
+| | | 2. Wry | 2. Sad |
+| | | 3. Happy | 3. Angry |
 | | | 4. Heart Eyes | 4. Green Monster |
 | 1 | **Animations** | 1. Fireworks | 1. Rain |
 | | | 2. Circular Rainbow | 2. (None) |

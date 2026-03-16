@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero - Enhanced with working BLE Controller functionality (from controller-1.3.py)
-VERSION = " v0.3.10"
+VERSION = " v0.3.11"
 import LCD_1in44
 import time
 import threading
@@ -405,9 +405,9 @@ def get_main_emoji():
         elif pos == 1:
             return regular_matrix
         elif pos == 2:
-            return happy_matrix
-        elif pos == 3:
             return wry_matrix
+        elif pos == 3:
+            return happy_matrix
         elif pos == 4:
             return heart_eyes_matrix
         elif neg == 1:
