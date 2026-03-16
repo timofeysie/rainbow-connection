@@ -259,6 +259,21 @@ chakana_matrix = [
     ['W', 'W', 'W', 'Y', 'Y', 'W', 'W', 'W'],
 ]
 
+# Finn (Characters menu – menu 2, pos 1)
+# Approximate 8x8 design using color_map symbols:
+# - 'C' / 'B' for sky/background, 'W' for hat, 'Y' for face/skin,
+#   'G' / 'L' for clothing/grass, 'B' for outline/black.
+finn_matrix = [
+    ['C', 'C', 'W', 'C', 'C', 'C', 'W', 'C'],
+    ['C', 'C', 'W', 'W', 'W', 'W', 'W', 'C'],
+    ['C', 'C', 'W', 'B', 'Y', 'Y', 'B', 'C'],
+    ['G', 'G', 'W', 'Y', 'Y', 'Y', 'Y', 'C'],
+    ['L', 'G', 'C', 'C', 'C', 'C', 'C', 'C'],
+    ['Y', 'L', 'C', 'C', 'C', 'C', 'C', 'Y'],
+    ['G', 'G', 'B', 'B', 'B', 'B', 'B', 'G'],
+    ['G', 'G', 'Y', 'G', 'G', 'G', 'Y', 'G'],
+]
+
 # Color mapping
 color_map = {
     'Y': 'yellow',

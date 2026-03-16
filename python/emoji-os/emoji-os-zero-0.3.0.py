@@ -443,6 +443,14 @@ def get_main_emoji():
         elif neg == 1:
             return rain_animation.preview
     
+    elif menu == 2:  # Characters menu
+        # For now only Finn (pos 1) has a dedicated matrix; others will be added later.
+        if state == "choosing":
+            if pos == 1:
+                return finn_matrix
+        elif pos == 1:
+            return finn_matrix
+    
     # Default to regular smiley for other menus
     return smiley_matrix
 
@@ -500,6 +508,9 @@ def get_left_side_emojis():
         return [regular_matrix, wry_matrix, happy_matrix, heart_eyes_matrix]
     elif menu == 1:
         return [fireworks_animation.preview, smiley_matrix, chakana_matrix, heart_matrix]
+    elif menu == 2:
+        # Finn in the first slot; others remain placeholders for now.
+        return [finn_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
