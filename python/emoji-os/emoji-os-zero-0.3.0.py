@@ -444,6 +444,7 @@ def get_main_emoji():
             return rain_animation.preview
     
     elif menu == 2:  # Characters menu
+        # Show the currently selected character when in choosing state
         if state == "choosing":
             if pos == 1:
                 return finn_matrix
@@ -453,6 +454,11 @@ def get_main_emoji():
                 return crab_matrix
             elif pos == 4:
                 return frog_matrix
+            elif neg == 1:
+                return bald_matrix
+            elif neg == 2:
+                return surprise_matrix
+        # Show last confirmed character/negative when not in choosing state
         elif pos == 1:
             return finn_matrix
         elif pos == 2:
@@ -461,6 +467,10 @@ def get_main_emoji():
             return crab_matrix
         elif pos == 4:
             return frog_matrix
+        elif neg == 1:
+            return bald_matrix
+        elif neg == 2:
+            return surprise_matrix
     
     # Default to regular smiley for other menus
     return smiley_matrix
