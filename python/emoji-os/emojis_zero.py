@@ -287,6 +287,18 @@ pikachu_matrix = [
     ['W', 'W', 'Y', 'O', 'B', 'O', 'O', 'W'],
 ]
 
+# Crab (Characters menu – menu 2, pos 3)
+crab_matrix = [
+    [' ', 'W', 'W', ' ', 'W', 'W', ' ', ' '],
+    [' ', 'W', 'B', ' ', 'W', 'B', ' ', ' '],
+    [' ', 'R', ' ', ' ', 'R', ' ', ' ', ' '],
+    [' ', 'R', ' ', ' ', 'R', ' ', ' ', ' '],
+    ['R', 'R', 'R', 'R', 'R', ' ', 'R', 'R'],
+    ['R', 'R', ' ', ' ', 'R', 'R', 'R', ' '],
+    ['R', 'R', 'R', 'R', 'R', ' ', ' ', 'R'],
+    ['R', ' ', 'R', ' ', 'R', ' ', ' ', ' '],
+]
+
 # Wink/animation variants for Characters (initially identical; can be customized)
 finn_wink_matrix = [
     ['C', 'C', 'W', 'C', 'C', 'C', 'W', 'C'],
@@ -308,6 +320,17 @@ pikachu_wink_matrix = [
     ['W', 'B', 'W', 'Y', 'R', 'Y', 'O', 'W'],
     ['W', 'B', 'Y', 'O', 'Y', 'B', 'Y', 'W'],
     ['W', 'W', 'Y', 'O', 'B', 'O', 'O', 'W'],
+]
+
+crab_wink_matrix = [
+    [' ', 'W', 'W', ' ', ' ', ' ', ' ', ' '],
+    [' ', 'W', 'B', ' ', 'W', 'W', ' ', ' '],
+    [' ', 'R', ' ', ' ', 'R', ' ', ' ', ' '],
+    [' ', 'R', ' ', ' ', 'R', ' ', ' ', ' '],
+    ['R', 'R', 'R', 'R', 'R', ' ', 'R', 'R'],
+    ['R', 'R', ' ', ' ', 'R', 'R', 'R', ' '],
+    ['R', 'R', 'R', 'R', 'R', ' ', ' ', 'R'],
+    ['R', ' ', 'R', ' ', 'R', ' ', ' ', ' '],
 ]
 
 # Color mapping

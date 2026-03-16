@@ -449,10 +449,14 @@ def get_main_emoji():
                 return finn_matrix
             elif pos == 2:
                 return pikachu_matrix
+            elif pos == 3:
+                return crab_matrix
         elif pos == 1:
             return finn_matrix
         elif pos == 2:
             return pikachu_matrix
+        elif pos == 3:
+            return crab_matrix
     
     # Default to regular smiley for other menus
     return smiley_matrix
@@ -508,10 +512,14 @@ def get_main_emoji_animation():
                 return finn_wink_matrix
             elif pos == 2:
                 return pikachu_wink_matrix
+            elif pos == 3:
+                return crab_wink_matrix
         elif pos == 1:
             return finn_wink_matrix
         elif pos == 2:
             return pikachu_wink_matrix
+        elif pos == 3:
+            return crab_wink_matrix
     
     # Default to wink smiley for other menus
     return smiley_wink_matrix
@@ -523,8 +531,8 @@ def get_left_side_emojis():
     elif menu == 1:
         return [fireworks_animation.preview, smiley_matrix, chakana_matrix, heart_matrix]
     elif menu == 2:
-        # Finn and Pikachu in the first two slots; others remain placeholders for now.
-        return [finn_matrix, pikachu_matrix, smiley_matrix, smiley_matrix]
+        # Finn, Pikachu, and Crab in the first three slots; fourth remains a placeholder for now.
+        return [finn_matrix, pikachu_matrix, crab_matrix, smiley_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
