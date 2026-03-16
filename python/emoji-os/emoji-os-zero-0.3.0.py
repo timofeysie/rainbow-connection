@@ -471,6 +471,10 @@ def get_main_emoji():
             return bald_matrix
         elif neg == 2:
             return surprise_matrix
+        elif neg == 3:
+            return green_monster_matrix
+        elif neg == 4:
+            return angry_matrix
     
     # Default to regular smiley for other menus
     return smiley_matrix
