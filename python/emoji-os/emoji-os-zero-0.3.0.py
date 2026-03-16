@@ -444,12 +444,15 @@ def get_main_emoji():
             return rain_animation.preview
     
     elif menu == 2:  # Characters menu
-        # For now only Finn (pos 1) has a dedicated matrix; others will be added later.
         if state == "choosing":
             if pos == 1:
                 return finn_matrix
+            elif pos == 2:
+                return pikachu_matrix
         elif pos == 1:
             return finn_matrix
+        elif pos == 2:
+            return pikachu_matrix
     
     # Default to regular smiley for other menus
     return smiley_matrix
@@ -509,8 +512,8 @@ def get_left_side_emojis():
     elif menu == 1:
         return [fireworks_animation.preview, smiley_matrix, chakana_matrix, heart_matrix]
     elif menu == 2:
-        # Finn in the first slot; others remain placeholders for now.
-        return [finn_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
+        # Finn and Pikachu in the first two slots; others remain placeholders for now.
+        return [finn_matrix, pikachu_matrix, smiley_matrix, smiley_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 

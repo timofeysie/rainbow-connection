@@ -274,6 +274,19 @@ finn_matrix = [
     ['G', 'G', 'Y', 'G', 'G', 'G', 'Y', 'G'],
 ]
 
+# Pikachu (Characters menu – menu 2, pos 2)
+# Approximate 8x8 design using color_map symbols for yellow body and orange cheeks.
+pikachu_matrix = [
+    ['W', 'B', 'B', 'W', 'W', 'W', 'W', 'B'],
+    ['W', 'W', 'Y', 'O', 'W', 'W', 'W', 'O'],
+    ['W', 'W', 'W', 'Y', 'Y', 'Y', 'Y', 'O'],
+    ['O', 'O', 'W', 'Y', 'B', 'Y', 'Y', 'B'],
+    ['O', 'O', 'W', 'R', 'Y', 'Y', 'Y', 'O'],
+    ['W', 'B', 'W', 'Y', 'R', 'Y', 'O', 'W'],
+    ['W', 'B', 'Y', 'O', 'Y', 'B', 'Y', 'W'],
+    ['W', 'W', 'Y', 'O', 'B', 'O', 'O', 'W'],
+]
+
 # Color mapping
 color_map = {
     'Y': 'yellow',
