@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.2.6"
+VERSION = "0.2.7"
 
 import glowbit
 from machine import Pin

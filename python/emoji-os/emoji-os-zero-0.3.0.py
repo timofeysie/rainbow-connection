@@ -451,12 +451,16 @@ def get_main_emoji():
                 return pikachu_matrix
             elif pos == 3:
                 return crab_matrix
+            elif pos == 4:
+                return frog_matrix
         elif pos == 1:
             return finn_matrix
         elif pos == 2:
             return pikachu_matrix
         elif pos == 3:
             return crab_matrix
+        elif pos == 4:
+            return frog_matrix
     
     # Default to regular smiley for other menus
     return smiley_matrix
@@ -514,12 +518,24 @@ def get_main_emoji_animation():
                 return pikachu_wink_matrix
             elif pos == 3:
                 return crab_wink_matrix
+            elif pos == 4:
+                return frog_wink_matrix
+            elif neg == 1:
+                return bald_wink_matrix
+            elif neg == 2:
+                return surprise_wink_matrix
         elif pos == 1:
             return finn_wink_matrix
         elif pos == 2:
             return pikachu_wink_matrix
         elif pos == 3:
             return crab_wink_matrix
+        elif pos == 4:
+            return frog_wink_matrix
+        elif neg == 1:
+            return bald_wink_matrix
+        elif neg == 2:
+            return surprise_wink_matrix
     
     # Default to wink smiley for other menus
     return smiley_wink_matrix
@@ -531,17 +547,20 @@ def get_left_side_emojis():
     elif menu == 1:
         return [fireworks_animation.preview, smiley_matrix, chakana_matrix, heart_matrix]
     elif menu == 2:
-        # Finn, Pikachu, and Crab in the first three slots; fourth remains a placeholder for now.
-        return [finn_matrix, pikachu_matrix, crab_matrix, smiley_matrix]
+        # Finn, Pikachu, Crab, and Frog in the four character slots.
+        return [finn_matrix, pikachu_matrix, crab_matrix, frog_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
 def get_right_side_emojis():
-    """Get the right side emoji matrices for menu 0 (Emojis) and menu 1 (Animations)"""
+    """Get the right side emoji matrices for menu 0 (Emojis), menu 1 (Animations), and menu 2 (Characters)"""
     if menu == 0:
         return [thick_lips_matrix, sad_matrix, angry_matrix, green_monster_matrix]
     elif menu == 1:
         return [rain_animation.preview, smiley_matrix, smiley_matrix, smiley_matrix]
+    elif menu == 2:
+        # Bald and Surprise in the first two negative character slots; others TBD.
+        return [bald_matrix, surprise_matrix, smiley_matrix, smiley_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 

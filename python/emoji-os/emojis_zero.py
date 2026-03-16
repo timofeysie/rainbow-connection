@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji matrices and helper functions for emoji-os-zero.py
-# v0.0.2 for emoji os zero v0.3.8
+# v0.0.3 for emoji os zero.
 from animations_zero import fireworks_preview_matrix, rain_preview_matrix, Animation
 
 # === Emoji Matrix Data ===
@@ -299,6 +299,42 @@ crab_matrix = [
     ['R', ' ', 'R', ' ', 'R', ' ', ' ', ' '],
 ]
 
+# Frog (Characters menu – menu 2, pos 4)
+frog_matrix = [
+    [' ', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    [' ', 'G', ' ', 'G', 'G', 'G', ' ', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', ' ', ' ', ' ', ' ', ' ', ' '],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', ' ', 'G', 'G', 'G', ' ', 'G'],
+]
+
+# Bald (Characters menu – menu 2, neg 1)
+bald_matrix = [
+    [' ', 'B', 'B', 'B', 'B', 'B', 'B', ' '],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['G', 'B', 'B', 'B', 'B', 'B', 'B', 'G'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+# Surprise (Characters menu – menu 2, neg 2)
+surprise_matrix = [
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', ' ', 'W', 'B', 'B', 'W', ' ', 'B'],
+    ['B', 'W', 'W', 'B', 'B', 'W', 'W', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', ' ', ' ', ' ', ' ', 'B', 'B'],
+    ['B', 'B', ' ', ' ', ' ', ' ', 'B', 'B'],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
 # Wink/animation variants for Characters (initially identical; can be customized)
 finn_wink_matrix = [
     ['C', 'C', 'W', 'C', 'C', 'C', 'W', 'C'],
@@ -331,6 +367,39 @@ crab_wink_matrix = [
     ['R', 'R', ' ', ' ', 'R', 'R', 'R', ' '],
     ['R', 'R', 'R', 'R', 'R', ' ', ' ', 'R'],
     ['R', ' ', 'R', ' ', 'R', ' ', ' ', ' '],
+]
+
+frog_wink_matrix = [
+    [' ', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    [' ', 'G', ' ', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', ' ', ' ', ' ', ' ', ' ', ' '],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G'],
+    ['G', 'G', ' ', 'G', 'G', 'G', ' ', 'G'],
+]
+
+bald_wink_matrix = [
+    [' ', 'B', 'B', 'B', 'B', 'B', 'B', ' '],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['G', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+surprise_wink_matrix = [
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', ' ', 'W', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'W', 'W', 'B', 'B', 'W', 'W', 'B'],
+    ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+    ['B', 'B', ' ', ' ', ' ', ' ', 'B', 'B'],
+    ['B', 'B', ' ', ' ', ' ', ' ', 'B', 'B'],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
 ]
 
 # Color mapping
