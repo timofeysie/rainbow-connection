@@ -388,9 +388,9 @@ def get_main_emoji():
             if pos == 1:
                 return regular_matrix
             elif pos == 2:
-                return happy_matrix
-            elif pos == 3:
                 return wry_matrix
+            elif pos == 3:
+                return happy_matrix
             elif pos == 4:
                 return heart_eyes_matrix
             elif neg == 1:
@@ -454,9 +454,9 @@ def get_main_emoji_animation():
             if pos == 1:
                 return regular_wink_matrix
             elif pos == 2:
-                return happy_wink_matrix
-            elif pos == 3:
                 return wry_wink_matrix
+            elif pos == 3:
+                return happy_wink_matrix
             elif pos == 4:
                 return heart_eyes_wink_matrix
             elif neg == 1:
