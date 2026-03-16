@@ -287,6 +287,29 @@ pikachu_matrix = [
     ['W', 'W', 'Y', 'O', 'B', 'O', 'O', 'W'],
 ]
 
+# Wink/animation variants for Characters (initially identical; can be customized)
+finn_wink_matrix = [
+    ['C', 'C', 'W', 'C', 'C', 'C', 'W', 'C'],
+    ['C', 'C', 'W', 'W', 'W', 'W', 'W', 'C'],
+    ['C', 'C', 'W', 'B', 'Y', 'Y', 'B', 'C'],
+    ['G', 'G', 'W', 'Y', 'Y', 'Y', 'Y', 'C'],
+    ['L', 'G', 'C', 'C', 'C', 'C', 'C', 'C'],
+    ['L', 'Y', 'C', 'C', 'C', 'C', 'C', 'Y'],
+    ['G', 'G', 'B', 'B', 'B', 'B', 'B', 'G'],
+    ['G', 'G', 'Y', 'G', 'G', 'G', 'Y', 'G'],
+]
+
+pikachu_wink_matrix = [
+    ['W', 'B', 'B', 'W', 'W', 'W', 'W', 'B'],
+    ['W', 'W', 'Y', 'O', 'W', 'W', 'W', 'O'],
+    ['W', 'W', 'W', 'Y', 'Y', 'Y', 'Y', 'O'],
+    ['O', 'O', 'W', 'Y', 'Y', 'Y', 'Y', 'O'],
+    ['O', 'O', 'W', 'R', 'Y', 'Y', 'Y', 'O'],
+    ['W', 'B', 'W', 'Y', 'R', 'Y', 'O', 'W'],
+    ['W', 'B', 'Y', 'O', 'Y', 'B', 'Y', 'W'],
+    ['W', 'W', 'Y', 'O', 'B', 'O', 'O', 'W'],
+]
+
 # Color mapping
 color_map = {
     'Y': 'yellow',

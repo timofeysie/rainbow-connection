@@ -502,6 +502,17 @@ def get_main_emoji_animation():
         elif pos == 4:
             return heart_bounce_matrix
     
+    elif menu == 2:  # Characters menu animations (use character-specific matrices)
+        if state == "choosing":
+            if pos == 1:
+                return finn_wink_matrix
+            elif pos == 2:
+                return pikachu_wink_matrix
+        elif pos == 1:
+            return finn_wink_matrix
+        elif pos == 2:
+            return pikachu_wink_matrix
+    
     # Default to wink smiley for other menus
     return smiley_wink_matrix
 
