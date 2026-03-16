@@ -1,10 +1,27 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 
 import glowbit
 from machine import Pin
 import time
-from emojis import *
+from emojis import (
+    regular,
+    happy,
+    wry,
+    heartEyes,
+    thickLips,
+    sad,
+    angry,
+    greenMonster,
+    chakana,
+    heartBounce,
+    finn,
+    pikachu,
+    crab,
+    frog,
+    bald,
+    surprise,
+)
 
 # === BLE Imports ===
 import bluetooth
@@ -206,12 +223,12 @@ def draw_emoji():
         regular()
     # happy
     if (menu == 0 and pos == 2):
-        print("menu 0 pos 2 happy")
-        happy()
-    # wry
-    if (menu == 0 and pos == 3):
         print("menu 0 pos 3 wry")
         wry()
+    # wry
+    if (menu == 0 and pos == 3):
+        print("menu 0 pos 2 happy")
+        happy()
     # heart eyes
     if (menu == 0 and pos == 4):
         print("menu 0 pos 4 heart eyes")

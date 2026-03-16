@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero - Enhanced with working BLE Controller functionality (from controller-1.3.py)
-VERSION = " v0.3.9"
+VERSION = " v0.3.10"
 import LCD_1in44
 import time
 import threading
@@ -497,7 +497,7 @@ def get_main_emoji_animation():
 def get_left_side_emojis():
     """Get the left side emoji matrices for menu 0 (Emojis) and menu 1 (Animations)"""
     if menu == 0:
-        return [regular_matrix, happy_matrix, wry_matrix, heart_eyes_matrix]
+        return [regular_matrix, wry_matrix, happy_matrix, heart_eyes_matrix]
     elif menu == 1:
         return [fireworks_animation.preview, smiley_matrix, chakana_matrix, heart_matrix]
     else:
