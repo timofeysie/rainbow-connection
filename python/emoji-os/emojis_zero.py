@@ -1,8 +1,8 @@
 # -*- coding:utf-8 -*-
 # Emoji matrices and helper functions for emoji-os-zero.py
-# v0.0.3 for emoji os zero.
+# v0.0.4 for emoji os zero.
 from animations_zero import fireworks_preview_matrix, rain_preview_matrix, Animation
-print("emojis_zero v0.0.3")
+print("emojis_zero v0.0.4")
 # === Emoji Matrix Data ===
 # Menu 0 emojis Pos
 # Regular emoji
@@ -303,6 +303,30 @@ chakana_matrix = [
     ['W', 'Y', 'Y', 'R', 'R', 'Y', 'Y', 'W'],
     ['W', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', 'W'],
     ['W', 'W', 'W', 'Y', 'Y', 'W', 'W', 'W'],
+]
+
+# Circular rainbow (Animations menu – menu 1, pos 2) — static preview frame for GlowBit circularRainbow()
+# Full literal wink copy below so you can tweak the “animation” frame independently.
+circular_rainbow_preview_matrix = [
+    [' ', ' ', 'R', 'O', 'Y', 'G', ' ', ' '],
+    [' ', 'R', ' ', ' ', ' ', ' ', 'O', ' '],
+    ['R', ' ', 'Y', 'G', 'C', 'M', ' ', 'O'],
+    ['O', ' ', 'G', ' ', ' ', 'P', ' ', 'Y'],
+    ['Y', ' ', 'C', ' ', ' ', 'R', ' ', 'G'],
+    ['G', ' ', 'M', 'P', 'R', 'O', ' ', 'C'],
+    [' ', 'R', ' ', ' ', ' ', ' ', 'Y', ' '],
+    [' ', ' ', 'Y', 'G', 'C', 'M', ' ', ' '],
+]
+
+circular_rainbow_wink_matrix = [
+    [' ', ' ', 'R', 'O', 'Y', 'G', ' ', ' '],
+    [' ', 'R', ' ', ' ', ' ', ' ', 'O', ' '],
+    ['R', ' ', 'Y', 'G', 'C', 'M', ' ', 'O'],
+    ['O', ' ', 'G', ' ', ' ', 'P', ' ', 'Y'],
+    ['Y', ' ', 'C', ' ', ' ', 'R', ' ', 'G'],
+    ['G', ' ', 'M', 'P', 'R', 'O', ' ', 'C'],
+    [' ', 'R', ' ', ' ', ' ', ' ', 'Y', ' '],
+    [' ', ' ', 'Y', 'G', 'C', 'M', ' ', ' '],
 ]
 
 # Finn (Characters menu – menu 2, pos 1)
