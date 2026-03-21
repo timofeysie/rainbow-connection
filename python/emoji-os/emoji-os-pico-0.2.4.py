@@ -333,14 +333,14 @@ def draw_emoji():
         matrix.pixelsShow()
     # yes
     if (menu == 3 and pos == 2):
-        print("menu 3 pos 2 pikachu")
+        print("menu 3 pos 2 Yes")
         matrix.addTextScroll("YES")
         while matrix.scrollingText == True:
             matrix.updateTextScroll()
             matrix.pixelsShow()
     # Somi
     if (menu == 3 and pos == 3):
-        print("menu 3 pos 2 pikachu")
+        print("menu 3 pos 3 Somi")
         matrix.addTextScroll("Somi")
         while matrix.scrollingText == True:
             matrix.updateTextScroll()
@@ -356,6 +356,13 @@ def draw_emoji():
     if (menu == 3 and neg == 2):
         print("menu 3 neg 2")
         matrix.addTextScroll("NO")
+        while matrix.scrollingText == True:
+            matrix.updateTextScroll()
+            matrix.pixelsShow()
+    # Tim
+    if (menu == 3 and pos == 3):
+        print("menu 3 neg 3 Tim")
+        matrix.addTextScroll("Tim")
         while matrix.scrollingText == True:
             matrix.updateTextScroll()
             matrix.pixelsShow()

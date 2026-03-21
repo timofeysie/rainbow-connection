@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero - Enhanced with working BLE Controller functionality (from controller-1.3.py)
-VERSION = " v0.3.14"
+VERSION = " v0.3.15"
 import LCD_1in44
 import time
 import threading
