@@ -1,4 +1,4 @@
-# emojis for emoji os v0.2.5+
+# emojis for emoji os v0.2.8
 import glowbit
 import time
 from large_image import large_image
@@ -102,14 +102,14 @@ def regular():
     matrix.pixelsShow()
 def sad():
     print("sad")
-    T = [[0, 0, 1, 1, 1, 1, 0, 0],
-            [0, 1, 0, 0, 0, 0, 1, 0],
-            [1, 0, 1, 0, 0, 1, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 0, 1, 1, 0, 0, 1],
-            [1, 0, 1, 0, 0, 1, 0, 1],
-            [0, 1, 0, 0, 0, 0, 1, 0],
-            [0, 0, 1, 1, 1, 1, 0, 0]]
+    T = [[1, 0, 1, 0, 0, 1, 0, 1],
+         [0, 1, 0, 0, 0, 0, 1, 0],
+         [1, 0, 1, 0, 0, 1, 0, 1],
+         [0, 0, 0, 0, 0, 0, 0, 0],
+         [0, 0, 0, 0, 0, 0, 0, 0],
+         [0, 0, 1, 1, 1, 1, 0, 0],
+         [0, 1, 0, 0, 0, 0, 1, 0],
+         [0, 0, 0, 0, 0, 0, 0, 0]]
     row = 0
     col = 0
     for r in T:
@@ -179,6 +179,54 @@ def wry():
          [1, 0, 1, 0, 1, 0, 0, 1],
          [1, 0, 0, 0, 0, 1, 0, 1],
          [1, 0, 1, 1, 1, 0, 0, 1],
+         [0, 1, 0, 0, 0, 0, 1, 0],
+         [0, 0, 1, 1, 1, 1, 0, 0]]
+    row = 0
+    col = 0
+    for r in T:
+        for c in r:
+            color = matrix.black()
+            if (c > 0):
+                color = matrix.white()
+            matrix.pixelSetXY(col, row, color)
+            col += 1
+            if (col > 7):
+                col = 0
+        row += 1
+    matrix.pixelsShow()
+def sadWry():
+    print("sad wry")
+    matrix.pixelsFill(matrix.black())
+    T = [[0, 0, 1, 1, 1, 1, 0, 0],
+         [0, 1, 0, 0, 0, 0, 1, 0],
+         [1, 0, 1, 0, 1, 0, 0, 1],
+         [1, 0, 1, 0, 1, 0, 0, 1],
+         [1, 0, 0, 0, 0, 0, 0, 1],
+         [1, 0, 1, 1, 1, 0, 0, 1],
+         [0, 1, 0, 0, 0, 1, 1, 0],
+         [0, 0, 1, 1, 1, 1, 0, 0]]
+    row = 0
+    col = 0
+    for r in T:
+        for c in r:
+            color = matrix.black()
+            if (c > 0):
+                color = matrix.white()
+            matrix.pixelSetXY(col, row, color)
+            col += 1
+            if (col > 7):
+                col = 0
+        row += 1
+    matrix.pixelsShow()
+def crossboneEyes():
+    print("wry")
+    matrix.pixelsFill(matrix.black())
+    T = [[0, 0, 1, 1, 1, 1, 0, 0],
+         [0, 1, 0, 1, 1, 0, 1, 0],
+         [1, 0, 1, 0, 0, 1, 0, 1],
+         [1, 1, 0, 1, 1, 0, 1, 1],
+         [1, 0, 0, 1, 1, 0, 0, 1],
+         [1, 0, 1, 0, 0, 1, 0, 1],
          [0, 1, 0, 0, 0, 0, 1, 0],
          [0, 0, 1, 1, 1, 1, 0, 0]]
     row = 0

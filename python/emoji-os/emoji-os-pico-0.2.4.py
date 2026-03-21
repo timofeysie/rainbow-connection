@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.2.8"
+VERSION = "0.2.9"
 
 import glowbit
 from machine import Pin
@@ -8,6 +8,8 @@ from emojis import (
     regular,
     happy,
     wry,
+    sadWry,
+    crossboneEyes,
     heartEyes,
     thickLips,
     sad,
@@ -238,18 +240,18 @@ def draw_emoji():
     if (menu == 0 and neg == 1):
         print("menu 0 neg 1 thick lips")
         thickLips()
-    # sad
+     # sad wry
     if (menu == 0 and neg == 2):
-        print("menu 0 neg 2 sad")
-        sad()
-    # angry
+        print("menu 0 neg 2 sad wry")
+        sadWry()
+    # sad
     if (menu == 0 and neg == 3):
-        print("menu 0 neg 3 angry")
-        angry()
-    # monster
+        print("menu 0 neg 3 sad")
+        sad()
+    # crossbone eyes
     if (menu == 0 and neg == 4):
-        print("menu 0 neg 4 green monster")
-        greenMonster()
+        print("menu 0 neg 4 crossbone eyes")
+        crossboneEyes()
     #==========
     #POSITIVE 1
     # fireworks

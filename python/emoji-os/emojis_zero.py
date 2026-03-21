@@ -2,7 +2,7 @@
 # Emoji matrices and helper functions for emoji-os-zero.py
 # v0.0.3 for emoji os zero.
 from animations_zero import fireworks_preview_matrix, rain_preview_matrix, Animation
-
+print("emojis_zero v0.0.3")
 # === Emoji Matrix Data ===
 # Menu 0 emojis Pos
 # Regular emoji
@@ -172,6 +172,52 @@ sad_wink_matrix = [
     ['Y', 'Y', 'Y', 'B', 'B', 'B', 'Y', 'Y'],
     ['Y', 'Y', 'B', 'Y', 'Y', 'Y', 'B', 'Y'],
     [' ', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y', ' '],
+]
+
+# Sad wry (menu 0, neg 2) — matches Pico sadWry() bitmap (white on black)
+sad_wry_matrix = [
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', 'Y', ' ', ' ', ' ', ' ', 'Y', ' '],
+    ['Y', ' ', 'Y', ' ', 'Y', ' ', ' ', 'Y'],
+    ['Y', ' ', 'Y', ' ', 'Y', ' ', ' ', 'Y'],
+    ['Y', ' ', ' ', ' ', ' ', ' ', ' ', 'Y'],
+    ['Y', ' ', 'Y', 'Y', 'Y', ' ', ' ', 'Y'],
+    [' ', 'Y', ' ', ' ', ' ', 'Y', 'Y', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+]
+
+sad_wry_wink_matrix = [
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', 'Y', ' ', ' ', ' ', ' ', 'Y', ' '],
+    ['Y', ' ', 'Y', ' ', 'Y', ' ', ' ', 'Y'],
+    ['Y', ' ', 'Y', ' ', 'Y', ' ', ' ', 'Y'],
+    ['Y', ' ', ' ', ' ', ' ', ' ', ' ', 'Y'],
+    ['Y', ' ', 'Y', 'Y', 'Y', ' ', ' ', 'Y'],
+    [' ', 'Y', ' ', ' ', ' ', 'Y', 'Y', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+]
+
+# Crossbone eyes (menu 0, neg 4) — matches Pico crossboneEyes() bitmap
+crossbone_eyes_matrix = [
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', 'Y', ' ', 'Y', 'Y', ' ', 'Y', ' '],
+    ['Y', ' ', 'Y', ' ', ' ', 'Y', ' ', 'Y'],
+    ['Y', 'Y', ' ', 'Y', 'Y', ' ', 'Y', 'Y'],
+    ['Y', ' ', ' ', 'Y', 'Y', ' ', ' ', 'Y'],
+    ['Y', ' ', 'Y', ' ', ' ', 'Y', ' ', 'Y'],
+    [' ', 'Y', ' ', ' ', ' ', ' ', 'Y', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+]
+
+crossbone_eyes_wink_matrix = [
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', 'Y', ' ', 'Y', 'Y', ' ', 'Y', ' '],
+    ['Y', ' ', 'Y', ' ', ' ', 'Y', ' ', 'Y'],
+    ['Y', 'Y', ' ', 'Y', 'Y', ' ', 'Y', 'Y'],
+    ['Y', ' ', ' ', 'Y', 'Y', ' ', ' ', 'Y'],
+    ['Y', ' ', 'Y', ' ', ' ', 'Y', ' ', 'Y'],
+    [' ', 'Y', ' ', ' ', ' ', ' ', 'Y', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
 ]
 
 # Angry emoji

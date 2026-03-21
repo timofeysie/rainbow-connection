@@ -396,11 +396,11 @@ def get_main_emoji():
             elif neg == 1:
                 return thick_lips_matrix
             elif neg == 2:
-                return sad_matrix
+                return sad_wry_matrix
             elif neg == 3:
-                return angry_matrix
+                return sad_matrix
             elif neg == 4:
-                return green_monster_matrix
+                return crossbone_eyes_matrix
         # Show default when not in choosing state
         elif pos == 1:
             return regular_matrix
@@ -413,11 +413,11 @@ def get_main_emoji():
         elif neg == 1:
             return thick_lips_matrix
         elif neg == 2:
-            return sad_matrix
+            return sad_wry_matrix
         elif neg == 3:
-            return angry_matrix
+            return sad_matrix
         elif neg == 4:
-            return green_monster_matrix
+            return crossbone_eyes_matrix
     
     elif menu == 1:  # Animations menu
         # Return preview matrices for animations
@@ -471,10 +471,6 @@ def get_main_emoji():
             return bald_matrix
         elif neg == 2:
             return surprise_matrix
-        elif neg == 3:
-            return green_monster_matrix
-        elif neg == 4:
-            return angry_matrix
     
     # Default to regular smiley for other menus
     return smiley_matrix
@@ -495,11 +491,11 @@ def get_main_emoji_animation():
             elif neg == 1:
                 return thick_lips_wink_matrix
             elif neg == 2:
-                return sad_wink_matrix
+                return sad_wry_wink_matrix
             elif neg == 3:
-                return angry_wink_matrix
+                return sad_wink_matrix
             elif neg == 4:
-                return green_monster_wink_matrix
+                return crossbone_eyes_wink_matrix
         # Show animation for selected emoji when not in choosing state
         elif pos == 1:
             return regular_wink_matrix
@@ -512,11 +508,11 @@ def get_main_emoji_animation():
         elif neg == 1:
             return thick_lips_wink_matrix
         elif neg == 2:
-            return sad_wink_matrix
+            return sad_wry_wink_matrix
         elif neg == 3:
-            return angry_wink_matrix
+            return sad_wink_matrix
         elif neg == 4:
-            return green_monster_wink_matrix
+            return crossbone_eyes_wink_matrix
     
     elif menu == 1:  # Animations menu - chakana and heart bounce are static
         if pos == 3:
@@ -569,7 +565,12 @@ def get_left_side_emojis():
 def get_right_side_emojis():
     """Get the right side emoji matrices for menu 0 (Emojis), menu 1 (Animations), and menu 2 (Characters)"""
     if menu == 0:
-        return [thick_lips_matrix, sad_matrix, angry_matrix, green_monster_matrix]
+        return [
+            thick_lips_matrix,
+            sad_wry_matrix,
+            sad_matrix,
+            crossbone_eyes_matrix,
+        ]
     elif menu == 1:
         return [rain_animation.preview, smiley_matrix, smiley_matrix, smiley_matrix]
     elif menu == 2:
