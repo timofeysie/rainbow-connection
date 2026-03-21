@@ -58,8 +58,8 @@ The Emoji OS Zero provides a hierarchical menu system with 4 main categories, ea
 | | | 4. Heart Bounce | 4. (None) |
 | 2 | **Characters** | 1. Finn | 1. Bald |
 | | | 2. Pikachu | 2. Surprise |
-| | | 3. Crab | 3. (None) |
-| | | 4. Frog | 4. (None) |
+| | | 3. Crab | 3. Green Monster |
+| | | 4. Frog | 4. Angry |
 | 3 | **Symbols** | 1. Circle | 1. X |
 | | | 2. YES | 2. NO |
 | | | 3. Somi | 3. (None) |

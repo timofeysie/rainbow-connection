@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero - Enhanced with working BLE Controller functionality (from controller-1.3.py)
-VERSION = " v0.3.12"
+VERSION = " v0.3.13"
 import LCD_1in44
 import time
 import threading
@@ -458,6 +458,10 @@ def get_main_emoji():
                 return bald_matrix
             elif neg == 2:
                 return surprise_matrix
+            elif neg == 3:
+                return green_monster_matrix
+            elif neg == 4:
+                return angry_matrix
         # Show last confirmed character/negative when not in choosing state
         elif pos == 1:
             return finn_matrix
@@ -471,6 +475,10 @@ def get_main_emoji():
             return bald_matrix
         elif neg == 2:
             return surprise_matrix
+        elif neg == 3:
+            return green_monster_matrix
+        elif neg == 4:
+            return angry_matrix
     
     # Default to regular smiley for other menus
     return smiley_matrix
@@ -536,6 +544,10 @@ def get_main_emoji_animation():
                 return bald_wink_matrix
             elif neg == 2:
                 return surprise_wink_matrix
+            elif neg == 3:
+                return green_monster_wink_matrix
+            elif neg == 4:
+                return angry_wink_matrix
         elif pos == 1:
             return finn_wink_matrix
         elif pos == 2:
@@ -548,6 +560,10 @@ def get_main_emoji_animation():
             return bald_wink_matrix
         elif neg == 2:
             return surprise_wink_matrix
+        elif neg == 3:
+            return green_monster_wink_matrix
+        elif neg == 4:
+            return angry_wink_matrix
     
     # Default to wink smiley for other menus
     return smiley_wink_matrix
@@ -581,8 +597,13 @@ def get_right_side_emojis():
     elif menu == 1:
         return [rain_animation.preview, smiley_matrix, smiley_matrix, smiley_matrix]
     elif menu == 2:
-        # Bald and Surprise in the first two negative character slots; others TBD.
-        return [bald_matrix, surprise_matrix, smiley_matrix, smiley_matrix]
+        # Bald, Surprise, Green Monster, Angry — matches Pico menu 2 negatives.
+        return [
+            bald_matrix,
+            surprise_matrix,
+            green_monster_matrix,
+            angry_matrix,
+        ]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 

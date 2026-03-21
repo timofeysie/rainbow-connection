@@ -1,8 +1,8 @@
 # -*- coding:utf-8 -*-
 # Emoji matrices and helper functions for emoji-os-zero.py
-# v0.0.4 for emoji os zero.
+# v0.0.5 for emoji os zero.
 from animations_zero import fireworks_preview_matrix, rain_preview_matrix, Animation
-print("emojis_zero v0.0.4")
+print("emojis_zero v0.0.5")
 # === Emoji Matrix Data ===
 # Menu 0 emojis Pos
 # Regular emoji
