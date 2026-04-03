@@ -1,10 +1,12 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero - Enhanced with working BLE Controller functionality (from controller-1.3.py)
-VERSION = " v0.3.15"
+VERSION = " v0.4.0"
 import LCD_1in44
 import time
 import threading
 import asyncio
+import requests
+from datetime import datetime, timezone
 from bleak import BleakScanner, BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import RPi.GPIO as GPIO
@@ -13,6 +15,12 @@ from PIL import Image,ImageDraw,ImageFont,ImageColor
 from emojis_zero import *
 from animations_zero import fireworks_animation as fw_anim_func, rain_animation as rain_anim_func
 from emojis_zero import fireworks_animation, rain_animation, connecting_matrix, connected_matrix, not_connected_matrix
+
+# === Server Configuration ===
+# Set SERVER_URL to enable reporting to the emoji server dashboard.
+# Leave empty to disable (safe default — server is not required to run).
+SERVER_URL = ""  # e.g. "http://emoji-server.local:3000"
+DEVICE_ID  = "zero-badge"
 
 # === BLE Configuration ===
 # Nordic UART Service UUIDs
@@ -209,8 +217,11 @@ class BLEController:
             draw_connection_indicator()
             disp.LCD_ShowImage(image,0,0)
             
-            self.client = BleakClient(self.device_address)
-            await self.client.connect(timeout=10.0)  # Increased timeout
+            self.client = BleakClient(
+                self.device_address,
+                disconnected_callback=_on_pico_disconnect,
+            )
+            await self.client.connect(timeout=10.0)
             
             if self.client.is_connected:
                 print("✓ Successfully connected!")
@@ -218,6 +229,11 @@ class BLEController:
                 ble_connection_status = "connected"
                 draw_connection_indicator()
                 disp.LCD_ShowImage(image,0,0)
+                post_to_server("/api/status", {
+                    "deviceId": DEVICE_ID,
+                    "bleStatus": "connected",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
                 # Verify the service exists
                 try:
                     services = await self.client.get_services()
@@ -232,7 +248,11 @@ class BLEController:
                         print("  This might not be the correct device.")
                 except Exception as e:
                     print(f"⚠ Warning: Could not verify services: {e}")
-                
+                # Cancel any previous heartbeat and start a fresh one
+                global _heartbeat_task
+                if _heartbeat_task and not _heartbeat_task.done():
+                    _heartbeat_task.cancel()
+                _heartbeat_task = asyncio.create_task(_heartbeat_loop())
                 return True
             else:
                 print("✗ Failed to connect (not connected after connect() call)")
@@ -264,24 +284,42 @@ class BLEController:
         if not self.client or not self.client.is_connected:
             print("Not connected to any device")
             return False
-            
+
+        command = f"{menu}:{pos}:{neg}"
         try:
-            # Create command string: "MENU:POS:NEG"
-            command = f"{menu}:{pos}:{neg}"
-            command_bytes = command.encode('utf-8')
-            
-            # Write to the RX characteristic
-            await self.client.write_gatt_char(UART_RX_CHAR_UUID, command_bytes)
+            await self.client.write_gatt_char(UART_RX_CHAR_UUID, command.encode("utf-8"))
             print(f"✓ Sent emoji command: '{command}'")
+            post_to_server("/api/emoji", {
+                "deviceId": DEVICE_ID,
+                "menu": menu,
+                "pos": pos,
+                "neg": neg,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
             return True
-            
+
         except Exception as e:
-            print(f"✗ Error sending emoji command '{command}': {e}")
+            print(f"✗ Send failed for '{command}': {e} — marking as disconnected")
+            self.connected = False
+            global ble_connection_status
+            ble_connection_status = "disconnected"
+            draw_connection_indicator()
+            disp.LCD_ShowImage(image, 0, 0)
+            post_to_server("/api/status", {
+                "deviceId": DEVICE_ID,
+                "bleStatus": "disconnected",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+            if ble_event_loop and ble_event_loop.is_running():
+                asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
             return False
     
     async def disconnect(self):
         """Disconnect from the device"""
-        global ble_connection_status
+        global ble_connection_status, _heartbeat_task
+        if _heartbeat_task and not _heartbeat_task.done():
+            _heartbeat_task.cancel()
+            _heartbeat_task = None
         if self.client and self.client.is_connected:
             await self.client.disconnect()
             print("Disconnected from Pico")
@@ -297,6 +335,68 @@ ble_event_loop = None
 
 # Connection status state: "idle", "connecting", "connected", "disconnected"
 ble_connection_status = "idle"
+
+# Heartbeat asyncio task — cancelled and replaced on each reconnect
+_heartbeat_task = None
+
+
+def post_to_server(path: str, payload: dict):
+    """Fire-and-forget HTTP POST to the emoji server.
+
+    Runs in a daemon thread so a slow or unreachable server never blocks the UI loop.
+    No-op when SERVER_URL is empty.
+    """
+    if not SERVER_URL:
+        return
+
+    def _post():
+        try:
+            requests.post(f"{SERVER_URL}{path}", json=payload, timeout=3)
+        except Exception as e:
+            print(f"Server post failed ({path}): {e}")
+
+    threading.Thread(target=_post, daemon=True).start()
+
+
+def _on_pico_disconnect(client: BleakClient):
+    """Bleak calls this (sync) when the BLE connection is lost unexpectedly."""
+    global ble_connection_status
+    print("⚠ Pico disconnected unexpectedly")
+    ble_controller.connected = False
+    ble_connection_status = "disconnected"
+    draw_connection_indicator()
+    disp.LCD_ShowImage(image, 0, 0)
+    post_to_server("/api/status", {
+        "deviceId": DEVICE_ID,
+        "bleStatus": "disconnected",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    if ble_event_loop and ble_event_loop.is_running():
+        asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
+
+
+async def _reconnect():
+    """Scan and reconnect after an unexpected BLE drop."""
+    await asyncio.sleep(2)  # brief back-off before scanning
+    if await ble_controller.scan_for_device(timeout=10):
+        await ble_controller.connect_to_device()
+
+
+async def _heartbeat_loop(interval_s: float = 5.0):
+    """Periodically write a STATUS ping to detect dropped connections quickly.
+
+    The Pico firmware should silently ignore STATUS messages so they do not
+    trigger unintended display changes.
+    """
+    while True:
+        await asyncio.sleep(interval_s)
+        if ble_controller.client and ble_controller.client.is_connected:
+            try:
+                await ble_controller.client.write_gatt_char(UART_RX_CHAR_UUID, b"STATUS")
+            except Exception:
+                # The disconnected_callback will handle the clean-up;
+                # swallow the exception here to keep the loop alive.
+                pass
 
 # Initialize GPIO before LCD initialization to ensure lgpio allocation works
 # LCD_Config.GPIO_Init() will set up the specific pins with initial values
