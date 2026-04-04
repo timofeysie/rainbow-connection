@@ -1,6 +1,10 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
 VERSION = " v0.4.2"
+# When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
+# `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
+print(f"emoji-os-zero{VERSION} starting", flush=True)
+
 import LCD_1in44
 import time
 import threading
