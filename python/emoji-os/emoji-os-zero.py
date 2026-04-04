@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.4.3"
+VERSION = " v0.4.4"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -24,7 +24,7 @@ from emojis_zero import fireworks_animation, rain_animation, connecting_matrix, 
 # === Server Configuration ===
 # Set SERVER_URL to enable reporting to the emoji server dashboard.
 # Leave empty to disable (safe default — server is not required to run).
-SERVER_URL = ""  # e.g. "https://your-app.awsapprunner.com" (no trailing slash)
+SERVER_URL = "https://4jvum6svrd.ap-southeast-2.awsapprunner.com"  # no trailing slash
 # Logical Pi Zero id (POST /api/status and /api/emoji).
 CONTROLLER_ID = "zero-living-room"
 # If non-empty, used as badgeId for all API posts. If empty, badgeId is derived from
