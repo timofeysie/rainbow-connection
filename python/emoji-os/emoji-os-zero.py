@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.4.1"
+VERSION = " v0.4.2"
 import LCD_1in44
 import time
 import threading
@@ -430,23 +430,39 @@ def _emoji_payload(menu, pos, neg):
     }
 
 
+# Log once if posts are disabled so rc.local.log shows why nothing reaches the API.
+_api_skip_empty_url_logged = False
+
+
 def post_to_server(path: str, payload: dict):
     """Fire-and-forget HTTP POST to the emoji server.
 
     Runs in a daemon thread so a slow or unreachable server never blocks the UI loop.
     No-op when SERVER_URL is empty.
     """
+    global _api_skip_empty_url_logged
     if not SERVER_URL:
+        if not _api_skip_empty_url_logged:
+            print("[API] skip: SERVER_URL is empty — no HTTP posts (set SERVER_URL at top of script)")
+            _api_skip_empty_url_logged = True
         return
 
     def _post():
+        cid = payload.get("controllerId", "?")
+        bid = payload.get("badgeId", "?")
+        url = f"{SERVER_URL}{path}"
         try:
             kw = {"json": payload, "timeout": 3}
             if API_HEADERS:
                 kw["headers"] = API_HEADERS
-            requests.post(f"{SERVER_URL}{path}", **kw)
+            print(f"[API] POST {path} controller={cid} badge={bid}")
+            r = requests.post(url, **kw)
+            snippet = (r.text or "").replace("\n", " ").strip()
+            if len(snippet) > 100:
+                snippet = snippet[:100] + "…"
+            print(f"[API] response {path} -> HTTP {r.status_code} {snippet}")
         except Exception as e:
-            print(f"Server post failed ({path}): {e}")
+            print(f"[API] request failed {path}: {e}")
 
     threading.Thread(target=_post, daemon=True).start()
 
