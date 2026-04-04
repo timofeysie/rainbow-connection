@@ -1,8 +1,13 @@
-# Emoji Server — NestJS Design Exploration
+# Emoji Server — API and Pi Zero integration
 
-A NestJS server that sits between the Raspberry Pi Zero controller and a web dashboard.
-The Zero pushes status events to the server via HTTP; the server holds the current state
-and streams live updates to the dashboard over WebSockets.
+This document describes the HTTP contract between the Pi Zero controller
+(`emoji-os-zero-0.3.0.py`) and a dashboard backend. The original shape was a NestJS
+design exploration; the **emoji-app** deployment implements the same `POST /api/status`
+and `POST /api/emoji` payloads, plus `GET /api/badges` for the Badges UI.
+
+The Zero pushes events over HTTPS; the server holds current state and can push live
+updates to the dashboard over WebSockets (with polling fallback when WebSockets are
+unavailable, for example on some cloud hosts).
 
 ---
 
@@ -16,8 +21,8 @@ and streams live updates to the dashboard over WebSockets.
                                        │ HTTP POST
                                        ▼
                                ┌───────────────┐
-                               │  NestJS server│
-                               │  (this doc)   │
+                               │  emoji server │
+                               │  (API + UI)   │
                                └──────┬────────┘
                                       │ WebSocket
                                       ▼
@@ -39,17 +44,19 @@ are worth sending.
 
 ### 1. BLE connection status changes
 
-Fires whenever `ble_connection_status` changes.
+The Zero tracks `ble_connection_status` locally as `idle` | `connecting` |
+`connected` | `disconnected`. **HTTP `POST /api/status` only sends `connected` or
+`disconnected`**, matching the emoji-app validator (see Pi Zero implementation below
+for when each is posted).
 
 ```json
 {
-  "deviceId": "zero-living-room",
+  "controllerId": "zero-living-room",
+  "badgeId": "badge-kitchen",
   "bleStatus": "connected",
   "timestamp": "2026-03-25T10:00:00.000Z"
 }
 ```
-
-Possible `bleStatus` values: `idle` | `connecting` | `connected` | `disconnected`
 
 ### 2. Emoji sent to Pico
 
@@ -57,7 +64,8 @@ Fires inside `send_emoji_command` after a successful write.
 
 ```json
 {
-  "deviceId": "zero-living-room",
+  "controllerId": "zero-living-room",
+  "badgeId": "badge-kitchen",
   "menu": 0,
   "pos": 1,
   "neg": 0,
@@ -69,35 +77,6 @@ Fires inside `send_emoji_command` after a successful write.
 `label` is a human-readable name derived from the menu/pos/neg mapping (computed
 on the Zero or server-side from a shared lookup table).
 
----
-
-## NestJS module structure
-
-```text
-src/
-├── app.module.ts
-├── status/
-│   ├── status.module.ts
-│   ├── status.controller.ts   ← POST /api/status
-│   └── status.service.ts
-├── emoji/
-│   ├── emoji.module.ts
-│   ├── emoji.controller.ts    ← POST /api/emoji
-│   └── emoji.service.ts
-├── state/
-│   ├── state.module.ts
-│   └── state.service.ts       ← in-memory current state
-├── gateway/
-│   ├── gateway.module.ts
-│   └── events.gateway.ts      ← WebSocket gateway
-└── common/
-    └── dto/
-        ├── status-event.dto.ts
-        └── emoji-event.dto.ts
-```
-
----
-
 ## REST API
 
 ### `POST /api/status`
@@ -108,19 +87,21 @@ Called by the Zero whenever `ble_connection_status` changes.
 
 ```json
 {
-  "deviceId": "zero-living-room",
+  "controllerId": "zero-living-room",
+  "badgeId": "badge-kitchen",
   "bleStatus": "connected",
   "timestamp": "2026-03-25T10:00:00.000Z"
 }
 ```
 
-**Response:** `201 Created`
+**Response:** `201 Created` with body like `{ "ok": true }` (emoji-app).
 
 **What the server does:**
 
-1. Validates the DTO with `class-validator`
-2. Updates `StateService.setBleStatus(deviceId, bleStatus)`
-3. Emits a `status.changed` WebSocket event to all connected dashboard clients
+1. Validates the request body
+2. Updates stored BLE status for the `(controllerId, badgeId)` row (for example in
+   `GET /api/badges`)
+3. May emit a WebSocket event to dashboard clients when supported
 
 ---
 
@@ -132,7 +113,8 @@ Called by the Zero each time it sends an emoji command to the Pico.
 
 ```json
 {
-  "deviceId": "zero-living-room",
+  "controllerId": "zero-living-room",
+  "badgeId": "badge-kitchen",
   "menu": 0,
   "pos": 1,
   "neg": 0,
@@ -141,14 +123,13 @@ Called by the Zero each time it sends an emoji command to the Pico.
 }
 ```
 
-**Response:** `201 Created`
+**Response:** `201 Created` with body like `{ "ok": true }` (emoji-app).
 
 **What the server does:**
 
-1. Validates the DTO
-2. Updates `StateService.setLastEmoji(deviceId, event)`
-3. Appends to an in-memory event history (last N events)
-4. Emits an `emoji.sent` WebSocket event
+1. Validates the request body
+2. Updates last emoji / label for the `(controllerId, badgeId)` row
+3. May append to an event history and emit WebSocket updates when supported
 
 ---
 
@@ -161,15 +142,20 @@ waiting for a WebSocket event.
 
 ```json
 {
-  "devices": {
+  "controllers": {
     "zero-living-room": {
-      "bleStatus": "connected",
-      "lastEmoji": {
-        "menu": 0,
-        "pos": 1,
-        "neg": 0,
-        "label": "regular",
-        "timestamp": "2026-03-25T10:00:01.000Z"
+      "badges": {
+        "badge-kitchen": {
+          "bleStatus": "connected",
+          "lastEmoji": {
+            "menu": 0,
+            "pos": 1,
+            "neg": 0,
+            "label": "regular",
+            "timestamp": "2026-03-25T10:00:01.000Z"
+          },
+          "updatedAt": "2026-03-25T10:00:01.000Z"
+        }
       },
       "updatedAt": "2026-03-25T10:00:01.000Z"
     }
@@ -180,6 +166,15 @@ waiting for a WebSocket event.
 
 ---
 
+### `GET /api/badges`
+
+Used by the **emoji-app** Badges page on load and during polling fallback. Returns
+current rows for all badges the server knows about (typically keyed by
+`controllerId` + `badgeId`). Exact JSON shape depends on the app; expect a
+`badges` array (or similar) listing link status and last emoji per row.
+
+---
+
 ### `GET /api/events`
 
 Returns the last N events (BLE status changes + emoji sends) across all devices,
@@ -187,8 +182,8 @@ newest first. Useful for an activity log on the dashboard.
 
 ```json
 [
-  { "type": "emoji.sent", "deviceId": "zero-living-room", "menu": 0, "pos": 1, ... },
-  { "type": "status.changed", "deviceId": "zero-living-room", "bleStatus": "connected", ... }
+  { "type": "emoji.sent", "controllerId": "zero-living-room", "badgeId": "badge-kitchen", "menu": 0, "pos": 1, ... },
+  { "type": "status.changed", "controllerId": "zero-living-room", "badgeId": "badge-kitchen", "bleStatus": "connected", ... }
 ]
 ```
 
@@ -196,16 +191,22 @@ newest first. Useful for an activity log on the dashboard.
 
 ## WebSocket gateway
 
-Use the built-in `@WebSocketGateway` with Socket.io (the NestJS default).
-The dashboard connects once and subscribes to events.
+In **emoji-app** production, the browser typically connects to
+`wss://<host>/ws` (same origin as the HTTPS site). Some hosts (for example AWS App
+Runner) may not support WebSocket upgrades; the Badges UI can fall back to polling
+`GET /api/badges` on an interval (for example about every 10 seconds), pausing while
+the tab is hidden.
+
+For a self-hosted NestJS stack, use the built-in `@WebSocketGateway` with
+Socket.io (the NestJS default). The dashboard connects once and subscribes to events.
 
 ### Events emitted by the server
 
-| Event name | Payload | Trigger |
+|Event name|Payload|Trigger|
 |---|---|---|
-| `status.changed` | `StatusEventDto` | `POST /api/status` received |
-| `emoji.sent` | `EmojiEventDto` | `POST /api/emoji` received |
-| `state.snapshot` | Full `GET /api/state` response | On client connect |
+|`status.changed`|`StatusEventDto`|`POST /api/status` received|
+|`emoji.sent`|`EmojiEventDto`|`POST /api/emoji` received|
+|`state.snapshot`|Full `GET /api/state` response|On client connect|
 
 ### Client subscribe pattern (dashboard)
 
@@ -217,11 +218,11 @@ socket.on('connect', () => {
 });
 
 socket.on('status.changed', (event) => {
-  updateBleIndicator(event.deviceId, event.bleStatus);
+  updateBleIndicator(event.controllerId, event.badgeId, event.bleStatus);
 });
 
 socket.on('emoji.sent', (event) => {
-  updateEmojiDisplay(event.deviceId, event);
+  updateEmojiDisplay(event.controllerId, event.badgeId, event);
 });
 ```
 
@@ -236,9 +237,12 @@ import { IsString, IsIn, IsDateString } from 'class-validator';
 
 export class StatusEventDto {
   @IsString()
-  deviceId: string;
+  controllerId: string;
 
-  @IsIn(['idle', 'connecting', 'connected', 'disconnected'])
+  @IsString()
+  badgeId: string;
+
+  @IsIn(['connected', 'disconnected'])
   bleStatus: string;
 
   @IsDateString()
@@ -253,7 +257,10 @@ import { IsString, IsInt, Min, Max, IsDateString, IsOptional } from 'class-valid
 
 export class EmojiEventDto {
   @IsString()
-  deviceId: string;
+  controllerId: string;
+
+  @IsString()
+  badgeId: string;
 
   @IsInt() @Min(0) @Max(3)
   menu: number;
@@ -277,18 +284,18 @@ export class EmojiEventDto {
 ## State service
 
 Holds all current state in memory. No database is required for an MVP — a `Map`
-keyed by `deviceId` is sufficient. Persistence (SQLite, Postgres) can be added
-later if history across server restarts matters.
+keyed by `controllerId + badgeId` is sufficient. Persistence (SQLite, Postgres)
+can be added later if history across server restarts matters.
 
 ```typescript
 @Injectable()
 export class StateService {
-  private readonly devices = new Map<string, DeviceState>();
+  private readonly controllers = new Map<string, ControllerState>();
   private readonly history: AnyEvent[] = [];
   private readonly maxHistory = 100;
 
-  setBleStatus(deviceId: string, bleStatus: string): void { ... }
-  setLastEmoji(deviceId: string, event: EmojiEventDto): void { ... }
+  setBleStatus(controllerId: string, badgeId: string, bleStatus: string): void { ... }
+  setLastEmoji(controllerId: string, badgeId: string, event: EmojiEventDto): void { ... }
   pushHistory(event: AnyEvent): void { ... }
   getSnapshot(): SnapshotDto { ... }
 }
@@ -296,46 +303,78 @@ export class StateService {
 
 ---
 
-## Changes required on the Zero
+## Pi Zero controller implementation (`emoji-os-zero-0.3.0.py`)
 
-The Zero needs to make outbound HTTP POST requests. The simplest addition is a
-helper that fires and forgets:
+The in-repo Zero firmware implements the HTTP client as follows.
+
+### Configuration
+
+|Variable|Purpose|
+|---|---|
+|`SERVER_URL`|Base URL only, **no trailing slash** (for example `https://…awsapprunner.com`). Empty disables all posts.|
+|`CONTROLLER_ID`|Stable logical id for this Pi Zero; sent as `controllerId` on every request.|
+|`BADGE_ID`|Optional. If non-empty (after strip), used as `badgeId` on every request. If empty, `badgeId` is derived from the BLE peer (see below).|
+|`API_HEADERS`|Optional dict merged into `requests.post(..., headers=...)`, for example `{"x-api-key": "…"}`.|
+
+### `badgeId` resolution
+
+1. If `BADGE_ID` is set, it is used as `badgeId`.
+2. Otherwise Bleak’s `device.address` for the connected Pico is normalized to a
+   stable slug: lower-case MAC with colons replaced by hyphens, prefixed with
+   `badge-` (for example `badge-28-cd-c1-05-ab-a4`).
+3. If no address is available at post time, `badgeId` is `"unknown"`.
+
+### `label` for `POST /api/emoji`
+
+The helper `_emoji_label(menu, pos, neg)` maps the same selections as the on-device
+UI (`get_main_emoji`) to short slugs (for example menu `0`, pos `1`, neg `0` →
+`"regular"`). Unmapped triples fall back to `"m{menu}-{pos}-{neg}"`.
+
+### Payload builders
+
+- `_status_payload(ble_status)` builds `{ controllerId, badgeId, bleStatus, timestamp }`.
+- `_emoji_payload(menu, pos, neg)` adds `menu`, `pos`, `neg`, `label`, `timestamp`.
+- `_utc_iso_timestamp()` uses `datetime.now(timezone.utc).isoformat()`.
+
+### When HTTP posts run
+
+`post_to_server` is a no-op if `SERVER_URL` is empty. Otherwise it runs the request
+in a **daemon thread** with a short timeout so the UI loop never blocks.
+
+|Event|Endpoint|Notes|
+|---|---|---|
+|BLE connect succeeds|`POST /api/status`|`bleStatus`: `connected`|
+|BLE write fails or link drops|`POST /api/status`|`bleStatus`: `disconnected`|
+|Unexpected Pico disconnect (Bleak callback)|`POST /api/status`|`disconnected`|
+|User-initiated `disconnect()`|`POST /api/status`|`disconnected`|
+|Emoji command written successfully|`POST /api/emoji`|Includes `label` from `_emoji_label`|
+
+Local states `idle` and `connecting` are **not** sent on `POST /api/status` in this
+implementation.
+
+### Example (trimmed)
 
 ```python
-import requests
-import threading
-
-SERVER_URL = "http://emoji-server.local:3000"
-DEVICE_ID  = "zero-living-room"
-
 def post_to_server(path: str, payload: dict):
+    if not SERVER_URL:
+        return
     def _post():
         try:
-            requests.post(f"{SERVER_URL}{path}", json=payload, timeout=3)
+            kw = {"json": payload, "timeout": 3}
+            if API_HEADERS:
+                kw["headers"] = API_HEADERS
+            requests.post(f"{SERVER_URL}{path}", **kw)
         except Exception as e:
-            print(f"Server post failed: {e}")
+            print(f"Server post failed ({path}): {e}")
     threading.Thread(target=_post, daemon=True).start()
 ```
 
-Call sites:
+### Expected HTTP responses (emoji-app)
 
-```python
-# When ble_connection_status changes
-post_to_server("/api/status", {
-    "deviceId": DEVICE_ID,
-    "bleStatus": ble_connection_status,
-    "timestamp": datetime.utcnow().isoformat() + "Z",
-})
-
-# Inside send_emoji_command, after a successful write
-post_to_server("/api/emoji", {
-    "deviceId": DEVICE_ID,
-    "menu": menu, "pos": pos, "neg": neg,
-    "timestamp": datetime.utcnow().isoformat() + "Z",
-})
-```
-
-Using a daemon thread means a slow or unreachable server never blocks the UI loop.
+|HTTP status|Meaning|
+|---|---|
+|`201`|Success; body often `{ "ok": true }`|
+|`400`|Validation error; server may return `error` / `details`|
 
 ---
 
@@ -354,17 +393,44 @@ export class ApiKeyGuard implements CanActivate {
 }
 ```
 
-Apply it globally or per controller. The Zero adds the header to every request.
+Apply it globally or per controller. The Zero can send the same key via
+`API_HEADERS` on every `post_to_server` request when configured.
 
 ---
 
 ## Open questions / future directions
 
-| Topic | Options |
+|Topic|Options|
 |---|---|
-| **Persistence** | SQLite via TypeORM for event history across restarts |
-| **Multiple devices** | The `deviceId` field already supports this — the dashboard just needs to render a card per device |
-| **Pico status** | The server only knows what the Zero reports. If the disconnection detection from `emoji-badge-controller.md` is implemented, the Zero can also report `picoStatus: connected \| disconnected` |
-| **Frontend framework** | React + Socket.io client is a natural fit; or a simple Svelte app |
-| **Dashboard features** | Live BLE status indicator, last emoji sent, event log, per-device uptime |
-| **Heartbeat endpoint** | `POST /api/heartbeat` — Zero pings every 30 s so the dashboard can show when the Zero itself is offline |
+|**Persistence**|SQLite via TypeORM for event history across restarts|
+|**Pico status**|The server only knows what the Zero reports. If the disconnection detection from `emoji-badge-controller.md` is implemented, the Zero can also report `picoStatus: connected \| disconnected`|
+|**Frontend framework**|React + Socket.io client is a natural fit; or a simple Svelte app|
+|**Dashboard features**|Live BLE status indicator, last emoji sent, event log, per-device uptime|
+|**Heartbeat endpoint**|`POST /api/heartbeat` — Zero pings every 30 s so the dashboard can show when the Zero itself is offline|
+
+---
+
+## Future multi-device support
+
+This API should treat `controllerId` and `badgeId` as first-class identifiers.
+
+- `controllerId` identifies the Pi Zero unit sending the HTTP event.
+- `badgeId` identifies the Pico badge currently connected over BLE.
+- The tuple `(controllerId, badgeId)` is the primary state key.
+
+For implementation safety and rollout:
+
+1. Add `controllerId` and `badgeId` to `StatusEventDto` and `EmojiEventDto`.
+2. Keep `deviceId` as optional input during migration.
+3. In controllers, map old payloads to the new shape:
+   - `controllerId = deviceId` when `controllerId` is missing
+   - `badgeId = "unknown"` when `badgeId` is missing
+4. Emit only the new event shape over WebSocket.
+5. Update dashboard selectors to render cards by `controllerId` and `badgeId`.
+6. After clients are upgraded, remove `deviceId` from DTOs and docs.
+
+Identifier guidance:
+
+- Do not use Windows `COMx` values as badge identity in the API.
+- Prefer a stable logical `badgeId` (for example, `badge-kitchen`).
+- Keep BLE MAC address as metadata for diagnostics and pairing workflows.

@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
-# Emoji OS Zero - Enhanced with working BLE Controller functionality (from controller-1.3.py)
-VERSION = " v0.4.0"
+# Emoji OS Zero
+VERSION = " v0.4.1"
 import LCD_1in44
 import time
 import threading
@@ -19,8 +19,14 @@ from emojis_zero import fireworks_animation, rain_animation, connecting_matrix, 
 # === Server Configuration ===
 # Set SERVER_URL to enable reporting to the emoji server dashboard.
 # Leave empty to disable (safe default — server is not required to run).
-SERVER_URL = ""  # e.g. "http://emoji-server.local:3000"
-DEVICE_ID  = "zero-badge"
+SERVER_URL = ""  # e.g. "https://your-app.awsapprunner.com" (no trailing slash)
+# Logical Pi Zero id (POST /api/status and /api/emoji).
+CONTROLLER_ID = "zero-living-room"
+# If non-empty, used as badgeId for all API posts. If empty, badgeId is derived from
+# the BLE address of the connected Pico (see _resolve_badge_id).
+BADGE_ID = ""
+# Optional extra headers, e.g. {"x-api-key": "..."} — leave empty if unused.
+API_HEADERS = {}
 
 # === BLE Configuration ===
 # Nordic UART Service UUIDs
@@ -229,11 +235,7 @@ class BLEController:
                 ble_connection_status = "connected"
                 draw_connection_indicator()
                 disp.LCD_ShowImage(image,0,0)
-                post_to_server("/api/status", {
-                    "deviceId": DEVICE_ID,
-                    "bleStatus": "connected",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                post_to_server("/api/status", _status_payload("connected"))
                 # Verify the service exists
                 try:
                     services = await self.client.get_services()
@@ -289,13 +291,7 @@ class BLEController:
         try:
             await self.client.write_gatt_char(UART_RX_CHAR_UUID, command.encode("utf-8"))
             print(f"✓ Sent emoji command: '{command}'")
-            post_to_server("/api/emoji", {
-                "deviceId": DEVICE_ID,
-                "menu": menu,
-                "pos": pos,
-                "neg": neg,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            post_to_server("/api/emoji", _emoji_payload(menu, pos, neg))
             return True
 
         except Exception as e:
@@ -305,11 +301,7 @@ class BLEController:
             ble_connection_status = "disconnected"
             draw_connection_indicator()
             disp.LCD_ShowImage(image, 0, 0)
-            post_to_server("/api/status", {
-                "deviceId": DEVICE_ID,
-                "bleStatus": "disconnected",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            post_to_server("/api/status", _status_payload("disconnected"))
             if ble_event_loop and ble_event_loop.is_running():
                 asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
             return False
@@ -327,6 +319,7 @@ class BLEController:
             ble_connection_status = "disconnected"
             draw_connection_indicator()
             disp.LCD_ShowImage(image,0,0)
+            post_to_server("/api/status", _status_payload("disconnected"))
 
 # Global BLE controller instance
 ble_controller = BLEController()
@@ -340,6 +333,103 @@ ble_connection_status = "idle"
 _heartbeat_task = None
 
 
+def _utc_iso_timestamp():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _resolve_badge_id():
+    if BADGE_ID and BADGE_ID.strip():
+        return BADGE_ID.strip()
+    addr = ble_controller.device_address
+    if addr:
+        slug = addr.lower().replace(":", "-")
+        return f"badge-{slug}"
+    return "unknown"
+
+
+def _emoji_label(menu, pos, neg):
+    """Human-readable slug for POST /api/emoji; matches get_main_emoji selections."""
+    if menu == 0:
+        if pos == 1:
+            return "regular"
+        if pos == 2:
+            return "wry"
+        if pos == 3:
+            return "happy"
+        if pos == 4:
+            return "heart_eyes"
+        if neg == 1:
+            return "thick_lips"
+        if neg == 2:
+            return "sad_wry"
+        if neg == 3:
+            return "sad"
+        if neg == 4:
+            return "crossbone_eyes"
+    elif menu == 1:
+        if pos == 1:
+            return "fireworks"
+        if pos == 2:
+            return "circular_rainbow"
+        if pos == 3:
+            return "chakana"
+        if pos == 4:
+            return "heart"
+        if neg == 1:
+            return "rain"
+    elif menu == 2:
+        if pos == 1:
+            return "finn"
+        if pos == 2:
+            return "pikachu"
+        if pos == 3:
+            return "crab"
+        if pos == 4:
+            return "frog"
+        if neg == 1:
+            return "bald"
+        if neg == 2:
+            return "surprise"
+        if neg == 3:
+            return "green_monster"
+        if neg == 4:
+            return "angry"
+    elif menu == 3:
+        if pos == 1:
+            return "others_circle"
+        if pos == 2:
+            return "others_yes"
+        if pos == 3:
+            return "others_somi"
+        if neg == 1:
+            return "others_x"
+        if neg == 2:
+            return "others_no"
+    return f"m{menu}-{pos}-{neg}"
+
+
+def _status_payload(ble_status: str):
+    # API expects connected | disconnected for /api/status (see emoji-app manual tests).
+    return {
+        "controllerId": CONTROLLER_ID,
+        "badgeId": _resolve_badge_id(),
+        "bleStatus": ble_status,
+        "timestamp": _utc_iso_timestamp(),
+    }
+
+
+def _emoji_payload(menu, pos, neg):
+    return {
+        "controllerId": CONTROLLER_ID,
+        "badgeId": _resolve_badge_id(),
+        "menu": menu,
+        "pos": pos,
+        "neg": neg,
+        "label": _emoji_label(menu, pos, neg),
+        "timestamp": _utc_iso_timestamp(),
+    }
+
+
 def post_to_server(path: str, payload: dict):
     """Fire-and-forget HTTP POST to the emoji server.
 
@@ -351,7 +441,10 @@ def post_to_server(path: str, payload: dict):
 
     def _post():
         try:
-            requests.post(f"{SERVER_URL}{path}", json=payload, timeout=3)
+            kw = {"json": payload, "timeout": 3}
+            if API_HEADERS:
+                kw["headers"] = API_HEADERS
+            requests.post(f"{SERVER_URL}{path}", **kw)
         except Exception as e:
             print(f"Server post failed ({path}): {e}")
 
@@ -366,11 +459,7 @@ def _on_pico_disconnect(client: BleakClient):
     ble_connection_status = "disconnected"
     draw_connection_indicator()
     disp.LCD_ShowImage(image, 0, 0)
-    post_to_server("/api/status", {
-        "deviceId": DEVICE_ID,
-        "bleStatus": "disconnected",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
+    post_to_server("/api/status", _status_payload("disconnected"))
     if ble_event_loop and ble_event_loop.is_running():
         asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
 
