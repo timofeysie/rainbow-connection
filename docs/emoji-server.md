@@ -303,7 +303,50 @@ export class StateService {
 
 ---
 
-## Pi Zero controller implementation (`emoji-os-zero-0.3.0.py`)
+## Timestamps and server clock authority
+
+Raspberry Pi controllers are often **offline** at boot, lack a battery-backed RTC,
+or miss NTP for a long time. The `timestamp` field in `POST /api/status` and
+`POST /api/emoji` may therefore be **wrong** (for example year 1970 or far-future
+dates). That must **not** break ordering, “last seen”, or dashboards.
+
+**Rule:** The **emoji-app server** owns canonical time. It should set
+**`updatedAt`**, **`lastEmoji.timestamp`**, and WebSocket event times using the
+server clock at request handling time (for example `Date.now()` / `new Date().toISOString()`
+in Node, or the host’s UTC clock).
+
+**Client `timestamp` field:**
+
+- May remain in the JSON body for backward compatibility and debugging
+  (“what the device thought the time was”).
+- Should be treated as **optional** or **non-authoritative**: validate format if
+  present, but **do not** use it as the stored event time when persisting or
+  broadcasting state.
+- Optionally persist separately as `clientTimestamp` or store only in logs if useful
+  for support.
+
+**Relative ordering:** The server can rely on **request arrival order** plus its
+own timestamps for “what happened last”. If two events are ambiguous, sequence
+numbers or monotonic `serverEventId` are optional enhancements.
+
+### Instructions for the emoji-app team
+
+1. On each successful `POST /api/status` and `POST /api/emoji`, set stored times
+   from **server UTC**, not from the request body `timestamp`.
+2. Make request `timestamp` **optional** in validation if feasible; if required for
+   older clients, accept it but **overwrite** stored values with server time.
+3. Ensure **`GET /api/badges`** (and any snapshot API) returns times the server
+   trusts.
+4. WebSocket payloads should use the same server-derived times as REST state.
+5. Document that Pi / embedded clients may send misleading `timestamp` values;
+   operators should not use them for auditing without server-side correction.
+
+The Pi Zero firmware may continue to send `timestamp` using local
+`datetime.now(timezone.utc)` for compatibility; that value is a **hint only**.
+
+---
+
+## Pi Zero controller implementation (`emoji-os-zero.py`)
 
 The in-repo Zero firmware implements the HTTP client as follows.
 
@@ -334,7 +377,9 @@ UI (`get_main_emoji`) to short slugs (for example menu `0`, pos `1`, neg `0` →
 
 - `_status_payload(ble_status)` builds `{ controllerId, badgeId, bleStatus, timestamp }`.
 - `_emoji_payload(menu, pos, neg)` adds `menu`, `pos`, `neg`, `label`, `timestamp`.
-- `_utc_iso_timestamp()` uses `datetime.now(timezone.utc).isoformat()`.
+- `_utc_iso_timestamp()` uses `datetime.now(timezone.utc).isoformat()` when the Pi
+  clock is correct; **emoji-app should still treat server time as authoritative**
+  (see [Timestamps and server clock authority](#timestamps-and-server-clock-authority)).
 
 ### When HTTP posts run
 

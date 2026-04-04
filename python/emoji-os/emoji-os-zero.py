@@ -361,6 +361,7 @@ _heartbeat_task = None
 
 
 def _utc_iso_timestamp():
+    # Hint for APIs only — Pi RTC/NTP may be wrong; emoji-app should use server time.
     return datetime.now(timezone.utc).isoformat()
 
 
