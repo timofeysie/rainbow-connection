@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.4.2"
+VERSION = " v0.4.3"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -9,6 +9,7 @@ import LCD_1in44
 import time
 import threading
 import asyncio
+import warnings
 import requests
 from datetime import datetime, timezone
 from bleak import BleakScanner, BleakClient
@@ -32,6 +33,15 @@ BADGE_ID = ""
 # Optional extra headers, e.g. {"x-api-key": "..."} — leave empty if unused.
 API_HEADERS = {}
 
+if SERVER_URL:
+    print(f"[API] SERVER_URL is set — POSTs go to {SERVER_URL}", flush=True)
+else:
+    print(
+        "[API] SERVER_URL is empty — no requests to AWS/dashboard. "
+        "Set SERVER_URL in emoji-os-zero.py (HTTPS base, no trailing slash).",
+        flush=True,
+    )
+
 # === BLE Configuration ===
 # Nordic UART Service UUIDs
 UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -40,6 +50,20 @@ UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # Notify characteris
 
 # Device name to look for - matches the working controller.py approach
 TARGET_DEVICE_NAME = "Pico-Client"
+
+
+def _scan_device_service_uuids(device):
+    """Service UUIDs from a scan result; prefers non-deprecated Bleak fields."""
+    uuids = getattr(device, "service_uuids", None)
+    if uuids:
+        return list(uuids)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        meta = getattr(device, "metadata", None)
+        if meta:
+            return list(meta.get("uuids", []) or [])
+    return []
+
 
 # BLE Controller class - from working controller-1.3.py
 class BLEController:
@@ -107,15 +131,13 @@ class BLEController:
         print("\nNo exact name match found. Checking devices for Nordic UART Service...")
         candidate_devices = []
         
-        # Look for devices that might be the Pico (check metadata if available)
+        # Look for devices that might be the Pico (advertised service UUIDs if present)
         for device in devices:
             name = device.name or "(No Name)"
-            # Check if device metadata indicates it has the service
-            if hasattr(device, 'metadata') and device.metadata:
-                services = device.metadata.get('uuids', [])
-                if UART_SERVICE_UUID.lower() in [s.lower() for s in services]:
-                    candidate_devices.append(device)
-                    print(f"  Candidate: {name} ({device.address}) - has UART service in metadata")
+            adv_uuids = _scan_device_service_uuids(device)
+            if UART_SERVICE_UUID.lower() in [s.lower() for s in adv_uuids]:
+                candidate_devices.append(device)
+                print(f"  Candidate: {name} ({device.address}) - UART service in advertisement")
         
         # If we found candidates via metadata, use the first one
         if candidate_devices:
@@ -242,9 +264,8 @@ class BLEController:
                 post_to_server("/api/status", _status_payload("connected"))
                 # Verify the service exists
                 try:
-                    services = await self.client.get_services()
                     uart_found = False
-                    for service in services:
+                    for service in self.client.services:
                         if service.uuid.lower() == UART_SERVICE_UUID.lower():
                             uart_found = True
                             print(f"✓ Verified Nordic UART Service is available")
