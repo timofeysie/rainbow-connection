@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.4.4"
+VERSION = " v0.4.5"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -261,6 +261,7 @@ class BLEController:
                 ble_connection_status = "connected"
                 draw_connection_indicator()
                 disp.LCD_ShowImage(image,0,0)
+                print("[BLE] connected — queueing POST /api/status", flush=True)
                 post_to_server("/api/status", _status_payload("connected"))
                 # Verify the service exists
                 try:
@@ -309,18 +310,19 @@ class BLEController:
     async def send_emoji_command(self, menu, pos, neg):
         """Send emoji selection command to the connected Pico"""
         if not self.client or not self.client.is_connected:
-            print("Not connected to any device")
+            print("Not connected to any device — skipping BLE write and /api/emoji", flush=True)
             return False
 
         command = f"{menu}:{pos}:{neg}"
         try:
             await self.client.write_gatt_char(UART_RX_CHAR_UUID, command.encode("utf-8"))
-            print(f"✓ Sent emoji command: '{command}'")
+            print(f"✓ Sent emoji command: '{command}'", flush=True)
+            print("[BLE] queueing POST /api/emoji", flush=True)
             post_to_server("/api/emoji", _emoji_payload(menu, pos, neg))
             return True
 
         except Exception as e:
-            print(f"✗ Send failed for '{command}': {e} — marking as disconnected")
+            print(f"✗ Send failed for '{command}': {e} — marking as disconnected", flush=True)
             self.connected = False
             global ble_connection_status
             ble_connection_status = "disconnected"
@@ -468,7 +470,10 @@ def post_to_server(path: str, payload: dict):
     global _api_skip_empty_url_logged
     if not SERVER_URL:
         if not _api_skip_empty_url_logged:
-            print("[API] skip: SERVER_URL is empty — no HTTP posts (set SERVER_URL at top of script)")
+            print(
+                "[API] skip: SERVER_URL is empty — no HTTP posts (set SERVER_URL at top of script)",
+                flush=True,
+            )
             _api_skip_empty_url_logged = True
         return
 
@@ -480,14 +485,14 @@ def post_to_server(path: str, payload: dict):
             kw = {"json": payload, "timeout": 3}
             if API_HEADERS:
                 kw["headers"] = API_HEADERS
-            print(f"[API] POST {path} controller={cid} badge={bid}")
+            print(f"[API] POST {path} controller={cid} badge={bid}", flush=True)
             r = requests.post(url, **kw)
             snippet = (r.text or "").replace("\n", " ").strip()
             if len(snippet) > 100:
                 snippet = snippet[:100] + "…"
-            print(f"[API] response {path} -> HTTP {r.status_code} {snippet}")
+            print(f"[API] response {path} -> HTTP {r.status_code} {snippet}", flush=True)
         except Exception as e:
-            print(f"[API] request failed {path}: {e}")
+            print(f"[API] request failed {path}: {e}", flush=True)
 
     threading.Thread(target=_post, daemon=True).start()
 
@@ -938,7 +943,7 @@ def send_emoji_to_pico(menu_val, pos_val, neg_val):
     global ble_event_loop
     
     if not ble_event_loop:
-        print("BLE not initialized yet")
+        print("BLE not initialized yet — cannot send to Pico or /api/emoji", flush=True)
         return
     
     def send_command():
@@ -948,11 +953,10 @@ def send_emoji_to_pico(menu_val, pos_val, neg_val):
                 ble_controller.send_emoji_command(menu_val, pos_val, neg_val),
                 ble_event_loop
             )
-            # Wait for completion with timeout
-            future.result(timeout=5)
-            
+            ok = future.result(timeout=5)
+            print(f"[BLE] send_emoji_command finished ok={ok} (False means no BLE write / no API)", flush=True)
         except Exception as e:
-            print(f"Error sending to Pico: {e}")
+            print(f"Error sending to Pico: {e}", flush=True)
     
     # Send in a separate thread to avoid blocking the main loop
     send_thread = threading.Thread(target=send_command)
