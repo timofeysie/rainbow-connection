@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.2.9"
+VERSION = "0.2.10"
 
 import glowbit
 from machine import Pin
@@ -16,6 +16,7 @@ from emojis import (
     angry,
     greenMonster,
     chakana,
+    scroll_large_image,
     heartBounce,
     finn,
     pikachu,
@@ -264,10 +265,9 @@ def draw_emoji():
         print("menu 1 pos 2 circularRainbow")
         matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond=20)
         matrix.circularRainbow()
-    # chakana (was scroll_large_image)
+    # chakana
     if (menu == 1 and pos == 3):
-        print("menu 1 pos 3 scroll_large_image")
-        print("chakana")
+        print("menu 1 pos 3 chakana")
         chakana()
     # heart bounce
     if (menu == 1 and pos == 4):
@@ -279,10 +279,10 @@ def draw_emoji():
         print("menu 1 neg 1 rain")
         matrix = glowbit.matrix8x8(rateLimitCharactersPerSecond=5)
         matrix.rain()
-    # ??
+    # scroll large image (panorama from large_image)
     if (menu == 1 and neg == 2):
-        print("menu 1 neg 2 ")
-        # sad()
+        print("menu 1 neg 2 scroll_large_image")
+        scroll_large_image()
     # ??
     if (menu == 1 and neg == 3):
         print("menu 1 neg 3")
