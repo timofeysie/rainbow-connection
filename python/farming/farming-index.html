@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Timelapse Gallery & Sensor Data v0.0.1</title>
+    <meta charset="utf-8">
+    <title>Timelapse Gallery & Sensor Data</title>
     <link rel="stylesheet" type="text/css" href="/style.css">
     <style>
         body {
@@ -162,7 +163,7 @@
 </head>
 <body>
     <!-- Update version number when deploying new version -->
-    <h3>Timelapse Gallery & Sensor Data<span class="version-number">v1.0.0</span></h3>
+    <h3>Timelapse Gallery & Sensor Data<span class="version-number">v1.0.1</span></h3>
     <div class="main-container">
         <div class="image-section">
             <div class="gallery-container">
@@ -211,6 +212,7 @@
                 <div class="sensor-card">
                     <div class="sensor-label">Pressure</div>
                     <div class="sensor-value">
+                        <span id="pressure-value">--</span>
                         <span class="sensor-unit">hPa</span>
                     </div>
                 </div>
@@ -221,6 +223,7 @@
                     <div class="sensor-card">
                         <div class="sensor-label">AQI (Air Quality Index)</div>
                         <div class="sensor-value">
+                            <span id="aqi-value">--</span>
                         </div>
                     </div>
                     
@@ -377,18 +380,23 @@
                     // Update status indicator
                     const statusIndicator = document.getElementById("status-indicator");
                     statusIndicator.className = "status-indicator status-online";
-                    
-                    // Update sensor values
-                    document.getElementById("moisture-value").textContent = data.moisture_percent || "--";
-                    document.getElementById("temperature-value").textContent = 
-                        data.temperature_c !== undefined ? data.temperature_c.toFixed(1) : "--";
-                    document.getElementById("humidity-value").textContent = 
-                        data.humidity_rh !== undefined ? data.humidity_rh.toFixed(1) : "--";
-                    document.getElementById("pressure-value").textContent = 
-                        data.pressure_hpa !== undefined ? data.pressure_hpa.toFixed(1) : "--";
-                    document.getElementById("aqi-value").textContent = data.aqi || "--";
-                    document.getElementById("tvoc-value").textContent = data.tvoc || "--";
-                    document.getElementById("eco2-value").textContent = data.eco2 || "--";
+
+                    function fmtFixed1(n) {
+                        return typeof n === "number" && Number.isFinite(n) ? n.toFixed(1) : "--";
+                    }
+
+                    // Update sensor values (use nullish checks so 0 is valid for moisture/AQI/etc.)
+                    document.getElementById("moisture-value").textContent =
+                        data.moisture_percent != null ? String(data.moisture_percent) : "--";
+                    document.getElementById("temperature-value").textContent = fmtFixed1(data.temperature_c);
+                    document.getElementById("humidity-value").textContent = fmtFixed1(data.humidity_rh);
+                    document.getElementById("pressure-value").textContent = fmtFixed1(data.pressure_hpa);
+                    document.getElementById("aqi-value").textContent =
+                        data.aqi != null ? String(data.aqi) : "--";
+                    document.getElementById("tvoc-value").textContent =
+                        data.tvoc != null ? String(data.tvoc) : "--";
+                    document.getElementById("eco2-value").textContent =
+                        data.eco2 != null ? String(data.eco2) : "--";
                     
                     // Update timestamp
                     if (data.last_update) {

@@ -38,7 +38,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Configuration
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 SERIAL_BAUDRATE = 115200
 SERIAL_TIMEOUT = 1
 DATA_FILE = "/var/www/html/sensor-data.json"
@@ -53,7 +53,7 @@ ENABLE_DAYLIGHT_ONLY = True  # Set to False to capture 24/7
 
 # Rate-limited diagnostic when a Moisture: line fails to parse (seconds)
 MOISTURE_PARSE_FAIL_LOG_INTERVAL = 60.0
-# How often to append a sensor summary to the log file (stdout still prints every sample)
+# How often to log/print a sensor summary (file log + optional stdout; avoids per-sample spam)
 SENSOR_UPDATE_LOG_INTERVAL = 60.0
 _parse_diag = {"last_moisture_fail_log": 0.0, "last_sensor_log": 0.0}
 
@@ -344,13 +344,13 @@ def main():
                             f"{sensor_data['temperature_c']:.1f}°C, "
                             f"{sensor_data['humidity_rh']:.1f}%RH"
                         )
-                        print(summary)
                         now = time.time()
                         if (
                             now - _parse_diag["last_sensor_log"]
                             >= SENSOR_UPDATE_LOG_INTERVAL
                         ):
                             _parse_diag["last_sensor_log"] = now
+                            print(summary)
                             log_message(
                                 f"{summary} | {sensor_data['pressure_hpa']:.1f} hPa "
                                 f"AQI:{sensor_data['aqi']} TVOC:{sensor_data['tvoc']} "
