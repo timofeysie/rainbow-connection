@@ -38,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Configuration
+VERSION = "1.0.0"
 SERIAL_BAUDRATE = 115200
 SERIAL_TIMEOUT = 1
 DATA_FILE = "/var/www/html/sensor-data.json"
@@ -49,6 +50,10 @@ TIMELAPSE_INTERVAL = 60  # Capture image every 60 seconds (adjust as needed)
 CAPTURE_START_HOUR = 9   # Start capturing at 9 AM
 CAPTURE_END_HOUR = 17    # Stop capturing at 5 PM (17:00)
 ENABLE_DAYLIGHT_ONLY = True  # Set to False to capture 24/7
+
+# Rate-limited diagnostic when a Moisture: line fails to parse (seconds)
+MOISTURE_PARSE_FAIL_LOG_INTERVAL = 60.0
+_parse_diag = {"last_moisture_fail_log": 0.0}
 
 # Sensor data structure
 sensor_data = {
@@ -81,7 +86,8 @@ def find_pico_port():
     
     # If no specific match, try to find any USB serial device
     for port in ports:
-        if "USB" in port_str or "ACM" in port_str or "USB" in port_str:
+        port_str = str(port)
+        if "USB" in port_str or "ACM" in port_str or "ttyUSB" in port_str:
             print(f"Trying USB serial port: {port.device}")
             return port.device
     
@@ -90,10 +96,17 @@ def find_pico_port():
 
 def parse_sensor_line(line):
     """
-    Parse sensor data from Pico print statement:
-    Format: "Moisture: {moisture}% (raw: {raw}) | {temp} °C  {pres} hPa  {hum} %RH  AQI:{aqi} TVOC:{tvoc} eCO2:{eco2}"
+    Parse sensor data from Pico print statement.
+
+    Matches legacy one-line format or sensor-platform.py with optional middle
+    segments (e.g. Light/Sun) between moisture and the atmospheric block:
+    "Moisture: {moisture}% (raw: {raw}) | ... | {temp} °C  {pres} hPa  {hum} %RH  AQI:{aqi} TVOC:{tvoc} eCO2:{eco2}"
     """
-    pattern = r"Moisture: (\d+)% \(raw: (\d+)\) \| ([\d.]+) °C  ([\d.]+) hPa  ([\d.]+) %RH  AQI:(\d+) TVOC:(\d+) eCO2:(\d+)"
+    pattern = (
+        r"Moisture: (\d+)% \(raw: (\d+)\) \|"
+        r".*?"
+        r"([\d.]+) °C  ([\d.]+) hPa  ([\d.]+) %RH  AQI:(\d+) TVOC:(\d+) eCO2:(\d+)"
+    )
     match = re.match(pattern, line.strip())
     
     if match:
@@ -279,8 +292,9 @@ def main():
     port = None
     ser = None
     
-    print("Sensor Timelapse Script Starting...")
-    log_message("Sensor Timelapse Script Starting")
+    started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"Sensor Timelapse Script v{VERSION} starting at {started_at}...")
+    log_message(f"Sensor Timelapse Script v{VERSION} starting at {started_at}")
     
     # Start timelapse capture thread
     timelapse_thread = threading.Thread(target=timelapse_worker, daemon=True)
@@ -331,6 +345,17 @@ def main():
                         if "Atmospheric" in line or "Sensor" in line:
                             print(f"Pico message: {line}")
                             log_message(f"Pico message: {line}")
+                        elif line.startswith("Moisture:"):
+                            now = time.time()
+                            if (
+                                now - _parse_diag["last_moisture_fail_log"]
+                                >= MOISTURE_PARSE_FAIL_LOG_INTERVAL
+                            ):
+                                _parse_diag["last_moisture_fail_log"] = now
+                                snippet = line[:200] + ("…" if len(line) > 200 else "")
+                                msg = f"Sensor line did not parse (check format): {snippet}"
+                                print(msg)
+                                log_message(msg)
             
             time.sleep(0.1)  # Small delay to prevent CPU spinning
             
