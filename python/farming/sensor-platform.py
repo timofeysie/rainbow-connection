@@ -1,4 +1,4 @@
-# Sensor Platform for the Raspberry Pi Pico v0.0.3
+# Sensor Platform for the Raspberry Pi Pico v1.1.0
 # Moisture readings are done via the Capacitive Soil Moisture Sensor SKU SEN0193 connected now to a Raspberry Pi Pico.
 # The other sensors are the PiicoDev Atmospheric Sensor BME280 + Air Quality ENS160 + OLED Display Demo
 # This program reads Temperature, Pressure, Relative Humidity, AQI, TVOC, and eCO2

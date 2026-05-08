@@ -8,18 +8,18 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 10px;
+            padding: 4px;
             background-color: #f5f5f5;
         }
         
         h3 {
-            margin: 10px 0;
+            margin: 4px 0;
         }
         
         .main-container {
             display: flex;
             flex-direction: row;
-            gap: 20px;
+            gap: 12px;
             height: 95vh;
         }
         
@@ -32,7 +32,7 @@
         .sensor-section {
             flex: 1;
             background-color: white;
-            padding: 15px;
+            padding: 8px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             overflow-y: auto;
@@ -40,8 +40,8 @@
         }
         
         .sensor-card {
-            margin-bottom: 15px;
-            padding: 10px;
+            margin-bottom: 6px;
+            padding: 6px 8px;
             background-color: #f9f9f9;
             border-radius: 5px;
             border-left: 4px solid #4CAF50;
@@ -50,7 +50,8 @@
         .sensor-label {
             font-weight: bold;
             color: #333;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
+            font-size: 0.95em;
         }
         
         .sensor-value {
@@ -64,9 +65,16 @@
         }
         
         .sensor-timestamp {
-            font-size: 0.8em;
+            font-size: 0.75em;
             color: #999;
-            margin-top: 5px;
+            margin-top: 4px;
+        }
+
+        .sensor-group-heading {
+            margin: 8px 0 4px;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #555;
         }
         
         .status-indicator {
@@ -99,10 +107,7 @@
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 10px;
-        }
-        
-        img {
+            margin-bottom: 6px;
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
@@ -113,17 +118,16 @@
             flex-direction: column;
             align-items: flex-start;
             position: absolute;
-            top: 10px;
-            right: 10px;
-            padding: 10px;
+            top: 6px;
+            right: 6px;
+            padding: 6px 8px;
             background-color: rgba(255, 255, 255, 0.9);
             border-radius: 5px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         #play-button {
-            margin-bottom: 10px;
-            padding: 8px 16px;
+            margin-bottom: 6px;
             background-color: #4CAF50;
             color: white;
             border: none;
@@ -145,12 +149,12 @@
         .sensor-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 10px;
+            gap: 6px;
         }
         
         .air-quality-section {
-            margin-top: 20px;
-            padding-top: 20px;
+            margin-top: 10px;
+            padding-top: 10px;
             border-top: 2px solid #e0e0e0;
         }
         .version-number {
@@ -163,7 +167,7 @@
 </head>
 <body>
     <!-- Update version number when deploying new version -->
-    <h3>Timelapse Gallery & Sensor Data<span class="version-number">v1.0.3</span></h3>
+    <h3>Timelapse Gallery & Sensor Data<span class="version-number">v1.1.0</span></h3>
     <div class="main-container">
         <div class="image-section">
             <div class="gallery-container">
@@ -184,9 +188,10 @@
                 Sensor Data
             </h4>
             
+            <h5 class="sensor-group-heading">Greenhouse / weather (Pico)</h5>
             <div class="sensor-grid">
                 <div class="sensor-card">
-                    <div class="sensor-label">Soil Moisture</div>
+                    <div class="sensor-label">Soil moisture</div>
                     <div class="sensor-value">
                         <span id="moisture-value">--</span>
                         <span class="sensor-unit">%</span>
@@ -218,7 +223,32 @@
                 </div>
             </div>
             
+            <h5 class="sensor-group-heading">Plant watering (Pico)</h5>
+            <div class="sensor-grid watering-grid">
+                <div class="sensor-card">
+                    <div class="sensor-label">Watering soil moisture</div>
+                    <div class="sensor-value">
+                        <span id="watering-moisture-value">--</span>
+                        <span class="sensor-unit">%</span>
+                    </div>
+                </div>
+                <div class="sensor-card">
+                    <div class="sensor-label">Pump run (last cycle)</div>
+                    <div class="sensor-value">
+                        <span id="watering-pump-value">--</span>
+                        <span class="sensor-unit">s</span>
+                    </div>
+                </div>
+                <div class="sensor-card sensor-timestamp" style="border-left-color: #2196F3;">
+                    <div class="sensor-label">Watering last report</div>
+                    <div class="sensor-value" style="font-size: 1em;">
+                        <span id="watering-last-update">--</span>
+                    </div>
+                </div>
+            </div>
+            
             <div class="air-quality-section">
+                <h5 class="sensor-group-heading" style="margin-top: 0;">Air quality (Pico)</h5>
                 <div class="sensor-grid">
                     <div class="sensor-card">
                         <div class="sensor-label">AQI (Air Quality Index)</div>
@@ -245,8 +275,8 @@
                 </div>
             </div>
             
-            <div class="sensor-timestamp" style="margin-top: 20px; text-align: center;">
-                Last Update: <span id="last-update">--</span>
+            <div class="sensor-timestamp" style="margin-top: 8px; text-align: center;">
+                JSON last update: <span id="last-update">--</span>
             </div>
         </div>
     </div>
@@ -408,6 +438,15 @@
                         data.tvoc != null ? String(data.tvoc) : "--";
                     document.getElementById("eco2-value").textContent =
                         data.eco2 != null ? String(data.eco2) : "--";
+
+                    document.getElementById("watering-moisture-value").textContent = fmtFixed1(
+                        data.watering_soil_moisture
+                    );
+                    document.getElementById("watering-pump-value").textContent = fmtFixed1(
+                        data.watering_pump_seconds
+                    );
+                    document.getElementById("watering-last-update").textContent =
+                        data.watering_last_update != null ? String(data.watering_last_update) : "--";
                     
                     // Update timestamp
                     if (data.last_update) {

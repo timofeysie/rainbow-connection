@@ -1,29 +1,20 @@
 #!/usr/bin/env python3
 """
 Sensor Timelapse Script - Raspberry Pi 5
-Reads sensor data from Raspberry Pi Pico via USB serial connection
-and serves it for display in the timelapse web interface.
+Reads sensor data from one or two Raspberry Pi Picos via USB serial and serves
+a merged JSON file for the timelapse web interface.
 
-This script:
-1. Connects to the Pico via USB serial
-2. Parses sensor data from the Pico's print statements
-3. Writes sensor data to a JSON file that the web interface can read
-4. Captures timelapse images using rpicam-still
-5. Optionally serves sensor data via HTTP endpoint
+1. Greenhouse / weather Pico: sensor-platform.py line format (BME280, ENS160, etc.)
+2. Optional watering Pico: automatic_watering.py line format (moisture %, pump seconds)
+
+Optional environment overrides (empty = auto-discover USB serial ports):
+  PICO_GREENHOUSE_PORT=/dev/ttyACM0
+  PICO_WATERING_PORT=/dev/ttyACM1
+
+Auto mode assigns sorted device paths: first = greenhouse, second = watering.
 
 Usage:
     python3 sensor-timelapse-script.py
-
-The script should be run as a service or via systemd on the Raspberry Pi 5.
-
-Updated JavaScript for /var/www/html/script.js:
-The updated JavaScript code that combines image gallery functionality with
-sensor data display is included in farming-index.html. The JavaScript includes:
-- Image gallery functionality (fetching images, play/stop, selection)
-- Sensor data fetching and real-time updates
-- Status indicators for sensor connectivity
-
-See farming-index.html for the complete implementation.
 """
 
 import serial
@@ -35,16 +26,18 @@ import os
 import subprocess
 import threading
 from datetime import datetime
-from pathlib import Path
 
 # Configuration
-VERSION = "1.0.3"
+VERSION = "1.1.0"
 SERIAL_BAUDRATE = 115200
 SERIAL_TIMEOUT = 1
 DATA_FILE = "/var/www/html/sensor-data.json"
 LOG_FILE = "/var/log/sensor-timelapse.log"
 IMAGE_DIR = "/var/www/html/images"
 TIMELAPSE_INTERVAL = 60  # Capture image every 60 seconds (adjust as needed)
+# Optional: set on the Pi if USB enumeration order is wrong (see module docstring)
+PICO_GREENHOUSE_PORT = os.environ.get("PICO_GREENHOUSE_PORT", "").strip() or None
+PICO_WATERING_PORT = os.environ.get("PICO_WATERING_PORT", "").strip() or None
 
 # Daylight hours configuration (24-hour format)
 CAPTURE_START_HOUR = 9   # Start capturing at 9 AM
@@ -56,8 +49,9 @@ MOISTURE_PARSE_FAIL_LOG_INTERVAL = 60.0
 # How often to log/print a sensor summary (file log + optional stdout; avoids per-sample spam)
 SENSOR_UPDATE_LOG_INTERVAL = 60.0
 _parse_diag = {"last_moisture_fail_log": 0.0, "last_sensor_log": 0.0}
+data_lock = threading.Lock()
 
-# Sensor data structure
+# Sensor data structure (merged JSON for the web UI)
 sensor_data = {
     "moisture_percent": 0,
     "moisture_raw": 0,
@@ -68,32 +62,45 @@ sensor_data = {
     "tvoc": 0,
     "eco2": 0,
     "timestamp": "",
-    "last_update": ""
+    "last_update": "",
+    "watering_soil_moisture": None,
+    "watering_pump_seconds": None,
+    "watering_last_update": None,
 }
 
 
-def find_pico_port():
-    """Find the USB serial port connected to the Raspberry Pi Pico"""
-    ports = serial.tools.list_ports.comports()
-    
-    # Common identifiers for Pico
-    pico_identifiers = ["Pico", "Raspberry Pi Pico", "USB Serial", "ttyACM", "ttyUSB"]
-    
-    for port in ports:
-        port_str = str(port)
-        for identifier in pico_identifiers:
-            if identifier.lower() in port_str.lower():
-                print(f"Found Pico on port: {port.device}")
-                return port.device
-    
-    # If no specific match, try to find any USB serial device
-    for port in ports:
-        port_str = str(port)
-        if "USB" in port_str or "ACM" in port_str or "ttyUSB" in port_str:
-            print(f"Trying USB serial port: {port.device}")
-            return port.device
-    
-    return None
+def list_usb_serial_devices():
+    """Return sorted unique candidate serial device paths (Picos, USB-UART, etc.)."""
+    devices = []
+    for p in serial.tools.list_ports.comports():
+        parts = ((p.device or "") + " " + (p.description or "")).lower()
+        if (
+            "ttyacm" in parts
+            or "ttyusb" in parts
+            or "usb" in parts
+            or "serial" in parts
+            or parts.strip().startswith("com")
+        ):
+            devices.append(p.device)
+    return sorted(set(devices))
+
+
+def resolve_greenhouse_and_watering_ports():
+    """
+    Resolve device paths for two Picos. Env vars win; otherwise use sorted
+    USB serial list (first = greenhouse, next unused = watering).
+    """
+    auto = list_usb_serial_devices()
+    gh = PICO_GREENHOUSE_PORT
+    wt = PICO_WATERING_PORT
+    remaining = [d for d in auto if d not in {x for x in (gh, wt) if x}]
+    if gh is None and remaining:
+        gh = remaining.pop(0)
+    if wt is None and remaining:
+        wt = remaining.pop(0)
+    if gh and wt and gh == wt:
+        wt = None
+    return gh, wt
 
 
 def parse_sensor_line(line):
@@ -121,6 +128,21 @@ def parse_sensor_line(line):
             "aqi": int(match.group(6)),
             "tvoc": int(match.group(7)),
             "eco2": int(match.group(8))
+        }
+    return None
+
+
+def parse_watering_line(line):
+    """
+    Parse automatic_watering.py console line, e.g.:
+    Moisture  32.00%    Pump Time  12.34s
+    """
+    pattern = r"Moisture\s+([\d.]+)%\s+Pump\s+Time\s+([\d.]+)s"
+    match = re.match(pattern, line.strip())
+    if match:
+        return {
+            "watering_soil_moisture": float(match.group(1)),
+            "watering_pump_seconds": float(match.group(2)),
         }
     return None
 
@@ -293,77 +315,72 @@ def timelapse_worker():
             time.sleep(TIMELAPSE_INTERVAL)  # Wait before retrying
 
 
-def main():
-    """Main function to read serial data and update sensor data file"""
-    port = None
+def maybe_log_sensor_summary():
+    """Rate-limited combined log line (greenhouse + optional watering)."""
+    with data_lock:
+        now = time.time()
+        if now - _parse_diag["last_sensor_log"] < SENSOR_UPDATE_LOG_INTERVAL:
+            return
+        _parse_diag["last_sensor_log"] = now
+        sd = dict(sensor_data)
+    detail = (
+        f"Updated: {sd['moisture_percent']}% moisture, "
+        f"{sd['temperature_c']:.1f}°C, "
+        f"{sd['humidity_rh']:.1f}%RH | "
+        f"{sd['pressure_hpa']:.1f} hPa "
+        f"AQI:{sd['aqi']} TVOC:{sd['tvoc']} eCO2:{sd['eco2']}"
+    )
+    if sd.get("watering_last_update") is not None:
+        wm = sd.get("watering_soil_moisture")
+        wp = sd.get("watering_pump_seconds")
+        if wm is not None and wp is not None:
+            detail += (
+                f" | Watering: {wm:.1f}% pump {wp:.1f}s "
+                f"(at {sd['watering_last_update']})"
+            )
+    print(detail)
+    log_message(detail)
+
+
+def serial_reader_loop(role, port_name):
+    """
+    role: 'greenhouse' (sensor-platform) or 'watering' (automatic_watering).
+    port_name: serial device path or None if not configured.
+    """
     ser = None
-    
-    started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"Sensor Timelapse Script v{VERSION} starting at {started_at}...")
-    log_message(f"Sensor Timelapse Script v{VERSION} starting at {started_at}")
-    
-    # Start timelapse capture thread
-    timelapse_thread = threading.Thread(target=timelapse_worker, daemon=True)
-    timelapse_thread.start()
-    print(f"Timelapse capture started (interval: {TIMELAPSE_INTERVAL} seconds)")
-    log_message(f"Timelapse capture started (interval: {TIMELAPSE_INTERVAL} seconds)")
-    
-    # Find and connect to Pico
+    label = "greenhouse" if role == "greenhouse" else "watering"
     while True:
+        if port_name is None:
+            time.sleep(10)
+            continue
         if ser is None or not ser.is_open:
-            port = find_pico_port()
-            
-            if port is None:
-                print("Pico not found. Retrying in 5 seconds...")
-                log_message("Pico not found. Retrying...")
-                time.sleep(5)
-                continue
-            
             try:
-                ser = serial.Serial(port, SERIAL_BAUDRATE, timeout=SERIAL_TIMEOUT)
-                print(f"Connected to Pico on {port}")
-                log_message(f"Connected to Pico on {port}")
-                time.sleep(2)  # Wait for connection to stabilize
+                ser = serial.Serial(port_name, SERIAL_BAUDRATE, timeout=SERIAL_TIMEOUT)
+                print(f"Connected {label} Pico on {port_name}")
+                log_message(f"Connected {label} Pico on {port_name}")
+                time.sleep(2)
             except Exception as e:
-                print(f"Error connecting to {port}: {e}")
-                log_message(f"Error connecting to {port}: {e}")
+                print(f"Error connecting {label} to {port_name}: {e}")
+                log_message(f"Error connecting {label} to {port_name}: {e}")
                 ser = None
                 time.sleep(5)
                 continue
-        
         try:
-            # Read line from serial
             if ser.in_waiting > 0:
-                line = ser.readline().decode('utf-8', errors='ignore').strip()
-                
-                if line:
-                    # Try to parse sensor data
+                line = ser.readline().decode("utf-8", errors="ignore").strip()
+                if not line:
+                    pass
+                elif role == "greenhouse":
                     parsed = parse_sensor_line(line)
                     if parsed:
-                        # Update sensor data
-                        sensor_data.update(parsed)
-                        write_sensor_data(sensor_data)
-                        now = time.time()
-                        if (
-                            now - _parse_diag["last_sensor_log"]
-                            >= SENSOR_UPDATE_LOG_INTERVAL
-                        ):
-                            _parse_diag["last_sensor_log"] = now
-                            detail = (
-                                f"Updated: {sensor_data['moisture_percent']}% moisture, "
-                                f"{sensor_data['temperature_c']:.1f}°C, "
-                                f"{sensor_data['humidity_rh']:.1f}%RH | "
-                                f"{sensor_data['pressure_hpa']:.1f} hPa "
-                                f"AQI:{sensor_data['aqi']} TVOC:{sensor_data['tvoc']} "
-                                f"eCO2:{sensor_data['eco2']}"
-                            )
-                            print(detail)
-                            log_message(detail)
+                        with data_lock:
+                            sensor_data.update(parsed)
+                            write_sensor_data(sensor_data)
+                        maybe_log_sensor_summary()
                     else:
-                        # Log other messages for debugging
                         if "Atmospheric" in line or "Sensor" in line:
-                            print(f"Pico message: {line}")
-                            log_message(f"Pico message: {line}")
+                            print(f"Pico message ({label}): {line}")
+                            log_message(f"Pico message ({label}): {line}")
                         elif line.startswith("Moisture:"):
                             now = time.time()
                             if (
@@ -372,22 +389,73 @@ def main():
                             ):
                                 _parse_diag["last_moisture_fail_log"] = now
                                 snippet = line[:200] + ("…" if len(line) > 200 else "")
-                                msg = f"Sensor line did not parse (check format): {snippet}"
+                                msg = f"Greenhouse line did not parse: {snippet}"
                                 print(msg)
                                 log_message(msg)
-            
-            time.sleep(0.1)  # Small delay to prevent CPU spinning
-            
+                else:
+                    parsed = parse_watering_line(line)
+                    if parsed:
+                        wlu = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        with data_lock:
+                            sensor_data["watering_soil_moisture"] = parsed[
+                                "watering_soil_moisture"
+                            ]
+                            sensor_data["watering_pump_seconds"] = parsed[
+                                "watering_pump_seconds"
+                            ]
+                            sensor_data["watering_last_update"] = wlu
+                            write_sensor_data(sensor_data)
+                        maybe_log_sensor_summary()
+            time.sleep(0.1)
         except serial.SerialException as e:
-            print(f"Serial error: {e}")
-            log_message(f"Serial error: {e}")
-            ser.close()
+            print(f"Serial error ({label}): {e}")
+            log_message(f"Serial error ({label}): {e}")
+            try:
+                ser.close()
+            except Exception:
+                pass
             ser = None
             time.sleep(5)
         except Exception as e:
-            print(f"Unexpected error: {e}")
-            log_message(f"Unexpected error: {e}")
+            print(f"Unexpected error ({label}): {e}")
+            log_message(f"Unexpected error ({label}): {e}")
             time.sleep(1)
+
+
+def main():
+    """Start timelapse capture and one serial reader thread per configured Pico."""
+    started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"Sensor Timelapse Script v{VERSION} starting at {started_at}...")
+    log_message(f"Sensor Timelapse Script v{VERSION} starting at {started_at}")
+
+    gh_port, wt_port = resolve_greenhouse_and_watering_ports()
+    auto_list = list_usb_serial_devices()
+    log_message(
+        f"Serial ports: auto-detected={auto_list}, "
+        f"greenhouse={gh_port!r}, watering={wt_port!r}"
+    )
+    print(
+        f"Pico serial — greenhouse: {gh_port or 'none'}, "
+        f"watering: {wt_port or 'none'} (set PICO_GREENHOUSE_PORT / PICO_WATERING_PORT to override)"
+    )
+
+    timelapse_thread = threading.Thread(target=timelapse_worker, daemon=True)
+    timelapse_thread.start()
+    print(f"Timelapse capture started (interval: {TIMELAPSE_INTERVAL} seconds)")
+    log_message(f"Timelapse capture started (interval: {TIMELAPSE_INTERVAL} seconds)")
+
+    threading.Thread(
+        target=serial_reader_loop, args=("greenhouse", gh_port), daemon=True
+    ).start()
+    threading.Thread(
+        target=serial_reader_loop, args=("watering", wt_port), daemon=True
+    ).start()
+
+    try:
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        raise
 
 
 if __name__ == "__main__":
