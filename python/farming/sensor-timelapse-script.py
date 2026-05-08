@@ -38,7 +38,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Configuration
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 SERIAL_BAUDRATE = 115200
 SERIAL_TIMEOUT = 1
 DATA_FILE = "/var/www/html/sensor-data.json"
@@ -126,24 +126,28 @@ def parse_sensor_line(line):
 
 
 def write_sensor_data(data):
-    """Write sensor data to JSON file for web interface"""
+    """Write sensor data to JSON file for web interface (atomic replace avoids empty reads)."""
+    tmp_path = DATA_FILE + ".tmp"
     try:
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-        
-        # Add timestamp
+        dest_dir = os.path.dirname(DATA_FILE)
+        os.makedirs(dest_dir, exist_ok=True)
+
         data["timestamp"] = datetime.now().isoformat()
         data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Write to file
-        with open(DATA_FILE, 'w') as f:
+
+        with open(tmp_path, "w") as f:
             json.dump(data, f, indent=2)
-        
-        # Set permissions so web server can read it
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, DATA_FILE)
         os.chmod(DATA_FILE, 0o644)
-        
     except Exception as e:
         print(f"Error writing sensor data: {e}")
+        try:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 def log_message(message):
@@ -339,23 +343,22 @@ def main():
                         # Update sensor data
                         sensor_data.update(parsed)
                         write_sensor_data(sensor_data)
-                        summary = (
-                            f"Updated: {sensor_data['moisture_percent']}% moisture, "
-                            f"{sensor_data['temperature_c']:.1f}°C, "
-                            f"{sensor_data['humidity_rh']:.1f}%RH"
-                        )
                         now = time.time()
                         if (
                             now - _parse_diag["last_sensor_log"]
                             >= SENSOR_UPDATE_LOG_INTERVAL
                         ):
                             _parse_diag["last_sensor_log"] = now
-                            print(summary)
-                            log_message(
-                                f"{summary} | {sensor_data['pressure_hpa']:.1f} hPa "
+                            detail = (
+                                f"Updated: {sensor_data['moisture_percent']}% moisture, "
+                                f"{sensor_data['temperature_c']:.1f}°C, "
+                                f"{sensor_data['humidity_rh']:.1f}%RH | "
+                                f"{sensor_data['pressure_hpa']:.1f} hPa "
                                 f"AQI:{sensor_data['aqi']} TVOC:{sensor_data['tvoc']} "
                                 f"eCO2:{sensor_data['eco2']}"
                             )
+                            print(detail)
+                            log_message(detail)
                     else:
                         # Log other messages for debugging
                         if "Atmospheric" in line or "Sensor" in line:

@@ -163,7 +163,7 @@
 </head>
 <body>
     <!-- Update version number when deploying new version -->
-    <h3>Timelapse Gallery & Sensor Data<span class="version-number">v1.0.1</span></h3>
+    <h3>Timelapse Gallery & Sensor Data<span class="version-number">v1.0.3</span></h3>
     <div class="main-container">
         <div class="image-section">
             <div class="gallery-container">
@@ -374,7 +374,18 @@
                     if (!response.ok) {
                         throw new Error("Sensor data not available");
                     }
-                    return response.json();
+                    return response.text();
+                })
+                .then((text) => {
+                    const trimmed = text.trim();
+                    if (!trimmed) {
+                        throw new Error("Sensor JSON empty (file updating or missing)");
+                    }
+                    try {
+                        return JSON.parse(trimmed);
+                    } catch (e) {
+                        throw new Error("Invalid sensor JSON: " + (e && e.message ? e.message : e));
+                    }
                 })
                 .then((data) => {
                     // Update status indicator
