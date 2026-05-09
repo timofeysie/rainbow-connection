@@ -28,13 +28,13 @@ import threading
 from datetime import datetime
 
 # Configuration
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 SERIAL_BAUDRATE = 115200
 SERIAL_TIMEOUT = 1
 DATA_FILE = "/var/www/html/sensor-data.json"
 LOG_FILE = "/var/log/sensor-timelapse.log"
 IMAGE_DIR = "/var/www/html/images"
-TIMELAPSE_INTERVAL = 60  # Capture image every 60 seconds (adjust as needed)
+TIMELAPSE_INTERVAL = 3600  # Capture image every 3600 seconds (1 hour)
 # Optional: set on the Pi if USB enumeration order is wrong (see module docstring)
 PICO_GREENHOUSE_PORT = os.environ.get("PICO_GREENHOUSE_PORT", "").strip() or None
 PICO_WATERING_PORT = os.environ.get("PICO_WATERING_PORT", "").strip() or None

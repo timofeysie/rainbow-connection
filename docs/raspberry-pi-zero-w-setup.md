@@ -53,6 +53,12 @@ Ctrl + X to exit nano
 hostname -I
 ```
 
+or use the arp command:
+
+```sh
+arp -a
+```
+
 ### Copy files from Zero to PC
 
 ```bash
@@ -341,7 +347,9 @@ sudo service nginx reload
 
 ### The index.html file
 
+```sh
 sudo nano /var/www/html/index.html
+```
 
 Also could be: sudo nano /var/www/html/index.nginx-debian.html
 
@@ -718,6 +726,18 @@ You may need to get the IPv4 address by logging in to the pi using the interface
 
 ```sh
 hostname -I
+```
+
+Another way to get the IP address is to use the arp command:
+
+```sh
+PS C:\Users\timof> arp -a
+
+Interface: 192.168.68.50 --- 0xb
+  Internet Address      Physical Address      Type
+  192.168.68.1          b0-19-21-b4-68-14     dynamic
+  192.168.68.52         4c-6b-b8-b0-0e-cd     dynamic
+  192.168.68.57         88-a2-9e-32-fa-57     dynamic
 ```
 
 ## Deleting files
