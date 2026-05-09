@@ -162,11 +162,6 @@
             gap: 6px;
         }
         
-        .air-quality-section {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 2px solid #e0e0e0;
-        }
         .version-number {
             font-size: 0.7em;
             color: #666;
@@ -212,7 +207,7 @@
 </head>
 <body>
     <!-- Update version number when deploying new version -->
-    <h3>Timelapse Gallery & Sensor Data<span class="version-number">v1.1.2</span></h3>
+    <h3>Timelapse Gallery & Sensor Data<span class="version-number">v1.1.3</span></h3>
     <div class="main-container">
         <div class="image-section">
             <div class="gallery-container">
@@ -230,12 +225,10 @@
         </div>
         
         <div class="sensor-section">
-            <h4>
+            <h5 class="sensor-group-heading">
                 <span id="status-indicator" class="status-indicator status-offline"></span>
-                Sensor Data
-            </h4>
-            
-            <h5 class="sensor-group-heading">Greenhouse / weather (Pico)</h5>
+                Sensor Panel
+            </h5>
             <div class="sensor-grid">
                 <div class="sensor-card">
                     <div class="sensor-label">Soil moisture</div>
@@ -268,9 +261,32 @@
                         <span class="sensor-unit">hPa</span>
                     </div>
                 </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-label">AQI (Air Quality Index)</div>
+                    <div class="sensor-value">
+                        <span id="aqi-value">--</span>
+                    </div>
+                </div>
+                
+                <div class="sensor-card">
+                    <div class="sensor-label">TVOC (Total Volatile Organic Compounds)</div>
+                    <div class="sensor-value">
+                        <span id="tvoc-value">--</span>
+                        <span class="sensor-unit">ppb</span>
+                    </div>
+                </div>
+                
+                <div class="sensor-card">
+                    <div class="sensor-label">eCO2 (Equivalent CO2)</div>
+                    <div class="sensor-value">
+                        <span id="eco2-value">--</span>
+                        <span class="sensor-unit">ppm</span>
+                    </div>
+                </div>
             </div>
             
-            <h5 class="sensor-group-heading">Plant watering (Pico)</h5>
+            <h5 class="sensor-group-heading">Watering Pico</h5>
             <div class="sensor-grid watering-grid">
                 <div class="sensor-card">
                     <div class="sensor-label">Watering soil moisture</div>
@@ -290,34 +306,6 @@
                     <div class="sensor-label">Watering last report</div>
                     <div class="sensor-value" style="font-size: 1em;">
                         <span id="watering-last-update">--</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="air-quality-section">
-                <h5 class="sensor-group-heading" style="margin-top: 0;">Air quality (Pico)</h5>
-                <div class="sensor-grid">
-                    <div class="sensor-card">
-                        <div class="sensor-label">AQI (Air Quality Index)</div>
-                        <div class="sensor-value">
-                            <span id="aqi-value">--</span>
-                        </div>
-                    </div>
-                    
-                    <div class="sensor-card">
-                        <div class="sensor-label">TVOC (Total Volatile Organic Compounds)</div>
-                        <div class="sensor-value">
-                            <span id="tvoc-value">--</span>
-                            <span class="sensor-unit">ppb</span>
-                        </div>
-                    </div>
-                    
-                    <div class="sensor-card">
-                        <div class="sensor-label">eCO2 (Equivalent CO2)</div>
-                        <div class="sensor-value">
-                            <span id="eco2-value">--</span>
-                            <span class="sensor-unit">ppm</span>
-                        </div>
                     </div>
                 </div>
             </div>
