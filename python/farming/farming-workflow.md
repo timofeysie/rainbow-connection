@@ -85,3 +85,20 @@ eCO2 (Equivalent CO2)
 -- ppm
 --
 ```
+
+## The Automatic Watering system
+
+The automatic watering system comes originally from the [Core Electronitcs Plant.io project](https://core-electronics.com.au/guides/plant-io/plant-io-basic-setup-guide-automatically-water-a-seedling-based-on-soil-moisture/).
+
+It has been modified to work with our sensor platform and timelapse camera system.  It makes sense to only need one rasbperry pi pico, so in the future this may be rolled into the sensor platform as well.
+
+## Credits and Licensing
+
+The scripts for the automatic watering system are in the following files:
+
+- Plant_io.py
+- python\farming\automatic_watering.py
+
+This is the firmware repo for the [Core Electronics Makerverse Plant_io Project](https://core-electronics.com.au/guides/plant-io/).
+
+These files are open source and **Core Electronics software is released under [Creative Commons Share-alike 4.0 International](http://creativecommons.org/licenses/by-sa/4.0/).

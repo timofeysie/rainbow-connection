@@ -28,7 +28,7 @@ import threading
 from datetime import datetime
 
 # Configuration
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 SERIAL_BAUDRATE = 115200
 SERIAL_TIMEOUT = 1
 DATA_FILE = "/var/www/html/sensor-data.json"
@@ -405,7 +405,24 @@ def serial_reader_loop(role, port_name):
                             ]
                             sensor_data["watering_last_update"] = wlu
                             write_sensor_data(sensor_data)
+                        msg = (
+                            f"Watering: soil {parsed['watering_soil_moisture']:.1f}% "
+                            f"pump {parsed['watering_pump_seconds']:.1f}s"
+                        )
+                        print(msg)
+                        log_message(msg)
                         maybe_log_sensor_summary()
+                    elif line:
+                        now = time.time()
+                        if (
+                            now - _parse_diag.get("last_watering_fail_log", 0.0)
+                            >= MOISTURE_PARSE_FAIL_LOG_INTERVAL
+                        ):
+                            _parse_diag["last_watering_fail_log"] = now
+                            snippet = repr(line[:200])
+                            msg = f"Watering raw (no parse): {snippet}"
+                            print(msg)
+                            log_message(msg)
             time.sleep(0.1)
         except serial.SerialException as e:
             print(f"Serial error ({label}): {e}")
