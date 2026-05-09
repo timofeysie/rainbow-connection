@@ -28,7 +28,7 @@ import threading
 from datetime import datetime
 
 # Configuration
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 SERIAL_BAUDRATE = 115200
 SERIAL_TIMEOUT = 1
 DATA_FILE = "/var/www/html/sensor-data.json"
@@ -452,8 +452,9 @@ def main():
         f"greenhouse={gh_port!r}, watering={wt_port!r}"
     )
     print(
-        f"Pico serial — greenhouse: {gh_port or 'none'}, "
-        f"watering: {wt_port or 'none'} (set PICO_GREENHOUSE_PORT / PICO_WATERING_PORT to override)"
+        f"Pico serial - greenhouse: {gh_port or 'none'}, "
+        f"watering: {wt_port or 'none'} "
+        f"(set PICO_GREENHOUSE_PORT / PICO_WATERING_PORT to override)"
     )
 
     timelapse_thread = threading.Thread(target=timelapse_worker, daemon=True)

@@ -124,6 +124,30 @@ Plug/unplug one at a time to identify which is which.
 
 ---
 
+### Note: log file binary warnings
+
+`grep` reports `binary file matches` because the log contains the `°` character
+(from temperature readings). Always use the `-a` flag to force text mode:
+
+```bash
+sudo grep -a "Serial ports" /var/log/sensor-timelapse.log
+sudo grep -a "Watering"     /var/log/sensor-timelapse.log | tail -20
+sudo grep -a "ERROR\|error" /var/log/sensor-timelapse.log | tail -20
+```
+
+### Note: 20-minute watering cycle
+
+`automatic_watering.py` sleeps 20 minutes between cycles. If the Pi script
+restarted after the last print, you may need to wait up to 20 minutes before
+any watering data appears in the log. Check the script start time:
+
+```bash
+sudo grep -a "starting at" /var/log/sensor-timelapse.log | tail -5
+```
+
+If less than 20 minutes have passed since the last restart, just wait — then
+check again with `sudo grep -a "Watering" /var/log/sensor-timelapse.log`.
+
 ### General log monitoring commands
 
 ```bash
@@ -131,13 +155,13 @@ Plug/unplug one at a time to identify which is which.
 sudo tail -f /var/log/sensor-timelapse.log
 
 # Show only sensor update lines
-sudo grep "Updated:" /var/log/sensor-timelapse.log | tail -20
+sudo grep -a "Updated:" /var/log/sensor-timelapse.log | tail -20
 
 # Show only watering-related lines
-sudo grep -i "watering" /var/log/sensor-timelapse.log | tail -20
+sudo grep -a -i "watering" /var/log/sensor-timelapse.log | tail -20
 
 # Show only errors
-sudo grep "ERROR\|error" /var/log/sensor-timelapse.log | tail -20
+sudo grep -a "ERROR\|error" /var/log/sensor-timelapse.log | tail -20
 
 # Check current sensor-data.json
 cat /var/www/html/sensor-data.json
