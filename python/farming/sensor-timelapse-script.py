@@ -40,7 +40,7 @@ PICO_GREENHOUSE_PORT = os.environ.get("PICO_GREENHOUSE_PORT", "").strip() or Non
 PICO_WATERING_PORT = os.environ.get("PICO_WATERING_PORT", "").strip() or None
 
 # Daylight hours configuration (24-hour format)
-CAPTURE_START_HOUR = 9   # Start capturing at 9 AM
+CAPTURE_START_HOUR = 8   # Start capturing at 8 AM
 CAPTURE_END_HOUR = 17    # Stop capturing at 5 PM (17:00)
 ENABLE_DAYLIGHT_ONLY = True  # Set to False to capture 24/7
 
