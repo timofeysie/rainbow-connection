@@ -28,7 +28,7 @@ import threading
 from datetime import datetime
 
 # Configuration
-VERSION = "1.1.3"
+VERSION = "1.1.4"
 SERIAL_BAUDRATE = 115200
 SERIAL_TIMEOUT = 1
 DATA_FILE = "/var/www/html/sensor-data.json"
@@ -378,20 +378,16 @@ def serial_reader_loop(role, port_name):
                             write_sensor_data(sensor_data)
                         maybe_log_sensor_summary()
                     else:
-                        if "Atmospheric" in line or "Sensor" in line:
-                            print(f"Pico message ({label}): {line}")
-                            log_message(f"Pico message ({label}): {line}")
-                        elif line.startswith("Moisture:"):
-                            now = time.time()
-                            if (
-                                now - _parse_diag["last_moisture_fail_log"]
-                                >= MOISTURE_PARSE_FAIL_LOG_INTERVAL
-                            ):
-                                _parse_diag["last_moisture_fail_log"] = now
-                                snippet = line[:200] + ("…" if len(line) > 200 else "")
-                                msg = f"Greenhouse line did not parse: {snippet}"
-                                print(msg)
-                                log_message(msg)
+                        now = time.time()
+                        if (
+                            now - _parse_diag["last_moisture_fail_log"]
+                            >= MOISTURE_PARSE_FAIL_LOG_INTERVAL
+                        ):
+                            _parse_diag["last_moisture_fail_log"] = now
+                            snippet = repr(line[:200])
+                            msg = f"Greenhouse raw (no parse): {snippet}"
+                            print(msg)
+                            log_message(msg)
                 else:
                     parsed = parse_watering_line(line)
                     if parsed:

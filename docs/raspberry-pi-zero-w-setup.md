@@ -740,6 +740,12 @@ Interface: 192.168.68.50 --- 0xb
   192.168.68.57         88-a2-9e-32-fa-57     dynamic
 ```
 
+Then you can use the IP address to login to the pi:
+
+```sh
+ssh tim@192.168.68.57
+```
+
 ## Deleting files
 
 To delete a range of images within a certain date, this could be useful:
@@ -770,4 +776,66 @@ cd ~/.local/share/Trash/files
 or
 sudo rm -rf /root/.local/share/Trash/files
 rm -rf ~/.local/share/Trash/files/*
+```
+
+## USB Cables and the Zero
+
+The Zero 2 W has two micro-USB ports on the bottom edge:
+
+- **PWR IN** — power only, no data. This is where the Zero's power adapter goes.
+- **USB** — the single OTG data port. This is where USB devices (or a hub) connect.
+
+To check which USB devices the Zero can see:
+
+```sh
+lsusb
+```
+
+If only the root hub appears and nothing else, the Zero cannot see any connected devices.
+
+To watch for USB events in real time (plug/unplug while this is running):
+
+```sh
+sudo dmesg -w
+```
+
+### Connecting multiple USB devices (hub required)
+
+The Zero 2 W has only one USB data port, so connecting two Picos requires a powered USB hub.
+The recommended hub is the **Adafruit USB Mini Hub with Power Switch - OTG Micro-USB (ADA2991)**.
+It connects via OTG cable directly to the Zero's USB port and has its own external power input.
+
+### Back-powering warning and the red wire fix
+
+The hub has a **1.7mm barrel jack** for external power. If you connect both the OTG cable and the
+external power supply at the same time, 5V from the external supply can flow backwards through the
+OTG cable's red wire into the Zero's USB port — this is called **back-powering** and can cause problems.
+
+**Fix: cut the red wire inside the OTG cable.**
+
+1. Cut the OTG cable (the one between the hub and the Zero) somewhere in the middle
+2. Inside you will find 4 wires: red, black, white, green
+3. Cut only the **red wire** and fold the two ends back so they do not touch anything
+4. Tape over the cut and rejoin the cable with tape or heat shrink
+
+Now the OTG cable carries only data (white/green) and ground (black). The hub gets all its power
+from the barrel jack. No back-powering risk.
+
+### External power supply specs for the hub
+
+- **5V DC**
+- **Centre positive**
+- **1.7mm barrel connector** (inner diameter — slightly smaller than the common 2.1mm)
+- **At least 1A** (2A recommended if two Picos are connected)
+
+Search Core Electronics for `5V 1A 1.7mm` or Adafruit SKU **ADA501**.
+
+### Full wiring summary
+
+```
+[Wall adapter 1]  →  PWR IN port on Zero          (powers the Zero)
+[Wall adapter 2]  →  1.7mm barrel port on hub      (powers the hub)
+[Hub OTG cable]   →  USB port on Zero              (data only, red wire cut)
+[Hub USB-A port]  →  Sensor Pico
+[Hub USB-A port]  →  Watering Pico
 ```
