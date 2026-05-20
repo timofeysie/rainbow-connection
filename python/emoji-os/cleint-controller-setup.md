@@ -66,3 +66,40 @@ The glowbit 8x8 matrix can be tested with the script python\tests\test-glowbit-c
 - emojis.py
 - large_image.py
 - ble_advertising.py
+
+## Multiplayer Pairing (PAIR\_NAME)
+
+Each controller/badge pair uses a shared `PAIR_NAME` so that multiple pairs can
+operate in the same room without interfering with each other.  The default value
+is `"default"`, which is fine for a single-pair setup.
+
+Both sides read `PAIR_NAME` from an optional `pair_config.py` file placed next
+to the main script.  If the file is absent the default is used.
+
+### Pico — set PAIR\_NAME
+
+On the Pico, create `pair_config.py` (place it in the same folder as `main.py`)
+with the following content, substituting your chosen name:
+
+```python
+PAIR_NAME = "living-room"
+```
+
+Upload the file to the Pico via Thonny alongside the other required files.
+
+### Zero controller — set PAIR\_NAME
+
+On the Raspberry Pi Zero W, create `pair_config.py` next to `emoji-os-zero.py`:
+
+```python
+PAIR_NAME = "living-room"
+```
+
+Both files must use the **same** `PAIR_NAME` value.  The Zero advertises a BLE
+device named `Pico-Client-<PAIR_NAME>` and the Pico will only accept a
+connection handshake from a controller that sends the matching name.
+
+> **Tip:** use a short, URL-safe string with no spaces, e.g. `"living-room"`,
+> `"kitchen"`, or `"badge-1"`.
+
+See `python/emoji-os/project/multiplayer-mode.md` for the full design.

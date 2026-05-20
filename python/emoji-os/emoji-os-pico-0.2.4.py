@@ -1,5 +1,15 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.2.10"
+VERSION = "0.3.0"
+
+# === Multiplayer Pairing ===
+# PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
+# must use the same PAIR_NAME or the badge will refuse its commands. Override by
+# creating a small `pair_config.py` next to this file on the Pico containing
+# e.g. `PAIR_NAME = "living-room"`. See python/emoji-os/project/multiplayer-mode.md.
+try:
+    from pair_config import PAIR_NAME  # type: ignore  # noqa: F401
+except Exception:
+    PAIR_NAME = "default"
 
 import glowbit
 from machine import Pin
@@ -446,6 +456,11 @@ class BLESimplePeripheral:
         ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((_UART_SERVICE,))
         
         self._connections = set()
+        # Per-connection pairing state: conn_handle -> True once PAIR:<PAIR_NAME>
+        # has been received. Until then, writes to RX are not forwarded to the
+        # command handler so a wrong-pair Zero cannot drive this badge.
+        self._authenticated = {}
+        self._pair_name = PAIR_NAME
         self._write_callback = None
         self._display_callback = None  # called with "advertising" when we start/restart advertising
         self._just_connected = False
@@ -459,11 +474,13 @@ class BLESimplePeripheral:
             conn_handle, _, _ = data
             print(f"✓ Connected: {conn_handle}")
             self._connections.add(conn_handle)
+            self._authenticated[conn_handle] = False
             self._just_connected = True
         elif event == _IRQ_CENTRAL_DISCONNECT:
             conn_handle, _, _ = data
             print(f"✗ Disconnected: {conn_handle}")
-            self._connections.remove(conn_handle)
+            self._connections.discard(conn_handle)
+            self._authenticated.pop(conn_handle, None)
             # Restart advertising after disconnect
             self._advertise()
             if self._display_callback:
@@ -471,8 +488,38 @@ class BLESimplePeripheral:
         elif event == _IRQ_GATTS_WRITE:
             conn_handle, value_handle = data
             value = self._ble.gatts_read(value_handle)
-            if value_handle == self._handle_rx and self._write_callback:
+            if value_handle != self._handle_rx:
+                return
+            if not self._authenticated.get(conn_handle, False):
+                self._handle_pair_attempt(conn_handle, value)
+                return
+            if self._write_callback:
                 self._write_callback(value)
+
+    def _handle_pair_attempt(self, conn_handle, value):
+        """Validate the first write on a new connection against PAIR_NAME.
+
+        Replies on the TX notify characteristic with PAIR_OK or PAIR_FAIL.
+        Until PAIR_OK is sent, the command handler is bypassed entirely.
+        """
+        try:
+            text = value.decode('utf-8').strip()
+        except Exception:
+            text = ""
+        expected = "PAIR:" + self._pair_name
+        if text == expected:
+            self._authenticated[conn_handle] = True
+            print(f"✓ Paired conn={conn_handle} PAIR_NAME='{self._pair_name}'")
+            try:
+                self._ble.gatts_notify(conn_handle, self._handle_tx, b"PAIR_OK")
+            except Exception as e:
+                print(f"✗ Failed to send PAIR_OK: {e}")
+        else:
+            print(f"✗ Pair attempt failed conn={conn_handle} got={text!r} expected={expected!r}")
+            try:
+                self._ble.gatts_notify(conn_handle, self._handle_tx, b"PAIR_FAIL")
+            except Exception:
+                pass
 
     def send(self, data):
         """Send data to connected central devices"""
@@ -594,9 +641,10 @@ time.sleep(5)
 draw_center_indicator(PALE_BLUE)
 
 # === Initialize BLE ===
+DEVICE_NAME = "Pico-Client-" + PAIR_NAME
 try:
     ble = bluetooth.BLE()
-    p = BLESimplePeripheral(ble, "Pico-Client")
+    p = BLESimplePeripheral(ble, DEVICE_NAME)
 
     # Set up command handler and display callback (advertising -> pale blue)
     p.on_write(handle_command)
@@ -612,9 +660,11 @@ except Exception as e:
     raise
 
 print("Emoji OS Pico " + VERSION + " - Startup/connection indicator; red = BLE error")
-print("Device Name: Pico-Client")
-print("Supports emoji commands in format: 'MENU:POS:NEG'")
-print("Legacy commands: ON, OFF, STATUS, BLINK")
+print("Device Name: " + DEVICE_NAME)
+print("PAIR_NAME: " + PAIR_NAME)
+print("Pairing: expects first write 'PAIR:" + PAIR_NAME + "', replies PAIR_OK/PAIR_FAIL on TX notify")
+print("Supports emoji commands in format: 'MENU:POS:NEG' (after PAIR_OK)")
+print("Legacy commands: ON, OFF, STATUS, BLINK (after PAIR_OK)")
 
 # === Main Loop ===
 while True:

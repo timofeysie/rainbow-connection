@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.4.7"
+VERSION = " v0.5.0"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -48,8 +48,21 @@ UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # Write characteristic
 UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # Notify characteristic
 
-# Device name to look for - matches the working controller.py approach
-TARGET_DEVICE_NAME = "Pico-Client"
+# === Multiplayer Pairing ===
+# PAIR_NAME identifies this controller/badge pair. The matching emoji-os-pico-*.py
+# must use the same PAIR_NAME. Override by creating `pair_config.py` next to this
+# script containing e.g. `PAIR_NAME = "living-room"`. See
+# python/emoji-os/project/multiplayer-mode.md for the full design.
+try:
+    from pair_config import PAIR_NAME  # type: ignore  # noqa: F401
+except Exception:
+    PAIR_NAME = "default"
+
+# Target BLE name advertised by the paired Pico (see emoji-os-pico-*.py).
+TARGET_DEVICE_NAME = f"Pico-Client-{PAIR_NAME}"
+PAIR_HANDSHAKE_TIMEOUT_S = 5.0
+
+print(f"[PAIR] PAIR_NAME='{PAIR_NAME}' — looking for '{TARGET_DEVICE_NAME}'", flush=True)
 
 
 def _scan_device_service_uuids(device):
@@ -75,6 +88,8 @@ class BLEController:
         self.client = None
         self.device_address = None
         self.connected = False
+        self._pair_event = None
+        self._pair_response = None
         
     async def scan_for_device(self, timeout=10):
         """Scan for the target Pico device by name or service UUID"""
@@ -86,12 +101,13 @@ class BLEController:
         print("[BLE] scanning — queueing POST /api/status", flush=True)
         post_to_server("/api/status", _status_payload("scanning"))
 
-        print(f"Scanning for Pico device (preferred name: '{TARGET_DEVICE_NAME}')...")
-        print("Will also search for Nordic UART Service if name doesn't match")
-        print("Make sure your Pico is running emoji-os-pico-0.2.0.py...")
+        print(f"Scanning for Pico device (target name: '{TARGET_DEVICE_NAME}')...")
+        print("Multiplayer pairing is strict: only the device advertising the")
+        print(f"name '{TARGET_DEVICE_NAME}' (PAIR_NAME='{PAIR_NAME}') will be selected.")
         
-        # First, try scanning by service UUID (most reliable)
-        print("\nAttempting to scan by service UUID...")
+        # First, try scanning by service UUID, but only accept exact-name matches
+        # so multi-pair environments don't grab the wrong badge.
+        print("\nAttempting to scan by service UUID (filtered by name)...")
         try:
             devices = await BleakScanner.discover(
                 timeout=timeout,
@@ -101,10 +117,13 @@ class BLEController:
                 print(f"✓ Found {len(devices)} device(s) advertising Nordic UART Service:")
                 for device in devices:
                     name = device.name or "(No Name)"
-                    print(f"  - {name:<20} | {device.address}")
-                    self.device_address = device.address
-                    print(f"✓ Selected device: {name} at {self.device_address}")
-                    return True
+                    print(f"  - {name:<24} | {device.address}")
+                for device in devices:
+                    if device.name == TARGET_DEVICE_NAME:
+                        self.device_address = device.address
+                        print(f"✓ Selected device by name: {device.name} at {self.device_address}")
+                        return True
+                print(f"  No advertisement matched '{TARGET_DEVICE_NAME}'; trying general scan.")
         except Exception as e:
             print(f"Service UUID scan failed: {e}")
         
@@ -130,23 +149,22 @@ class BLEController:
         print("-" * 50)
         
         # If no name match, try to find by service UUID by connecting to candidates
-        print("\nNo exact name match found. Checking devices for Nordic UART Service...")
+        # whose name matches TARGET_DEVICE_NAME. Strict pairing means we never
+        # select a device with a different advertised name.
+        print("\nNo exact name match yet. Checking name-matched UART candidates...")
         candidate_devices = []
-        
-        # Look for devices that might be the Pico (advertised service UUIDs if present)
         for device in devices:
-            name = device.name or "(No Name)"
+            if device.name != TARGET_DEVICE_NAME:
+                continue
             adv_uuids = _scan_device_service_uuids(device)
             if UART_SERVICE_UUID.lower() in [s.lower() for s in adv_uuids]:
                 candidate_devices.append(device)
-                print(f"  Candidate: {name} ({device.address}) - UART service in advertisement")
+                print(f"  Candidate: {device.name} ({device.address}) - UART service in advertisement")
         
-        # If we found candidates via metadata, use the first one
         if candidate_devices:
             device = candidate_devices[0]
-            name = device.name or "(No Name)"
             self.device_address = device.address
-            print(f"✓ Selected candidate device: {name} at {self.device_address}")
+            print(f"✓ Selected candidate device: {device.name} at {self.device_address}")
             return True
         
         # Last resort: try connecting to devices and test write (avoids service discovery issues)
@@ -187,13 +205,13 @@ class BLEController:
                 print(f"  Address: {self.device_address}")
                 return True
         
-        print(f"\n✗ Could not find Pico device")
+        print(f"\n✗ Could not find Pico device matching '{TARGET_DEVICE_NAME}'")
         print("\nTroubleshooting tips:")
-        print("1. Make sure Pico is running emoji-os-pico-0.2.0.py")
-        print("2. Check that Pico shows 'Starting advertising...'")
-        print("3. Try moving devices closer together")
-        print("4. Restart both devices")
-        print("5. Device may be advertising with a different name")
+        print(f"1. Confirm the badge is running emoji-os-pico-*.py with PAIR_NAME='{PAIR_NAME}'")
+        print("2. Check that the Pico console prints 'Starting advertising...'")
+        print(f"3. Confirm the Pico's advertised name is exactly '{TARGET_DEVICE_NAME}'")
+        print("4. Try moving devices closer together")
+        print("5. Restart both devices")
         ble_connection_status = "disconnected"
         draw_connection_indicator()
         disp.LCD_ShowImage(image,0,0)
@@ -261,14 +279,8 @@ class BLEController:
             await self.client.connect(timeout=10.0)
             
             if self.client.is_connected:
-                print("✓ Successfully connected!")
-                self.connected = True
-                ble_connection_status = "connected"
-                draw_connection_indicator()
-                disp.LCD_ShowImage(image,0,0)
-                print("[BLE] connected — queueing POST /api/status", flush=True)
-                post_to_server("/api/status", _status_payload("connected"))
-                # Verify the service exists
+                print("✓ Successfully connected at BLE layer — running pair handshake")
+                # Verify the service exists before running the handshake
                 try:
                     uart_found = False
                     for service in self.client.services:
@@ -281,6 +293,27 @@ class BLEController:
                         print("  This might not be the correct device.")
                 except Exception as e:
                     print(f"⚠ Warning: Could not verify services: {e}")
+                # Strict multiplayer pairing: only mark connected after PAIR_OK
+                if not await self._do_pair_handshake():
+                    print("✗ Pair handshake failed — disconnecting and rescanning", flush=True)
+                    try:
+                        await self.client.disconnect()
+                    except Exception:
+                        pass
+                    self.connected = False
+                    ble_connection_status = "disconnected"
+                    draw_connection_indicator()
+                    disp.LCD_ShowImage(image, 0, 0)
+                    post_to_server("/api/status", _status_payload("disconnected"))
+                    if ble_event_loop and ble_event_loop.is_running():
+                        asyncio.create_task(_reconnect())
+                    return False
+                self.connected = True
+                ble_connection_status = "connected"
+                draw_connection_indicator()
+                disp.LCD_ShowImage(image,0,0)
+                print("[BLE] connected — queueing POST /api/status", flush=True)
+                post_to_server("/api/status", _status_payload("connected"))
                 # Cancel any previous heartbeat and start a fresh one
                 global _heartbeat_task, _last_status_liveness_post
                 if _heartbeat_task and not _heartbeat_task.done():
@@ -313,6 +346,64 @@ class BLEController:
             disp.LCD_ShowImage(image,0,0)
             return False
     
+    async def _do_pair_handshake(self):
+        """Send 'PAIR:<PAIR_NAME>' and wait for 'PAIR_OK' over TX notify.
+
+        Returns True on PAIR_OK, False on PAIR_FAIL / timeout / error. The
+        connection is left open on success and closed by the caller on failure.
+        """
+        self._pair_response = None
+        self._pair_event = asyncio.Event()
+
+        def _on_notify(_sender: BleakGATTCharacteristic, data: bytearray):
+            try:
+                text = bytes(data).decode("utf-8", "ignore").strip()
+            except Exception:
+                text = ""
+            print(f"[PAIR] notify from Pico: {text!r}", flush=True)
+            self._pair_response = text
+            if self._pair_event:
+                self._pair_event.set()
+
+        try:
+            await self.client.start_notify(UART_TX_CHAR_UUID, _on_notify)
+        except Exception as e:
+            print(f"[PAIR] start_notify failed: {e}", flush=True)
+            return False
+
+        pair_msg = f"PAIR:{PAIR_NAME}".encode("utf-8")
+        try:
+            await self.client.write_gatt_char(UART_RX_CHAR_UUID, pair_msg)
+            print(f"[PAIR] sent {pair_msg!r}", flush=True)
+        except Exception as e:
+            print(f"[PAIR] write failed: {e}", flush=True)
+            try:
+                await self.client.stop_notify(UART_TX_CHAR_UUID)
+            except Exception:
+                pass
+            return False
+
+        try:
+            await asyncio.wait_for(self._pair_event.wait(), timeout=PAIR_HANDSHAKE_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            print(f"[PAIR] handshake timed out after {PAIR_HANDSHAKE_TIMEOUT_S}s", flush=True)
+            try:
+                await self.client.stop_notify(UART_TX_CHAR_UUID)
+            except Exception:
+                pass
+            return False
+
+        try:
+            await self.client.stop_notify(UART_TX_CHAR_UUID)
+        except Exception:
+            pass
+
+        if self._pair_response == "PAIR_OK":
+            print(f"[PAIR] OK — paired with PAIR_NAME='{PAIR_NAME}'", flush=True)
+            return True
+        print(f"[PAIR] handshake rejected by Pico: {self._pair_response!r}", flush=True)
+        return False
+
     async def send_emoji_command(self, menu, pos, neg):
         """Send emoji selection command to the connected Pico"""
         if not self.client or not self.client.is_connected:
@@ -1198,6 +1289,7 @@ except:
 draw_display()
 
 print("Emoji OS Zero " + VERSION + " started with BLE Controller functionality")
+print(f"[PAIR] strict pairing enabled — PAIR_NAME='{PAIR_NAME}', target='{TARGET_DEVICE_NAME}'")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive")
 print("KEY2: Navigate/confirm")
@@ -1219,10 +1311,16 @@ def init_ble_connection():
             print("[BLE] startup — queueing POST /api/status", flush=True)
             post_to_server("/api/status", _status_payload("startup"))
 
-            # Scan and connect
-            if ble_event_loop.run_until_complete(ble_controller.scan_for_device(timeout=5)):
-                ble_event_loop.run_until_complete(ble_controller.connect_to_device())
-            
+            async def _initial_connect():
+                if await ble_controller.scan_for_device(timeout=5):
+                    await ble_controller.connect_to_device()
+                else:
+                    # No matching badge yet; keep trying so a late-booting Pico
+                    # is still picked up automatically.
+                    asyncio.create_task(_reconnect())
+
+            ble_event_loop.run_until_complete(_initial_connect())
+
             # Keep the event loop running
             ble_event_loop.run_forever()
             
