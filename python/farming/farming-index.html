@@ -125,8 +125,9 @@
         
         #controls-container {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: flex-start;
+            gap: 6px;
             position: absolute;
             top: 6px;
             right: 6px;
@@ -135,24 +136,39 @@
             border-radius: 5px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-        
+
+        .controls-right {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+        }
+
         #play-button {
-            margin-bottom: 6px;
             background-color: #4CAF50;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
+            padding: 4px 10px;
         }
         
         #play-button:hover {
             background-color: #45a049;
         }
+
+        .speed-label {
+            font-size: 0.8em;
+            color: #555;
+            margin-bottom: -2px;
+        }
+
+        #speed-select {
+            font-size: 0.85em;
+        }
         
-        select {
-            max-height: 80vh;
-            overflow-y: auto;
+        #image-select {
             min-width: 200px;
         }
         
@@ -199,7 +215,7 @@
             .watering-grid {
                 grid-template-columns: 1fr 1fr;
             }
-            select {
+            #image-select {
                 min-width: 140px;
             }
         }
@@ -208,7 +224,7 @@
 <body>
     <!-- Update version number when deploying new version -->
     <h3>Timelapse Gallery & Sensor Data<span class="version-number">
-        v1.1.4</span></h3>
+        v1.1.5</span></h3>
     <div class="main-container">
         <div class="image-section">
             <div class="gallery-container">
@@ -219,9 +235,24 @@
                 </div>
             </div>
             <div id="controls-container">
-                <button id="play-button">Play</button>
-                <select id="image-select" size="10">
+                <select id="image-select">
                 </select>
+                <div class="controls-right">
+                    <button id="play-button">Play</button>
+                    <span class="speed-label">Speed</span>
+                    <select id="speed-select">
+                        <option value="0.1">0.1x (100ms)</option>
+                        <option value="0.2">0.2x (200ms)</option>
+                        <option value="0.3">0.3x (300ms)</option>
+                        <option value="0.4">0.4x (400ms)</option>
+                        <option value="0.5" selected>0.5x (500ms)</option>
+                        <option value="0.6">0.6x (600ms)</option>
+                        <option value="0.7">0.7x (700ms)</option>
+                        <option value="0.8">0.8x (800ms)</option>
+                        <option value="0.9">0.9x (900ms)</option>
+                        <option value="1.0">1.0x (1000ms)</option>
+                    </select>
+                </div>
             </div>
         </div>
         
@@ -323,8 +354,14 @@
             const imageContainer = document.getElementById("displayed-image");
             const imageSelect = document.getElementById("image-select");
             const playButton = document.getElementById("play-button");
+            const speedSelect = document.getElementById("speed-select");
             let imageList = [];
-            let playInterval = null;
+
+            // --- Buffered playback state ---
+            let isPlaying = false;
+            let playTimeout = null;
+            let preloadImg = null;  // single-frame lookahead buffer
+            let currentPlayIndex = 0;
 
             // Function to fetch the list of images from the /images directory
             // Returns a promise that resolves with the new image count
@@ -386,28 +423,94 @@
                 updateDisplayedImage(selectedImage);
             });
 
+            function getPlayInterval() {
+                return Math.round((parseFloat(speedSelect.value) || 1.0) * 1000);
+            }
+
+            function displayFrame(index) {
+                const image = imageList[index];
+                updateDisplayedImage(image);
+                imageSelect.value = image;
+            }
+
+            // Begin preloading the frame after `index` into the lookahead buffer.
+            function preloadNext(index) {
+                const nextIndex = (index + 1) % imageList.length;
+                const img = new Image();
+                img.src = `/images/${imageList[nextIndex]}`;
+                preloadImg = img;
+            }
+
+            // Schedule the transition to the frame after `fromIndex`.
+            // After the interval elapses we either advance immediately (if the
+            // preloaded image is ready) or wait for its load event (so we never
+            // skip a frame that hasn't finished downloading yet).
+            function scheduleNext(fromIndex) {
+                if (!isPlaying) return;
+                const nextIndex = (fromIndex + 1) % imageList.length;
+
+                playTimeout = setTimeout(function () {
+                    playTimeout = null;
+                    if (!isPlaying) return;
+
+                    function advance() {
+                        if (!isPlaying) return;
+                        displayFrame(nextIndex);
+                        currentPlayIndex = nextIndex;
+                        preloadNext(nextIndex);
+                        scheduleNext(nextIndex);
+                    }
+
+                    const buf = preloadImg;
+                    if (buf && buf.complete && buf.naturalWidth > 0) {
+                        // Already in cache / fully loaded — advance right away.
+                        advance();
+                    } else if (buf) {
+                        // Still downloading — wait for load before advancing.
+                        buf.onload = function () {
+                            if (isPlaying && preloadImg === buf) advance();
+                        };
+                        buf.onerror = function () {
+                            // Broken image — skip it and keep going.
+                            if (isPlaying && preloadImg === buf) {
+                                currentPlayIndex = nextIndex;
+                                preloadNext(nextIndex);
+                                scheduleNext(nextIndex);
+                            }
+                        };
+                    } else {
+                        advance();
+                    }
+                }, getPlayInterval());
+            }
+
+            function startPlayback() {
+                if (imageList.length === 0) return;
+                isPlaying = true;
+                imageSelect.blur(); // close the dropdown if it is open
+                currentPlayIndex = 0;
+                displayFrame(currentPlayIndex);
+                preloadNext(currentPlayIndex);
+                scheduleNext(currentPlayIndex);
+                playButton.textContent = "Stop";
+            }
+
+            function stopPlayback() {
+                isPlaying = false;
+                if (playTimeout) {
+                    clearTimeout(playTimeout);
+                    playTimeout = null;
+                }
+                preloadImg = null;
+                playButton.textContent = "Play";
+            }
+
             // Event listener for the "Play" button
             playButton.addEventListener("click", function () {
-                if (playInterval) {
-                    // Stop playing
-                    clearInterval(playInterval);
-                    playInterval = null;
-                    playButton.textContent = "Play";
+                if (isPlaying) {
+                    stopPlayback();
                 } else {
-                    // Start playing
-                    let currentIndex = 0;
-                    playInterval = setInterval(function () {
-                        if (currentIndex >= imageList.length) {
-                            currentIndex = 0; // Loop back to start
-                        }
-                        const currentImage = imageList[currentIndex];
-                        updateDisplayedImage(currentImage);
-                        // Select the current image in the dropdown
-                        imageSelect.value = currentImage;
-                        currentIndex++;
-                        console.log('currentIndex', currentIndex);
-                    }, 1000); // Change images every 1 second
-                    playButton.textContent = "Stop";
+                    startPlayback();
                 }
             });
 
