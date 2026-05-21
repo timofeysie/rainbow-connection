@@ -12,37 +12,114 @@
             padding: 4px;
             background-color: #f5f5f5;
         }
-        
-        h3 {
-            margin: 4px 0;
+
+        /* ── Page header: title + controls in one row on desktop ── */
+        .page-header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
         }
-        
+
+        .page-header h3 {
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        #controls-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
+        /* Each .controls-row is a flex-row of controls.
+           On desktop both rows sit inline; on mobile they stack. */
+        .controls-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #play-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 10px;
+            white-space: nowrap;
+        }
+
+        #play-button:hover {
+            background-color: #45a049;
+        }
+
+        .speed-label {
+            font-size: 0.85em;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        #image-select {
+            min-width: 180px;
+        }
+
+        #speed-select {
+            font-size: 0.85em;
+        }
+
+        /* ── Main layout ── */
         .main-container {
             display: flex;
             flex-direction: row;
+            align-items: flex-start;
             gap: 12px;
-            height: 95vh;
         }
-        
+
         .image-section {
-            flex: 3;               /* 75% width on desktop */
-            display: flex;
-            flex-direction: column;
-            position: relative;    /* anchor for absolute controls */
+            flex: 3;
             min-width: 0;
         }
-        
+
+        .image-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+            line-height: 0; /* remove inline gap below img */
+        }
+
+        #image-link {
+            display: block;
+        }
+
+        img#displayed-image {
+            width: 100%;
+            height: auto;
+            max-height: 85vh;
+            object-fit: contain;
+            cursor: pointer;
+            display: block;
+        }
+
+        /* ── Sensor panel ── */
         .sensor-section {
-            flex: 1;               /* 25% width on desktop */
+            flex: 1;
             background-color: white;
             padding: 8px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             overflow-y: auto;
-            max-height: 95vh;
+            max-height: 92vh;
             min-width: 0;
         }
-        
+
         .sensor-card {
             margin-bottom: 6px;
             padding: 6px 8px;
@@ -50,24 +127,24 @@
             border-radius: 5px;
             border-left: 4px solid #4CAF50;
         }
-        
+
         .sensor-label {
             font-weight: bold;
             color: #333;
             margin-bottom: 2px;
             font-size: 0.95em;
         }
-        
+
         .sensor-value {
             font-size: 1.2em;
             color: #2196F3;
         }
-        
+
         .sensor-unit {
             font-size: 0.9em;
             color: #666;
         }
-        
+
         .sensor-timestamp {
             font-size: 0.75em;
             color: #999;
@@ -80,7 +157,7 @@
             font-weight: 600;
             color: #555;
         }
-        
+
         .status-indicator {
             display: inline-block;
             width: 10px;
@@ -88,96 +165,16 @@
             border-radius: 50%;
             margin-right: 5px;
         }
-        
-        .status-online {
-            background-color: #4CAF50;
-        }
-        
-        .status-offline {
-            background-color: #f44336;
-        }
-        
-        .gallery-container {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            min-height: 0;
-        }
-        
-        .image-container {
-            flex: 1;
-            min-height: 0;
-            overflow: hidden;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 6px;
-            /* give the container a concrete size so children can resolve % */
-            width: 100%;
-            height: 0;          /* overridden by flex: 1 + min-height: 0 */
-        }
-        
-        #image-link {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        
-        #controls-container {
-            display: flex;
-            flex-direction: row;
-            align-items: flex-start;
-            gap: 6px;
-            position: absolute;
-            top: 6px;
-            right: 6px;
-            padding: 6px 8px;
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
 
-        .controls-right {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 6px;
-        }
+        .status-online  { background-color: #4CAF50; }
+        .status-offline { background-color: #f44336; }
 
-        #play-button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 4px 10px;
-        }
-        
-        #play-button:hover {
-            background-color: #45a049;
-        }
-
-        .speed-label {
-            font-size: 0.8em;
-            color: #555;
-            margin-bottom: -2px;
-        }
-
-        #speed-select {
-            font-size: 0.85em;
-        }
-        
-        #image-select {
-            min-width: 200px;
-        }
-        
         .sensor-grid {
             display: grid;
             grid-template-columns: 1fr;
             gap: 6px;
         }
-        
+
         .version-number {
             font-size: 0.7em;
             color: #666;
@@ -185,74 +182,89 @@
             margin-left: 10px;
         }
 
-        img#displayed-image {
-            /* fill the link/container exactly, shrink to fit, never overflow */
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            cursor: pointer;
-            display: block;
-        }
-
         /* ── Mobile: stacked layout ── */
         @media (max-width: 768px) {
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            #controls-container {
+                margin-left: 0;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+                width: 100%;
+            }
+
+            .controls-row {
+                width: 100%;
+            }
+
+            #image-select {
+                flex: 1;
+                min-width: 0;
+            }
+
+            img#displayed-image {
+                max-height: 60vh;
+            }
+
             .main-container {
                 flex-direction: column;
-                height: auto;
                 gap: 8px;
             }
+
             .image-section {
-                flex: none;
-                height: 75vh;
+                width: 100%;
             }
+
             .sensor-section {
-                flex: none;
                 max-height: none;
                 overflow-y: visible;
             }
+
             /* Two-column sensor cards on mobile */
             .sensor-grid,
             .watering-grid {
                 grid-template-columns: 1fr 1fr;
-            }
-            #image-select {
-                min-width: 140px;
             }
         }
     </style>
 </head>
 <body>
     <!-- Update version number when deploying new version -->
-    <h3>Timelapse Gallery & Sensor Data<span class="version-number">
-        v1.1.5</span></h3>
+    <div class="page-header">
+        <h3>Timelapse Gallery &amp; Sensor Data<span class="version-number">v1.2.0</span></h3>
+        <div id="controls-container">
+            <div class="controls-row">
+                <select id="image-select"></select>
+                <button id="play-button">Play</button>
+            </div>
+            <div class="controls-row">
+                <span class="speed-label">Speed</span>
+                <select id="speed-select">
+                    <option value="0.1">0.1x (100ms)</option>
+                    <option value="0.2">0.2x (200ms)</option>
+                    <option value="0.3">0.3x (300ms)</option>
+                    <option value="0.4">0.4x (400ms)</option>
+                    <option value="0.5" selected>0.5x (500ms)</option>
+                    <option value="0.6">0.6x (600ms)</option>
+                    <option value="0.7">0.7x (700ms)</option>
+                    <option value="0.8">0.8x (800ms)</option>
+                    <option value="0.9">0.9x (900ms)</option>
+                    <option value="1.0">1.0x (1000ms)</option>
+                </select>
+            </div>
+        </div>
+    </div>
     <div class="main-container">
         <div class="image-section">
-            <div class="gallery-container">
-                <div class="image-container">
-                    <a id="image-link" href="#" target="_blank" title="Click to open full image">
-                        <img id="displayed-image" src="" alt="Displayed Image">
-                    </a>
-                </div>
-            </div>
-            <div id="controls-container">
-                <select id="image-select">
-                </select>
-                <div class="controls-right">
-                    <button id="play-button">Play</button>
-                    <span class="speed-label">Speed</span>
-                    <select id="speed-select">
-                        <option value="0.1">0.1x (100ms)</option>
-                        <option value="0.2">0.2x (200ms)</option>
-                        <option value="0.3">0.3x (300ms)</option>
-                        <option value="0.4">0.4x (400ms)</option>
-                        <option value="0.5" selected>0.5x (500ms)</option>
-                        <option value="0.6">0.6x (600ms)</option>
-                        <option value="0.7">0.7x (700ms)</option>
-                        <option value="0.8">0.8x (800ms)</option>
-                        <option value="0.9">0.9x (900ms)</option>
-                        <option value="1.0">1.0x (1000ms)</option>
-                    </select>
-                </div>
+            <div class="image-container">
+                <a id="image-link" href="#" target="_blank" title="Click to open full image">
+                    <img id="displayed-image" src="" alt="Displayed Image">
+                </a>
             </div>
         </div>
         
