@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -51,6 +51,9 @@ _FLAG_WRITE_NO_RESPONSE = const(0x0004)
 _FLAG_WRITE = const(0x0008)
 _FLAG_NOTIFY = const(0x0010)
 
+# BLE advertising data type for "Complete Local Name" (used in scan response).
+_ADV_TYPE_COMPLETE_NAME = const(0x09)
+
 # Nordic UART Service UUIDs
 _UART_UUID = bluetooth.UUID("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
 _UART_TX = (
@@ -65,6 +68,21 @@ _UART_SERVICE = (
     _UART_UUID,
     (_UART_TX, _UART_RX),
 )
+
+
+def _build_name_scan_response(name):
+    """Encode just the Complete Local Name AD structure for use as scan response.
+
+    Putting the name in scan response (rather than the main adv packet) frees
+    up enough room in the 31-byte adv packet for the 128-bit UART service UUID,
+    while still letting BLE centrals see the name during an active scan.
+    """
+    name_bytes = name.encode("utf-8") if isinstance(name, str) else bytes(name)
+    # 31-byte BLE packet, minus 2 bytes for the AD length+type header.
+    if len(name_bytes) > 29:
+        print(f"⚠ PAIR_NAME-derived BLE name is too long ({len(name_bytes)} > 29); truncating")
+        name_bytes = name_bytes[:29]
+    return bytes((len(name_bytes) + 1, _ADV_TYPE_COMPLETE_NAME)) + name_bytes
 
 # === Hardware Setup ===
 matrix = glowbit.matrix8x8()
@@ -393,6 +411,12 @@ class BLESimplePeripheral:
         time.sleep(0.1)
         self._ble.active(True)
         time.sleep(0.1)
+        # Set the GAP device name so it's also reachable via the GAP service after
+        # connect (defaults to "MPY BTSTACK" otherwise).
+        try:
+            self._ble.config(gap_name=name)
+        except Exception as e:
+            print(f"Could not set gap_name: {e}")
         self._ble.irq(self._irq)
         
         # Get and log the BLE MAC address
@@ -464,7 +488,12 @@ class BLESimplePeripheral:
         self._write_callback = None
         self._display_callback = None  # called with "advertising" when we start/restart advertising
         self._just_connected = False
-        self._payload = advertising_payload(name=name, services=[_UART_UUID])
+        # Split the advertising data so a long name like "Pico-Client-<PAIR_NAME>"
+        # plus the 128-bit UART UUID (which alone is 18 bytes) fits within the
+        # BLE 31-byte adv-packet limit. Service UUIDs go in adv data; the local
+        # name goes in the scan response. Bleak combines both for `device.name`.
+        self._payload = advertising_payload(services=[_UART_UUID])
+        self._resp_payload = _build_name_scan_response(name)
         self._mac_address = mac_str
         self._advertise()
 
@@ -533,7 +562,11 @@ class BLESimplePeripheral:
     def _advertise(self, interval_us=500000):
         """Start advertising the BLE service"""
         print("Starting advertising...")
-        self._ble.gap_advertise(interval_us, adv_data=self._payload)
+        self._ble.gap_advertise(
+            interval_us,
+            adv_data=self._payload,
+            resp_data=self._resp_payload,
+        )
         if self._display_callback:
             self._display_callback("advertising")
 

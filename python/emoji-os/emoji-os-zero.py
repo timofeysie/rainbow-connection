@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.0"
+VERSION = " v0.5.1"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -295,18 +295,21 @@ class BLEController:
                     print(f"⚠ Warning: Could not verify services: {e}")
                 # Strict multiplayer pairing: only mark connected after PAIR_OK
                 if not await self._do_pair_handshake():
-                    print("✗ Pair handshake failed — disconnecting and rescanning", flush=True)
+                    print("✗ Pair handshake failed — disconnecting", flush=True)
+                    self.connected = False
                     try:
+                        # Bleak's disconnected_callback (_on_pico_disconnect)
+                        # schedules _reconnect for us, so we deliberately do
+                        # NOT create another _reconnect task here. Otherwise
+                        # two BlueZ scans race and the second one fails with
+                        # "Operation already in progress".
                         await self.client.disconnect()
                     except Exception:
                         pass
-                    self.connected = False
                     ble_connection_status = "disconnected"
                     draw_connection_indicator()
                     disp.LCD_ShowImage(image, 0, 0)
                     post_to_server("/api/status", _status_payload("disconnected"))
-                    if ble_event_loop and ble_event_loop.is_running():
-                        asyncio.create_task(_reconnect())
                     return False
                 self.connected = True
                 ble_connection_status = "connected"

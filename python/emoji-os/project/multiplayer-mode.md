@@ -100,7 +100,23 @@ flowchart TD
 - Legacy single-pair setup: leaving `pair_config.py` off both devices uses
   `PAIR_NAME = "default"` on each, which still pairs correctly.
 
-### Affected scripts (minor versions bumped)
+### Advertising packet layout
 
-- `python/emoji-os/emoji-os-pico-0.2.4.py` (now `VERSION = "0.3.0"`)
-- `python/emoji-os/emoji-os-zero.py` (now `VERSION = " v0.5.0"`)
+A 128-bit UART service UUID plus a `Pico-Client-<PAIR_NAME>` name will not fit
+in a single 31-byte BLE advertising packet. To keep both visible to the Zero,
+the Pico splits its advertising:
+
+- **Adv data**: flags + Nordic UART service UUID (lets service-UUID-filtered
+  scans still match the badge).
+- **Scan response**: complete local name only (so the Zero's active scan can
+  see the full `Pico-Client-<PAIR_NAME>` string and pick the correct badge in
+  multi-pair environments).
+
+The Pico also calls `bluetooth.BLE().config(gap_name=...)` so the same name is
+exposed through the GAP service after connect, instead of the firmware default
+`MPY BTSTACK`.
+
+### Affected scripts
+
+- `python/emoji-os/emoji-os-pico-0.2.4.py` (now `VERSION = "0.3.1"`)
+- `python/emoji-os/emoji-os-zero.py` (now `VERSION = " v0.5.1"`)
