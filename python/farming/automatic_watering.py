@@ -7,13 +7,13 @@
 from time import sleep_ms
 from Plant_io import Plant_io, DataLogger
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 print(f"Automatic Watering Script v{VERSION} starting...")
 
 while True:
     ### Step 1: Initialise the Plant
     plant = Plant_io()
-    plant.moisture_setpoint = 32 # change this to tune how moist the growing media should be. Use the results from test_moisture_sensor.py
+    plant.moisture_setpoint = 53 # change this to tune how moist the growing media should be. Use the results from test_moisture_sensor.py
 
     ### Step 2: Collect some data to log
     soil_moisture = plant.measure_soil()
