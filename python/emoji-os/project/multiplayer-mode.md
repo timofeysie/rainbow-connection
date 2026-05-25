@@ -32,9 +32,16 @@ is preserved for a single pair.
 
 ### Configuration
 
-- File location (Zero): `python/emoji-os/pair_config.py`
-- File location (Pico): `pair_config.py` on the Pico's filesystem (alongside `emoji-os-pico-*.py`)
-- File contents (both devices):
+- File location (Zero, preferred): one directory **above** the cloned repo,
+  e.g. `/home/tim/repos/pair_config.py` when the repo lives at
+  `/home/tim/repos/rainbow-connection/`. Keeping the file outside the repo
+  means `git pull` will not overwrite it.
+- File location (Zero, fallback): `python/emoji-os/pair_config.py` next to
+  `emoji-os-zero.py`. The Zero will use this if no external file is found.
+- File location (Pico): `pair_config.py` on the Pico's filesystem (alongside
+  `emoji-os-pico-*.py`). The Pico is updated by manually copying files, so the
+  config can live next to the script without being clobbered by updates.
+- File contents (all locations):
 
 ```python
 PAIR_NAME = "living-room"
@@ -42,6 +49,12 @@ PAIR_NAME = "living-room"
 
 The string can be anything you like (recommended: lowercase, no spaces, e.g.
 `living-room`, `kitchen`, `alpha`). Both halves of a pair must match exactly.
+
+The Zero logs which file it loaded `PAIR_NAME` from at startup, e.g.
+
+```text
+[PAIR] PAIR_NAME='living-room' (loaded from /home/tim/repos/pair_config.py) — looking for 'Pico-Client-living-room'
+```
 
 ### Wire protocol
 
@@ -119,4 +132,4 @@ exposed through the GAP service after connect, instead of the firmware default
 ### Affected scripts
 
 - `python/emoji-os/emoji-os-pico-0.2.4.py` (now `VERSION = "0.3.1"`)
-- `python/emoji-os/emoji-os-zero.py` (now `VERSION = " v0.5.1"`)
+- `python/emoji-os/emoji-os-zero.py` (now `VERSION = " v0.5.2"`)

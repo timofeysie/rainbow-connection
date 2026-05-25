@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.1"
+VERSION = " v0.5.2"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -49,20 +49,45 @@ UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # Write characterist
 UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # Notify characteristic
 
 # === Multiplayer Pairing ===
-# PAIR_NAME identifies this controller/badge pair. The matching emoji-os-pico-*.py
-# must use the same PAIR_NAME. Override by creating `pair_config.py` next to this
-# script containing e.g. `PAIR_NAME = "living-room"`. See
+# PAIR_NAME identifies this controller/badge pair. The matching
+# emoji-os-pico-*.py running on the badge must use the same PAIR_NAME.
+#
+# To survive `git pull`, the preferred location for `pair_config.py` is the
+# directory ABOVE the repo root, e.g.
+#   /home/tim/repos/pair_config.py
+# given this script lives at
+#   /home/tim/repos/rainbow-connection/python/emoji-os/emoji-os-zero.py
+# A `pair_config.py` co-located with this script is also accepted as a
+# fallback, and "default" is used if neither file exists. See
 # python/emoji-os/project/multiplayer-mode.md for the full design.
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+# python/emoji-os/  ->  python/  ->  <repo>/  ->  <repo_parent>/
+_PAIR_CONFIG_DIR = _os.path.normpath(_os.path.join(_HERE, "..", "..", ".."))
+_PAIR_CONFIG_PATH = _os.path.join(_PAIR_CONFIG_DIR, "pair_config.py")
+
+if _os.path.isfile(_PAIR_CONFIG_PATH) and _PAIR_CONFIG_DIR not in _sys.path:
+    _sys.path.insert(0, _PAIR_CONFIG_DIR)
+
 try:
     from pair_config import PAIR_NAME  # type: ignore  # noqa: F401
+    import pair_config as _pair_config_module  # type: ignore
+    _PAIR_CONFIG_SOURCE = getattr(_pair_config_module, "__file__", "(unknown)")
 except Exception:
     PAIR_NAME = "default"
+    _PAIR_CONFIG_SOURCE = "fallback default (no pair_config.py found)"
 
 # Target BLE name advertised by the paired Pico (see emoji-os-pico-*.py).
 TARGET_DEVICE_NAME = f"Pico-Client-{PAIR_NAME}"
 PAIR_HANDSHAKE_TIMEOUT_S = 5.0
 
-print(f"[PAIR] PAIR_NAME='{PAIR_NAME}' — looking for '{TARGET_DEVICE_NAME}'", flush=True)
+print(
+    f"[PAIR] PAIR_NAME='{PAIR_NAME}' (loaded from {_PAIR_CONFIG_SOURCE}) "
+    f"— looking for '{TARGET_DEVICE_NAME}'",
+    flush=True,
+)
 
 
 def _scan_device_service_uuids(device):

@@ -73,8 +73,8 @@ Each controller/badge pair uses a shared `PAIR_NAME` so that multiple pairs can
 operate in the same room without interfering with each other.  The default value
 is `"default"`, which is fine for a single-pair setup.
 
-Both sides read `PAIR_NAME` from an optional `pair_config.py` file placed next
-to the main script.  If the file is absent the default is used.
+Both sides read `PAIR_NAME` from an optional `pair_config.py` file.  If no file
+is found the default is used.
 
 ### Pico — set PAIR\_NAME
 
@@ -86,17 +86,46 @@ PAIR_NAME = "living-room"
 ```
 
 Upload the file to the Pico via Thonny alongside the other required files.
+Because the Pico is updated by hand, leaving the file in place across firmware
+copies is straightforward.
 
 ### Zero controller — set PAIR\_NAME
 
-On the Raspberry Pi Zero W, create `pair_config.py` next to `emoji-os-zero.py`:
+The Zero is updated via `git pull`, so the config lives **outside** the cloned
+repo to avoid being overwritten.  The Zero looks one directory above the repo
+root first (e.g. `/home/tim/repos/pair_config.py` when the repo is at
+`/home/tim/repos/rainbow-connection/`), and falls back to a file co-located
+with the script if no external file is found.
+
+Recommended setup on the Zero:
+
+```sh
+echo 'PAIR_NAME = "living-room"' > ~/repos/pair_config.py
+```
+
+(Adjust the path to match wherever your `rainbow-connection/` clone lives —
+`pair_config.py` should sit in that clone's parent directory.)
+
+The file contents are just:
 
 ```python
 PAIR_NAME = "living-room"
 ```
 
-Both files must use the **same** `PAIR_NAME` value.  The Zero advertises a BLE
-device named `Pico-Client-<PAIR_NAME>` and the Pico will only accept a
+After setup, future `git pull` runs will leave `~/repos/pair_config.py`
+untouched. If you previously had a `pair_config.py` inside
+`python/emoji-os/`, you can revert it with `git checkout
+python/emoji-os/pair_config.py` and the external file will take precedence.
+
+The Zero prints the resolved location at startup so you can confirm which file
+was loaded:
+
+```text
+[PAIR] PAIR_NAME='living-room' (loaded from /home/tim/repos/pair_config.py) — looking for 'Pico-Client-living-room'
+```
+
+Both Pico and Zero must use the **same** `PAIR_NAME` value.  The Pico
+advertises a BLE device named `Pico-Client-<PAIR_NAME>` and only accepts a
 connection handshake from a controller that sends the matching name.
 
 > **Tip:** use a short, URL-safe string with no spaces, e.g. `"living-room"`,
