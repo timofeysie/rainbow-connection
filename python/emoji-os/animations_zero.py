@@ -187,13 +187,15 @@ def rain_animation(draw, image, disp, scale, start_x, start_y, iters=200, densit
         # Check for interruption
         if interruption_check and interruption_check():
             return True  # Animation was interrupted
-        
-        # Add new drops if needed
+
+        # Top up drops to maintain density. NOTE: do NOT decrement `iters` here
+        # — glowbit.rain() on the Pico counts `iters` as frames, not as drops
+        # added. Counting per-drop made the Zero animation run for many tens of
+        # seconds because the inner loop only fires when a drop has fallen off.
         while len(drops) / density < 64 / 16 and iters > 0:
             p = random.randint(0, 7)
             drops.append(Raindrop(p, random.randint(2, 8)))
-            iters -= 1
-        
+
         # Create blank grid
         grid = create_blank_grid()
         
@@ -222,8 +224,12 @@ def rain_animation(draw, image, disp, scale, start_x, start_y, iters=200, densit
         draw.rectangle((start_x, start_y, start_x + scale * 8, start_y + scale * 8), fill=(0, 0, 0))
         render_grid_to_image(draw, grid, scale, start_x, start_y)
         disp.LCD_ShowImage(draw._image, 0, 0)
+
+        # Per-frame countdown: matches glowbit.rain() on the Pico so the Zero
+        # animation runs for ~`iters` frames and ends shortly after the Pico's.
+        iters -= 1
         time.sleep(0.05)
-    
+
     return False  # Animation completed normally
 
 # Preview matrices for menu display (8x8 static representations)
