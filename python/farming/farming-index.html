@@ -85,9 +85,60 @@
         .image-section {
             flex: 3;
             min-width: 0;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 8px;
         }
 
+        /* ── Thumbnail panel (first / last) ── */
+        .thumbnail-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-shrink: 0;
+            width: 90px;
+        }
+
+        .thumbnail-card {
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.15s;
+            line-height: 0;
+        }
+
+        .thumbnail-card:hover {
+            border-color: #4CAF50;
+        }
+
+        .thumbnail-card.active {
+            border-color: #2196F3;
+        }
+
+        .thumbnail-card img {
+            width: 100%;
+            height: 58px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .thumbnail-label {
+            text-align: center;
+            font-size: 0.72em;
+            color: #555;
+            padding: 3px 0;
+            background: #f5f5f5;
+            line-height: 1.2;
+        }
+
+        /* ── Main image ── */
         .image-container {
+            flex: 1;
+            min-width: 0;
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -218,6 +269,17 @@
 
             .image-section {
                 width: 100%;
+                flex-direction: column;
+            }
+
+            /* Thumbnails become a horizontal row above the image on mobile */
+            .thumbnail-panel {
+                flex-direction: row;
+                width: 100%;
+            }
+
+            .thumbnail-card {
+                width: 90px;
             }
 
             .sensor-section {
@@ -236,7 +298,7 @@
 <body>
     <!-- Update version number when deploying new version -->
     <div class="page-header">
-        <h3>Timelapse Gallery &amp; Sensor Data<span class="version-number">v1.2.0</span></h3>
+        <h3>Timelapse Gallery &amp; Sensor Data<span class="version-number">v1.2.1</span></h3>
         <div id="controls-container">
             <div class="controls-row">
                 <select id="image-select"></select>
@@ -261,6 +323,16 @@
     </div>
     <div class="main-container">
         <div class="image-section">
+            <div class="thumbnail-panel">
+                <div class="thumbnail-card" id="thumb-first" title="Jump to first image">
+                    <img id="thumb-first-img" src="" alt="First image">
+                    <div class="thumbnail-label">First</div>
+                </div>
+                <div class="thumbnail-card" id="thumb-last" title="Jump to last image">
+                    <img id="thumb-last-img" src="" alt="Last image">
+                    <div class="thumbnail-label">Last</div>
+                </div>
+            </div>
             <div class="image-container">
                 <a id="image-link" href="#" target="_blank" title="Click to open full image">
                     <img id="displayed-image" src="" alt="Displayed Image">
@@ -367,6 +439,10 @@
             const imageSelect = document.getElementById("image-select");
             const playButton = document.getElementById("play-button");
             const speedSelect = document.getElementById("speed-select");
+            const thumbFirstCard = document.getElementById("thumb-first");
+            const thumbLastCard  = document.getElementById("thumb-last");
+            const thumbFirstImg  = document.getElementById("thumb-first-img");
+            const thumbLastImg   = document.getElementById("thumb-last-img");
             let imageList = [];
 
             // --- Buffered playback state ---
@@ -418,7 +494,21 @@
                     option.text = image;
                     imageSelect.appendChild(option);
                 });
+                updateThumbnails();
                 console.log('imageList', imageList);
+            }
+
+            // Update the first/last thumbnail images whenever the list changes
+            function updateThumbnails() {
+                if (imageList.length === 0) return;
+                thumbFirstImg.src = `/images/${imageList[0]}`;
+                thumbLastImg.src  = `/images/${imageList[imageList.length - 1]}`;
+            }
+
+            // Highlight whichever thumbnail matches the currently displayed image
+            function setActiveThumbnail(imagePath) {
+                thumbFirstCard.classList.toggle("active", imagePath === imageList[0]);
+                thumbLastCard.classList.toggle("active",  imagePath === imageList[imageList.length - 1]);
             }
 
             // Function to update the displayed image
@@ -426,6 +516,7 @@
                 const src = `/images/${imagePath}`;
                 imageContainer.src = src;
                 document.getElementById("image-link").href = src;
+                setActiveThumbnail(imagePath);
             }
 
             // Event listener for the select element
@@ -433,6 +524,21 @@
                 const selectedImage = imageSelect.value;
                 console.log('selectedImage', selectedImage);
                 updateDisplayedImage(selectedImage);
+            });
+
+            // Thumbnail click handlers
+            thumbFirstCard.addEventListener("click", function () {
+                if (imageList.length === 0) return;
+                const img = imageList[0];
+                updateDisplayedImage(img);
+                imageSelect.value = img;
+            });
+
+            thumbLastCard.addEventListener("click", function () {
+                if (imageList.length === 0) return;
+                const img = imageList[imageList.length - 1];
+                updateDisplayedImage(img);
+                imageSelect.value = img;
             });
 
             function getPlayInterval() {
