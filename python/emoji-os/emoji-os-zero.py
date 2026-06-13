@@ -24,7 +24,8 @@ from emojis_zero import fireworks_animation, rain_animation, connecting_matrix, 
 # === Server Configuration ===
 # Set SERVER_URL to enable reporting to the emoji server dashboard.
 # Leave empty to disable (safe default — server is not required to run).
-SERVER_URL = "https://4jvum6svrd.ap-southeast-2.awsapprunner.com"  # no trailing slash
+# no trailing slash please
+SERVER_URL = "https://emoji-staging.kogs.link"
 # Logical Pi Zero id (POST /api/status and /api/emoji).
 CONTROLLER_ID = "zero-living-room"
 # If non-empty, used as badgeId for all API posts. If empty, badgeId is derived from

@@ -101,8 +101,11 @@ scp tim@raspberrypi:/var/www/html/images/*.jpg C:\Users\timof\OneDrive\Pictures\
 
 ## Logs
 
-| File | Contents |
-|---|---|
-| `/var/log/sensor-timelapse.log` | Main script log (sensor updates, captures, errors) |
-| `/var/log/sensor-timelapse-stdout.log` | stdout if run with `nohup` |
-| `/var/www/html/sensor-data.json` | Live data served to the web UI |
+
+| File                                   | Contents                                           |
+| -------------------------------------- | -------------------------------------------------- |
+| `/var/log/sensor-timelapse.log`        | Main script log (sensor updates, captures, errors) |
+| `/var/log/sensor-timelapse-stdout.log` | stdout if run with `nohup`                         |
+| `/var/www/html/sensor-data.json`       | Live data served to the web UI                     |
+
+
