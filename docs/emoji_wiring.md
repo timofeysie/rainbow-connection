@@ -36,7 +36,7 @@ Power the RFID board only from **3.3 V** (I2C and the module are 3.3 V).
 | SDA    | GP16              |           21 |
 | SCL    | GP17              |           22 |
 
-- **VCC (pin 36):** **3V3 (OUT)**; same net as pin **37** and other **3V3** labels on the board.
+- **VCC (pin 36):** **3V3 (OUT)** — the Pico's 3.3 V output. Do **not** use pin **37**, which is `3V3_EN` (an enable input, not a power output); wiring VCC there leaves the module unpowered.
 - **GND:** Use any Pico **GND** pin (for example **3**, **8**, **13**, **18**, **23**, **28**, or **33**).
 - **SDA/SCL:** **I2C0** on **GP16** / **GP17** (physical pins **21** / **22**), same side of the header as each other. See `python/tests/test-rfid.py`. Other GP pairs are valid if you update PiicoDev init accordingly.
 
