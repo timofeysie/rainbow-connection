@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.4"
+VERSION = " v0.5.5"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -1320,34 +1320,54 @@ def draw_connection_indicator(clear_area=True):
 
 
 def draw_battery_indicator():
-    """Draw a mobile-style battery icon + percentage in the lower-left corner.
+    """Draw a mobile-style battery indicator in two rows at the bottom-right.
 
-    Sits immediately to the right of the 16×16 BLE connection indicator.
+    Row 1 (upper): percentage text, right-aligned.
+    Row 2 (lower): battery body + nub, right-aligned.
+
     No-op when INA219 data is not yet available or the HAT is absent.
 
-    Layout (display is 128×128):
-      BLE icon  [x=2..18,  y=110..126]
-      Batt icon [x=21..41, y=118..126]  — 20×8 body + 2×4 nub
-      Pct text  [x=44..,   y=118    ]
+    Layout (display is 128×128, main emoji occupies x=36..92, y=72..128):
+      Pct text  [right-aligned, y≈108..116]  — clear of emoji
+      Batt icon [x=104..128,   y=118..126]  — clear of emoji
     """
     pct = _battery_percent
     if pct is None:
         return
 
-    batt_x  = 21                        # right of BLE indicator (ends at x=18)
-    batt_y  = disp.height - 10         # = 118 for 128 px display
+    margin  = 2    # pixels from right/bottom edges
     body_w  = 20
     body_h  = 8
     nub_w   = 2
     nub_h   = 4
+    row_gap = 2    # vertical gap between text row and icon row
 
-    # Colour: green > 50 %, yellow 20–50 %, red < 20 %
+    # --- Battery icon row (bottom) ---
+    # Body left edge so that body + nub end at (disp.width - margin).
+    batt_x = disp.width - margin - nub_w - body_w   # = 104
+    batt_y = disp.height - margin - body_h           # = 118
+
+    # --- Percentage text row (above icon) ---
+    pct_text = f"{pct}%"
+    try:
+        bbox   = draw.textbbox((0, 0), pct_text, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+    except AttributeError:
+        text_w, text_h = draw.textsize(pct_text, font=font)
+    text_x = disp.width - margin - text_w            # right-aligned
+    text_y = batt_y - row_gap - text_h               # row above battery icon
+
+    # Colour: green > 50 %, amber 20–50 %, red < 20 %
     if pct > 50:
         fill_color = (0, 180, 0)
     elif pct > 20:
         fill_color = (220, 160, 0)
     else:
         fill_color = (200, 0, 0)
+
+    # Percentage label
+    draw.text((text_x, text_y), pct_text, font=font, fill="white")
 
     # Battery body outline
     draw.rectangle(
@@ -1360,20 +1380,13 @@ def draw_battery_indicator():
         [batt_x + body_w, nub_y, batt_x + body_w + nub_w, nub_y + nub_h],
         fill="white",
     )
-    # Charge-level fill bar (inside the outline)
+    # Charge-level fill bar (inside the outline, coloured by level)
     fill_w = max(0, int((body_w - 2) * pct / 100))
     if fill_w > 0:
         draw.rectangle(
             [batt_x + 1, batt_y + 1, batt_x + 1 + fill_w, batt_y + body_h - 1],
             fill=fill_color,
         )
-    # Percentage label to the right of the nub
-    draw.text(
-        (batt_x + body_w + nub_w + 3, batt_y),
-        f"{pct}%",
-        font=font,
-        fill="white",
-    )
 
 
 def draw_display():
