@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.3"
+VERSION = " v0.5.4"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -20,6 +20,63 @@ from PIL import Image,ImageDraw,ImageFont,ImageColor
 from emojis_zero import *
 from animations_zero import fireworks_animation as fw_anim_func, rain_animation as rain_anim_func
 from emojis_zero import fireworks_animation, rain_animation, connecting_matrix, connected_matrix, not_connected_matrix
+
+# === Battery Monitoring (Waveshare UPS HAT C — INA219 at I2C 0x43) ===
+# Reads bus voltage once per minute in a daemon thread.
+# Gracefully no-ops when the HAT or smbus library is absent.
+_battery_percent = None   # 0–100, or None when INA219 is unreachable
+_battery_voltage = None   # float volts, or None
+
+_INA219_ADDR = 0x43       # Waveshare UPS HAT C default I2C address
+_INA219_BUS  = 1          # Standard Raspberry Pi I2C bus number
+
+
+def _read_ina219_voltage():
+    """Return bus voltage in V from the INA219, or None on any error."""
+    bus = None
+    try:
+        try:
+            import smbus2
+            bus = smbus2.SMBus(_INA219_BUS)
+        except ImportError:
+            import smbus
+            bus = smbus.SMBus(_INA219_BUS)
+        # Register 0x02 = bus voltage (16-bit, big-endian from chip)
+        raw = bus.read_word_data(_INA219_ADDR, 0x02)
+        # smbus returns little-endian on Linux — swap bytes to match INA219 big-endian
+        raw = ((raw & 0xFF) << 8) | ((raw >> 8) & 0xFF)
+        return (raw >> 3) * 0.004   # bits [15:3], 4 mV per LSB
+    except Exception as exc:
+        print(f"[BATT] INA219 read error: {exc}", flush=True)
+        return None
+    finally:
+        if bus is not None:
+            try:
+                bus.close()
+            except Exception:
+                pass
+
+
+def _voltage_to_percent(v):
+    """Map LiPo voltage (3.0 V – 4.2 V) to 0 – 100 %."""
+    if v is None:
+        return None
+    return max(0, min(100, int((v - 3.0) / 1.2 * 100)))
+
+
+def _battery_monitor():
+    """Background daemon thread: poll INA219 every 60 s."""
+    global _battery_percent, _battery_voltage
+    while True:
+        v = _read_ina219_voltage()
+        _battery_voltage = v
+        _battery_percent = _voltage_to_percent(v)
+        if v is not None:
+            print(f"[BATT] {v:.3f} V  {_battery_percent}%", flush=True)
+        time.sleep(60)
+
+
+threading.Thread(target=_battery_monitor, daemon=True).start()
 
 # === Server Configuration ===
 # Set SERVER_URL to enable reporting to the emoji server dashboard.
@@ -1261,6 +1318,64 @@ def draw_connection_indicator(clear_area=True):
     # Draw the indicator
     draw_emoji(draw, indicator_matrix, color_map, indicator_scale, indicator_x, indicator_y)
 
+
+def draw_battery_indicator():
+    """Draw a mobile-style battery icon + percentage in the lower-left corner.
+
+    Sits immediately to the right of the 16×16 BLE connection indicator.
+    No-op when INA219 data is not yet available or the HAT is absent.
+
+    Layout (display is 128×128):
+      BLE icon  [x=2..18,  y=110..126]
+      Batt icon [x=21..41, y=118..126]  — 20×8 body + 2×4 nub
+      Pct text  [x=44..,   y=118    ]
+    """
+    pct = _battery_percent
+    if pct is None:
+        return
+
+    batt_x  = 21                        # right of BLE indicator (ends at x=18)
+    batt_y  = disp.height - 10         # = 118 for 128 px display
+    body_w  = 20
+    body_h  = 8
+    nub_w   = 2
+    nub_h   = 4
+
+    # Colour: green > 50 %, yellow 20–50 %, red < 20 %
+    if pct > 50:
+        fill_color = (0, 180, 0)
+    elif pct > 20:
+        fill_color = (220, 160, 0)
+    else:
+        fill_color = (200, 0, 0)
+
+    # Battery body outline
+    draw.rectangle(
+        [batt_x, batt_y, batt_x + body_w, batt_y + body_h],
+        outline="white", fill=0,
+    )
+    # Terminal nub on the right
+    nub_y = batt_y + (body_h - nub_h) // 2
+    draw.rectangle(
+        [batt_x + body_w, nub_y, batt_x + body_w + nub_w, nub_y + nub_h],
+        fill="white",
+    )
+    # Charge-level fill bar (inside the outline)
+    fill_w = max(0, int((body_w - 2) * pct / 100))
+    if fill_w > 0:
+        draw.rectangle(
+            [batt_x + 1, batt_y + 1, batt_x + 1 + fill_w, batt_y + body_h - 1],
+            fill=fill_color,
+        )
+    # Percentage label to the right of the nub
+    draw.text(
+        (batt_x + body_w + nub_w + 3, batt_y),
+        f"{pct}%",
+        font=font,
+        fill="white",
+    )
+
+
 def draw_display():
     """Draw the complete display"""
     # Clear screen
@@ -1304,7 +1419,10 @@ def draw_display():
     
     # === BLE Connection Status Indicator (lower left) ===
     draw_connection_indicator(clear_area=False)  # Don't clear since we already cleared the whole screen
-    
+
+    # === Battery Indicator (lower left, to the right of BLE icon) ===
+    draw_battery_indicator()
+
     # Update display
     disp.LCD_ShowImage(image,0,0)
 
