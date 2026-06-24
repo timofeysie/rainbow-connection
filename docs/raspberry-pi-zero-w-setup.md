@@ -740,10 +740,39 @@ Interface: 192.168.68.50 --- 0xb
   192.168.68.57         88-a2-9e-32-fa-57     dynamic
 ```
 
+<<<<<<< HEAD
 Then you can use the IP address to login to the pi:
 
 ```sh
 ssh tim@192.168.68.57
+=======
+For example, if you see this:
+
+```
+timo@Timothys-MacBook-Pro timo % ping raspberrypi
+ping: cannot resolve raspberrypi: Unknown host
+```
+
+It just means that there are more than one raspberry pi on th network I guess.
+
+```sh
+timo@Timothys-MacBook-Pro timo % ssh tim@192.168.68.57
+The authenticity of host '192.168.68.57 (192.168.68.57)' can't be established.
+ED25519 key fingerprint is SHA256:BBRFqtOqacxUGQ/fWt7vHjgSRBrI8L9s9MSQjTSqyvc.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '192.168.68.57' (ED25519) to the list of known hosts.
+tim@192.168.68.57's password: 
+Linux raspberrypi 6.12.47+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.12.47-1+rpt1 (2025-09-16) aarch64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Mon May 25 11:15:45 2026 from 192.168.68.51
+>>>>>>> 5b82c972 (add docs work)
 ```
 
 ## Deleting files

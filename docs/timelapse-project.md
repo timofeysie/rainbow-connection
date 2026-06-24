@@ -97,3 +97,46 @@ Test the speaker:
 ```sh
 speaker-test -t wav -c 2
 ```
+## Deleting images
+
+To remove all the images, I use this command:
+
+```
+rm /home/tim/capture_image.log 
+```
+
+Sometimes, you may not want to delete all the images.
+
+To delete a range of images by date, we can do the following:
+
+Confirm exactly what will be deleted:
+
+```
+for f in image_*.jpg; do
+  if [[ "$f" > "image_2026-05-09_15-29-25.jpg" && "$f" < "image_2026-05-11_12-47-15.jpg" ]]; then
+    echo "$f"
+  fi
+done
+```
+
+Actually delete them with:
+
+```
+for f in image_*.jpg; do
+  if [[ "$f" > "image_2026-05-09_15-29-25.jpg" && "$f" < "image_2026-05-11_12-47-15.jpg" ]]; then
+    rm "$f"
+  fi
+done
+```
+
+You probably actually need to use sudo:
+
+```
+sudo rm "$f"
+```
+
+This one asks before each delete:
+
+```
+rm -i "$f"
+```
