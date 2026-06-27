@@ -539,6 +539,18 @@ others_t_matrix = [
     [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
 ]
 
+# NFC waiting/question-mark glyph (white '?', matches Pico test script layout)
+question_mark_matrix = [
+    [' ', ' ', 'W', 'W', 'W', ' ', ' ', ' '],
+    [' ', 'W', ' ', ' ', ' ', 'W', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', 'W', ' ', ' '],
+    [' ', ' ', ' ', ' ', 'W', ' ', ' ', ' '],
+    [' ', ' ', ' ', 'W', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', 'W', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
 # Color mapping
 color_map = {
     'Y': 'yellow',

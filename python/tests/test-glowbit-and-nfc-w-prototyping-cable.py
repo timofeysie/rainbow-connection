@@ -1,6 +1,15 @@
 # The Glowbit demo is for the Glowbit 8x8 matrix display.
 # The test method is for the PiicoDev RFID (NFC, I2C) using a
 # PiicoDev Prototyping Cable (Male) to connect to a Raspberry Pi Pico.
+#
+# The glowbit display reacts to the card shown:
+#   "5B:6F:B8:08"  (R12 - Monkey)  → blue circle for 5 s, then question mark
+#   "DB:93:B7:08"  (W3  - Clown)   → red cross  for 5 s, then question mark
+#   unknown card                    → question mark (unchanged)
+#   no tag present                  → question mark (idle/waiting state)
+#
+# CARD_DISPLAY_S — how long a matched card's circle stays on screen.
+CARD_DISPLAY_S = 5
 
 import glowbit
 import time
@@ -34,35 +43,88 @@ if rfid is None:
 print('Place tag near the PiicoDev RFID Module')
 print(rfid)
 
+
+def draw_red_cross():
+    """Draw a red '✕' (diagonal cross) on the 8×8 matrix.
+
+    Pixel layout (0 = off, 1 = on):
+      # . . . . . . #
+      . # . . . . # .
+      . . # . . # . .
+      . . . # # . . .
+      . . . # # . . .
+      . . # . . # . .
+      . # . . . . # .
+      # . . . . . . #
+    """
+    matrix.pixelsFill(matrix.black())
+    X = [
+        [1, 0, 0, 0, 0, 0, 0, 1],
+        [0, 1, 0, 0, 0, 0, 1, 0],
+        [0, 0, 1, 0, 0, 1, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0],
+        [0, 0, 1, 0, 0, 1, 0, 0],
+        [0, 1, 0, 0, 0, 0, 1, 0],
+        [1, 0, 0, 0, 0, 0, 0, 1],
+    ]
+    for row, r in enumerate(X):
+        for col, c in enumerate(r):
+            if c:
+                matrix.pixelSetXY(col, row, matrix.red())
+    matrix.pixelsShow()
+
+
+def draw_question_mark():
+    """Draw a '?' glyph on the 8×8 matrix in white.
+
+    Pixel layout (0 = off, 1 = on):
+      . . # # # . . .
+      . # . . . # . .
+      . . . . . # . .
+      . . . . # . . .
+      . . . # . . . .
+      . . . . . . . .
+      . . . # . . . .
+      . . . . . . . .
+    """
+    matrix.pixelsFill(matrix.black())
+    Q = [
+        [0, 0, 1, 1, 1, 0, 0, 0],
+        [0, 1, 0, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 1, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0],
+    ]
+    for row, r in enumerate(Q):
+        for col, c in enumerate(r):
+            if c:
+                matrix.pixelSetXY(col, row, matrix.white())
+    matrix.pixelsShow()
+
+
+# Start in the idle/waiting state.
+draw_question_mark()
+
 while True:
-    # matrix
-    matrix.drawCircle(3, 3, 3, matrix.blue())
-    matrix.pixelsShow()
-    print("Circle drawn")
-    time.sleep(1)
-    matrix.pixelsFill(matrix.black())
-    matrix.pixelsShow()
-    print("Circle cleared")
-    time.sleep(1)
-    matrix.drawCircle(3, 3, 3, matrix.red())
-    matrix.pixelsShow()
-    print("Circle drawn")
-    time.sleep(1)
-    matrix.pixelsFill(matrix.black())
-    matrix.pixelsShow()
-    print("Circle cleared")
-    time.sleep(1)
-    
-    # NFC
-    if rfid.tagPresent():    # if an RFID tag is present
-        id = rfid.readID()   # get the id
-        if (id == "5B:6F:B8:08"):
+    if rfid.tagPresent():
+        id = rfid.readID()
+        if id == "5B:6F:B8:08":
             print("R12 - Monkey")
-        elif (id == "DB:93:B7:08"):
+            matrix.pixelsFill(matrix.black())
+            matrix.drawCircle(3, 3, 3, matrix.blue())
+            matrix.pixelsShow()
+            time.sleep(CARD_DISPLAY_S)
+            draw_question_mark()
+        elif id == "DB:93:B7:08":
             print("W3 - Clown")
-        elif (id == "CB:61:B8:08"):
-            print("9")
+            draw_red_cross()
+            time.sleep(CARD_DISPLAY_S)
+            draw_question_mark()
         else:
+            # Unknown card — question mark is already showing; just log the ID.
             print(id)
     sleep_ms(100)
-

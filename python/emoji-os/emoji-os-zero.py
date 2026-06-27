@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.5"
+VERSION = " v0.5.6"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -99,6 +99,17 @@ else:
         "Set SERVER_URL in emoji-os-zero.py (HTTPS base, no trailing slash).",
         flush=True,
     )
+
+# === NFC Card Mapping ===
+# Static list of known NFC card IDs. Each entry maps a card ID to a display
+# name (printed to log) and a display result ("circle" = blue circle,
+# "x" = red X). Expand this list as needed; in future it may come from an API.
+NFC_CARD_MAP = {
+    "5B:6F:B8:08": {"name": "R12 - Monkey", "display": "circle"},
+    "DB:93:B7:08": {"name": "W3 - Clown",   "display": "x"},
+}
+# How long (seconds) to hold the NFC result on screen before returning to '?'
+NFC_RESULT_DISPLAY_S = 5
 
 # === BLE Configuration ===
 # Nordic UART Service UUIDs
@@ -400,6 +411,13 @@ class BLEController:
                 disp.LCD_ShowImage(image,0,0)
                 print("[BLE] connected — queueing POST /api/status", flush=True)
                 post_to_server("/api/status", _status_payload("connected"))
+                # Set up persistent TX notification handler so the Pico can
+                # push async messages (e.g. NFC card IDs) to the Zero.
+                try:
+                    await self.client.start_notify(UART_TX_CHAR_UUID, _on_pico_tx_notify)
+                    print("[BLE] TX notifications enabled — Pico→Zero channel active", flush=True)
+                except Exception as _ne:
+                    print(f"[BLE] warning: could not enable TX notifications: {_ne}", flush=True)
                 # Cancel any previous heartbeat and start a fresh one
                 global _heartbeat_task, _last_status_liveness_post
                 if _heartbeat_task and not _heartbeat_task.done():
@@ -612,10 +630,14 @@ def _emoji_label(menu, pos, neg):
             return "others_yes"
         if pos == 3:
             return "others_somi"
+        if pos == 4:
+            return "others_nfc_pos"
         if neg == 1:
             return "others_x"
         if neg == 2:
             return "others_no"
+        if neg == 4:
+            return "others_nfc_neg"
     return f"m{menu}-{pos}-{neg}"
 
 
@@ -692,6 +714,71 @@ def _on_pico_disconnect(client: BleakClient):
     post_to_server("/api/status", _status_payload("disconnected"))
     if ble_event_loop and ble_event_loop.is_running():
         asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
+
+
+def _on_pico_tx_notify(_sender: BleakGATTCharacteristic, data: bytearray):
+    """Persistent TX notification handler — receives async messages from the Pico.
+
+    Currently handles NFC card reads: the Pico sends ``NFC:<card_id>`` whenever
+    it scans a tag while in NFC mode.
+    """
+    try:
+        text = bytes(data).decode("utf-8", "ignore").strip()
+        print(f"[PICO→ZERO] {text!r}", flush=True)
+        if text.startswith("NFC:"):
+            card_id = text[4:]
+            _handle_nfc_card(card_id)
+    except Exception as e:
+        print(f"[BLE] error in TX notify handler: {e}", flush=True)
+
+
+def _handle_nfc_card(card_id: str):
+    """Process an NFC card ID received from the Pico.
+
+    Looks up the card in NFC_CARD_MAP, updates the Zero display, and sends
+    the result back to the Pico so its matrix shows the same response.
+    The result is cleared after NFC_RESULT_DISPLAY_S seconds.
+    """
+    global nfc_last_result, nfc_last_card_name
+
+    if not nfc_mode_active:
+        print(f"[NFC] card read ignored (not in NFC mode): {card_id}", flush=True)
+        return
+
+    card = NFC_CARD_MAP.get(card_id)
+    if card:
+        nfc_last_card_name = card["name"]
+        nfc_last_result = card["display"]
+        print(f"[NFC] known card: {card['name']} → {card['display']}", flush=True)
+    else:
+        nfc_last_card_name = f"Unknown ({card_id})"
+        nfc_last_result = "unknown"
+        print(f"[NFC] unknown card: {card_id}", flush=True)
+
+    draw_display()
+
+    # Send result to Pico so its matrix mirrors the Zero's response
+    result_symbol = "circle" if nfc_last_result == "circle" else "x"
+    nfc_result_cmd = f"NFC_RESULT:{result_symbol}".encode("utf-8")
+    if ble_event_loop and ble_controller.client and ble_controller.client.is_connected:
+        async def _send_nfc_result():
+            try:
+                await ble_controller.client.write_gatt_char(UART_RX_CHAR_UUID, nfc_result_cmd)
+                print(f"[NFC] sent to Pico: {nfc_result_cmd!r}", flush=True)
+            except Exception as exc:
+                print(f"[NFC] send to Pico failed: {exc}", flush=True)
+        asyncio.run_coroutine_threadsafe(_send_nfc_result(), ble_event_loop)
+
+    # After the display hold period, revert to the waiting question mark
+    def _reset_nfc_display():
+        global nfc_last_result, nfc_last_card_name
+        time.sleep(NFC_RESULT_DISPLAY_S)
+        if nfc_mode_active:
+            nfc_last_result = None
+            nfc_last_card_name = ""
+            draw_display()
+
+    threading.Thread(target=_reset_nfc_display, daemon=True).start()
 
 
 async def _reconnect():
@@ -773,6 +860,12 @@ prev_pos = 0
 prev_neg = 0
 prev_state = "none"  # or "done"
 
+# === NFC Mode State ===
+# Active when the user has selected menu 3 pos 4 (NFC pos) or neg 4 (NFC neg).
+nfc_mode_active = False
+nfc_last_result = None       # None, "circle", or "x" / "unknown"
+nfc_last_card_name = ""      # human-readable name from NFC_CARD_MAP
+
 # === Menu Items ===
 menu_items = ["Emojis", "Animations", "Characters", "Other"]
 
@@ -815,6 +908,15 @@ def draw_menu_row(draw, text, y_position, font, is_selected=False):
 
 def get_main_emoji():
     """Get the main emoji matrix based on current menu, pos, and neg selection"""
+    # NFC mode overrides the main emoji regardless of current nav state
+    if nfc_mode_active:
+        if nfc_last_result == "circle":
+            return others_circle_matrix
+        elif nfc_last_result in ("x", "unknown"):
+            return others_x_matrix
+        else:
+            return question_mark_matrix
+
     if menu == 0:  # Emojis menu
         # Show the currently selected emoji when in choosing state
         if state == "choosing":
@@ -921,21 +1023,29 @@ def get_main_emoji():
                 return others_yes_matrix
             elif pos == 3:
                 return others_somi_matrix
+            elif pos == 4:
+                return question_mark_matrix
             elif neg == 1:
                 return others_x_matrix
             elif neg == 2:
                 return others_no_matrix
+            elif neg == 4:
+                return question_mark_matrix
         elif pos == 1:
             return others_circle_matrix
         elif pos == 2:
             return others_yes_matrix
         elif pos == 3:
             return others_somi_matrix
+        elif pos == 4:
+            return question_mark_matrix
         elif neg == 1:
             return others_x_matrix
         elif neg == 2:
             return others_no_matrix
-    
+        elif neg == 4:
+            return question_mark_matrix
+
     # Default to regular smiley for other menus
     return smiley_matrix
 
@@ -1028,11 +1138,15 @@ def get_main_emoji_animation():
             return others_yes_matrix
         elif pos == 3:
             return others_somi_matrix
+        elif pos == 4:
+            return question_mark_matrix
         elif neg == 1:
             return others_x_matrix
         elif neg == 2:
             return others_no_matrix
-    
+        elif neg == 4:
+            return question_mark_matrix
+
     # Default to wink smiley for other menus
     return smiley_wink_matrix
 
@@ -1051,7 +1165,7 @@ def get_left_side_emojis():
         # Finn, Pikachu, Crab, and Frog in the four character slots.
         return [finn_matrix, pikachu_matrix, crab_matrix, frog_matrix]
     elif menu == 3:
-        return [others_circle_matrix, others_yes_matrix, others_somi_matrix, smiley_matrix]
+        return [others_circle_matrix, others_yes_matrix, others_somi_matrix, question_mark_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
@@ -1075,7 +1189,7 @@ def get_right_side_emojis():
             angry_matrix,
         ]
     elif menu == 3:
-        return [others_x_matrix, others_no_matrix, smiley_matrix, smiley_matrix]
+        return [others_x_matrix, others_no_matrix, smiley_matrix, question_mark_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
@@ -1115,10 +1229,14 @@ def reset_state():
 def reset_prev():
     """Clear previous state tracking"""
     global prev_state, prev_menu, prev_pos, prev_neg
+    global nfc_mode_active, nfc_last_result, nfc_last_card_name
     prev_state = "none"
     prev_menu = 0
     prev_pos = 0
     prev_neg = 0
+    nfc_mode_active = False
+    nfc_last_result = None
+    nfc_last_card_name = ""
 
 def check_animation_interruption():
     """Check if user wants to interrupt the current animation"""
@@ -1269,7 +1387,25 @@ def emoji_two_part_animation():
 def start_emoji_animation():
     """Start the appropriate animation based on menu selection"""
     global prev_menu, prev_pos, prev_neg, prev_state, menu, pos, neg, state
-    
+    global nfc_mode_active, nfc_last_result, nfc_last_card_name
+
+    # NFC mode: menu 3, pos 4 (positive NFC) or neg 4 (negative NFC)
+    if menu == 3 and (pos == 4 or neg == 4):
+        prev_state = "done"
+        prev_menu = menu
+        prev_pos = pos
+        prev_neg = neg
+        nfc_mode_active = True
+        nfc_last_result = None
+        nfc_last_card_name = ""
+        print(f"[NFC] entering NFC mode (menu={menu} pos={pos} neg={neg})", flush=True)
+        send_emoji_to_pico(menu, pos, neg)
+        state = "none"
+        pos = 0
+        neg = 0
+        draw_display()
+        return
+
     # Check if this is a procedural animation (menu 1)
     if menu == 1 and (pos == 1 or neg == 1):
         start_procedural_animation()
@@ -1430,6 +1566,11 @@ def draw_display():
         is_selected = (i == menu and (state == "start" or state == "choosing"))
         draw_menu_row(draw, item, text_y_positions[i], font, is_selected)
     
+    # === NFC Card Name (shown between menu area and main emoji when a card is scanned) ===
+    if nfc_mode_active and nfc_last_card_name:
+        name_color = (0, 160, 255) if nfc_last_result == "circle" else (220, 60, 60)
+        draw_centered_text(draw, nfc_last_card_name, 57, font, disp.width, name_color)
+
     # === BLE Connection Status Indicator (lower left) ===
     draw_connection_indicator(clear_area=False)  # Don't clear since we already cleared the whole screen
 
