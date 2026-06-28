@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.7"
+VERSION = " v0.5.8"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -800,8 +800,9 @@ def _on_pico_tx_notify(_sender: BleakGATTCharacteristic, data: bytearray):
 def _handle_nfc_card(card_id: str):
     """Process an NFC card ID received from the Pico.
 
-    Looks up the card in NFC_CARD_MAP, updates the Zero display, and sends
-    the result back to the Pico so its matrix shows the same response.
+    Looks up the card in NFC_CARD_MAP, updates the Zero display, sends
+    the result back to the Pico so its matrix shows the same response,
+    and POSTs the result to /api/emoji so the dashboard reflects the scan.
     The result is cleared after NFC_RESULT_DISPLAY_S seconds.
     """
     global nfc_last_result, nfc_last_card_name
@@ -821,6 +822,14 @@ def _handle_nfc_card(card_id: str):
         print(f"[NFC] unknown card: {card_id}", flush=True)
 
     draw_display()
+
+    # Post the NFC scan result to the server so the dashboard updates.
+    # "circle" cards → menu 3 pos 4 neg 0 (others_nfc_pos)
+    # "x" / unknown  → menu 3 pos 0 neg 4 (others_nfc_neg)
+    if nfc_last_result == "circle":
+        post_to_server("/api/emoji", _emoji_payload(3, 4, 0))
+    else:
+        post_to_server("/api/emoji", _emoji_payload(3, 0, 4))
 
     # Send result to Pico so its matrix mirrors the Zero's response
     result_symbol = "circle" if nfc_last_result == "circle" else "x"
