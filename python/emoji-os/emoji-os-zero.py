@@ -101,13 +101,19 @@ else:
     )
 
 # === NFC Card Mapping ===
-# Static list of known NFC card IDs. Each entry maps a card ID to a display
-# name (printed to log) and a display result ("circle" = blue circle,
-# "x" = red X). Expand this list as needed; in future it may come from an API.
-NFC_CARD_MAP = {
+# Each entry maps a card ID to a display name (printed to log) and a display
+# result ("circle" = blue circle, "x" = red X).
+#
+# The authoritative mapping is fetched from the server at startup
+# (GET /api/nfc-cards, see load_nfc_card_map). NFC_CARD_MAP_FALLBACK is the
+# built-in copy used when SERVER_URL is empty or the server is unreachable, so
+# the badge still works offline.
+NFC_CARD_MAP_FALLBACK = {
     "5B:6F:B8:08": {"name": "R12 - Monkey", "display": "circle"},
     "DB:93:B7:08": {"name": "W3 - Clown",   "display": "x"},
 }
+# Populated from the server at startup; starts as a copy of the fallback.
+NFC_CARD_MAP = dict(NFC_CARD_MAP_FALLBACK)
 # How long (seconds) to hold the NFC result on screen before returning to '?'
 NFC_RESULT_DISPLAY_S = 5
 
@@ -699,6 +705,67 @@ def post_to_server(path: str, payload: dict):
             print(f"[API] request failed {path}: {e}", flush=True)
 
     threading.Thread(target=_post, daemon=True).start()
+
+
+def fetch_from_server(path: str):
+    """Blocking HTTP GET to the emoji server; returns parsed JSON or None.
+
+    Returns None when SERVER_URL is empty or the request fails, so callers can
+    fall back to local defaults. Unlike post_to_server this is synchronous,
+    because callers (e.g. startup config loads) need the result.
+    """
+    if not SERVER_URL:
+        return None
+    url = f"{SERVER_URL}{path}"
+    try:
+        kw = {"timeout": 3}
+        if API_HEADERS:
+            kw["headers"] = API_HEADERS
+        print(f"[API] GET {path}", flush=True)
+        r = requests.get(url, **kw)
+        print(f"[API] response {path} -> HTTP {r.status_code}", flush=True)
+        if r.status_code == 200:
+            return r.json()
+    except Exception as e:
+        print(f"[API] request failed {path}: {e}", flush=True)
+    return None
+
+
+def load_nfc_card_map():
+    """Fetch the NFC card mapping from the server and update NFC_CARD_MAP.
+
+    Transforms the API's ``{"cards": [{"id", "name", "display"}, ...]}`` into the
+    in-memory ``{id: {"name", "display"}}`` shape used by _handle_nfc_card. On
+    any failure, keeps NFC_CARD_MAP_FALLBACK so the badge still works offline.
+    """
+    global NFC_CARD_MAP
+    data = fetch_from_server("/api/nfc-cards")
+    cards = data.get("cards") if isinstance(data, dict) else None
+    if not cards:
+        NFC_CARD_MAP = dict(NFC_CARD_MAP_FALLBACK)
+        print(
+            f"[NFC] using built-in card map ({len(NFC_CARD_MAP)} cards) — "
+            "server unavailable or empty",
+            flush=True,
+        )
+        return
+
+    new_map = {}
+    for card in cards:
+        try:
+            new_map[card["id"]] = {
+                "name": card["name"],
+                "display": card["display"],
+            }
+        except (KeyError, TypeError):
+            print(f"[NFC] skipping malformed card entry: {card!r}", flush=True)
+
+    if new_map:
+        NFC_CARD_MAP = new_map
+        print(f"[NFC] loaded {len(new_map)} card(s) from server", flush=True)
+    else:
+        NFC_CARD_MAP = dict(NFC_CARD_MAP_FALLBACK)
+        print("[NFC] server returned no usable cards; using built-in map", flush=True)
 
 
 def _on_pico_disconnect(client: BleakClient):
@@ -1609,6 +1676,11 @@ def init_ble_connection():
 
             print("[BLE] startup — queueing POST /api/status", flush=True)
             post_to_server("/api/status", _status_payload("startup"))
+
+            # Load the NFC card mapping from the server (falls back to the
+            # built-in map if unreachable). Done here on the BLE thread so the
+            # blocking GET never stalls the UI loop.
+            load_nfc_card_map()
 
             async def _initial_connect():
                 if await ble_controller.scan_for_device(timeout=5):
