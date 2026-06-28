@@ -1,6 +1,12 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.8"
+VERSION = " v0.5.9"
+# Normalized version string sent to the server (strip leading space / 'v').
+_CONTROLLER_VERSION = VERSION.strip().lstrip("v")
+# Pico badge version learned from the PAIR_OK:<version> handshake reply.
+# Updated in _do_pair_handshake; "unknown" when the Pico replies a bare PAIR_OK
+# (pre-v0.3.2 firmware) or when no pairing has happened yet.
+_pico_version = "unknown"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
 print(f"emoji-os-zero{VERSION} starting", flush=True)
@@ -506,8 +512,15 @@ class BLEController:
         except Exception:
             pass
 
-        if self._pair_response == "PAIR_OK":
-            print(f"[PAIR] OK — paired with PAIR_NAME='{PAIR_NAME}'", flush=True)
+        resp = self._pair_response or ""
+        if resp == "PAIR_OK" or resp.startswith("PAIR_OK:"):
+            global _pico_version
+            if ":" in resp:
+                _pico_version = resp.split(":", 1)[1].strip() or "unknown"
+            else:
+                # Bare PAIR_OK — pre-v0.3.2 firmware; version unknown.
+                _pico_version = "unknown"
+            print(f"[PAIR] OK — paired with PAIR_NAME='{PAIR_NAME}' picoVersion='{_pico_version}'", flush=True)
             return True
         print(f"[PAIR] handshake rejected by Pico: {self._pair_response!r}", flush=True)
         return False
@@ -647,12 +660,18 @@ def _emoji_label(menu, pos, neg):
 
 def _status_payload(ble_status: str):
     # API: startup | scanning | connecting | connected | disconnected (see server statusBodySchema).
-    return {
+    payload: dict = {
         "controllerId": CONTROLLER_ID,
         "badgeId": _resolve_badge_id(),
         "bleStatus": ble_status,
         "timestamp": _utc_iso_timestamp(),
+        "pairName": PAIR_NAME,
+        "controllerVersion": _CONTROLLER_VERSION,
+        "picoVersion": _pico_version,
     }
+    if _battery_percent is not None:
+        payload["batteryLevel"] = _battery_percent
+    return payload
 
 
 def _emoji_payload(menu, pos, neg):
@@ -664,6 +683,7 @@ def _emoji_payload(menu, pos, neg):
         "neg": neg,
         "label": _emoji_label(menu, pos, neg),
         "timestamp": _utc_iso_timestamp(),
+        "pairName": PAIR_NAME,
     }
 
 

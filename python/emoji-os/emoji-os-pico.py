@@ -637,7 +637,8 @@ class BLESimplePeripheral:
             self._authenticated[conn_handle] = True
             print(f"✓ Paired conn={conn_handle} PAIR_NAME='{self._pair_name}'")
             try:
-                self._ble.gatts_notify(conn_handle, self._handle_tx, b"PAIR_OK")
+                reply = f"PAIR_OK:{VERSION}".encode("utf-8")
+                self._ble.gatts_notify(conn_handle, self._handle_tx, reply)
             except Exception as e:
                 print(f"✗ Failed to send PAIR_OK: {e}")
         else:
@@ -839,7 +840,7 @@ except Exception as e:
 print("Emoji OS Pico " + VERSION + " - Startup/connection indicator; red = BLE error")
 print("Device Name: " + DEVICE_NAME)
 print("PAIR_NAME: " + PAIR_NAME)
-print("Pairing: expects first write 'PAIR:" + PAIR_NAME + "', replies PAIR_OK/PAIR_FAIL on TX notify")
+print("Pairing: expects first write 'PAIR:" + PAIR_NAME + "', replies PAIR_OK:<version>/PAIR_FAIL on TX notify")
 print("Supports emoji commands in format: 'MENU:POS:NEG' (after PAIR_OK)")
 print("NFC mode: menu=3 pos=4 or neg=4 — sends 'NFC:<card_id>' to Zero via BLE notify")
 print("Legacy commands: ON, OFF, STATUS, BLINK (after PAIR_OK)")
