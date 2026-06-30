@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.9"
+VERSION = " v0.5.10"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -16,6 +16,7 @@ import time
 import threading
 import asyncio
 import warnings
+import subprocess
 import requests
 from datetime import datetime, timezone
 from bleak import BleakScanner, BleakClient
@@ -169,6 +170,42 @@ print(f"[PAIR] PAIR_NAME   : '{PAIR_NAME}'", flush=True)
 print(f"[PAIR] looking for : '{TARGET_DEVICE_NAME}'", flush=True)
 
 
+def _log_bt_adapter_info():
+    """Log Bluetooth adapter status to help diagnose BLE scan failures.
+
+    Runs three quick shell commands and prints their output:
+      hciconfig -a  — adapter presence, type, and UP/DOWN state
+      bluetoothctl show  — BlueZ adapter info including Powered flag
+      rfkill list bluetooth  — whether the adapter is hard/soft-blocked
+    All commands run with a 5-second timeout so a missing binary never hangs.
+    """
+    cmds = [
+        ("hciconfig -a",          ["hciconfig", "-a"]),
+        ("bluetoothctl show",     ["bluetoothctl", "show"]),
+        ("rfkill list bluetooth", ["rfkill", "list", "bluetooth"]),
+    ]
+    print("[BT-DIAG] ── Bluetooth adapter diagnostics ──", flush=True)
+    for label, args in cmds:
+        try:
+            result = subprocess.run(
+                args,
+                capture_output=True, text=True, timeout=5
+            )
+            output = (result.stdout + result.stderr).strip()
+            if output:
+                for line in output.splitlines():
+                    print(f"[BT-DIAG] {label}: {line}", flush=True)
+            else:
+                print(f"[BT-DIAG] {label}: (no output)", flush=True)
+        except FileNotFoundError:
+            print(f"[BT-DIAG] {label}: command not found", flush=True)
+        except subprocess.TimeoutExpired:
+            print(f"[BT-DIAG] {label}: timed out after 5s", flush=True)
+        except Exception as _e:
+            print(f"[BT-DIAG] {label}: error — {_e}", flush=True)
+    print("[BT-DIAG] ── end of adapter diagnostics ──", flush=True)
+
+
 def _scan_device_service_uuids(device):
     """Service UUIDs from a scan result; prefers non-deprecated Bleak fields."""
     uuids = getattr(device, "service_uuids", None)
@@ -211,12 +248,14 @@ class BLEController:
         
         # First, try scanning by service UUID, but only accept exact-name matches
         # so multi-pair environments don't grab the wrong badge.
-        print("\nAttempting to scan by service UUID (filtered by name)...")
+        print(f"\nAttempting to scan by service UUID (filtered by name) — timeout={timeout}s ...", flush=True)
+        _t0 = time.monotonic()
         try:
             devices = await BleakScanner.discover(
                 timeout=timeout,
                 service_uuids=[UART_SERVICE_UUID]
             )
+            print(f"[BLE] UUID scan returned {len(devices)} device(s) in {time.monotonic()-_t0:.1f}s", flush=True)
             if devices:
                 print(f"✓ Found {len(devices)} device(s) advertising Nordic UART Service:")
                 for device in devices:
@@ -229,12 +268,18 @@ class BLEController:
                         return True
                 print(f"  No advertisement matched '{TARGET_DEVICE_NAME}'; trying general scan.")
         except Exception as e:
-            print(f"Service UUID scan failed: {e}")
-        
+            print(f"[BLE] UUID scan failed after {time.monotonic()-_t0:.1f}s: {e}", flush=True)
+
         # Fallback: General scan and check for name match or verify service
-        print(f"\nPerforming general scan for {timeout} seconds...")
-        devices = await BleakScanner.discover(timeout=timeout)
-        
+        print(f"\nPerforming general scan for {timeout} seconds...", flush=True)
+        _t1 = time.monotonic()
+        try:
+            devices = await BleakScanner.discover(timeout=timeout)
+        except Exception as e:
+            print(f"[BLE] General scan failed after {time.monotonic()-_t1:.1f}s: {e}", flush=True)
+            devices = []
+        print(f"[BLE] General scan returned {len(devices)} device(s) in {time.monotonic()-_t1:.1f}s", flush=True)
+
         print(f"Found {len(devices)} BLE devices:")
         print("-" * 50)
         
@@ -1699,6 +1744,10 @@ def init_ble_connection():
     def connect():
         global ble_event_loop
         try:
+            # Log BT adapter state before touching Bleak so any hardware/driver
+            # problem shows up clearly in the log.
+            _log_bt_adapter_info()
+
             # Create a new event loop for this thread
             ble_event_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(ble_event_loop)
