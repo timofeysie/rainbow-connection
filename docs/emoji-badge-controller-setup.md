@@ -1,6 +1,6 @@
 # Emoji Badge Controller Setup
 
-Setting up an emoji badge controller on a Raspberry Pi Zero W with a [Waveshare 1.44inch LCD display HAT](https://www.waveshare.com/wiki/1.44inch_LCD_HAT) involves a number of steps such as libraries, getting the script on the device and running it on startup.
+Setting up an emoji badge controller on a Raspberry Pi Zero W with a [Waveshare 1.44inch LCD display HAT](https://www.waveshare.com/wiki/1.44inch_LCD_HAT) involves a number of steps such as ensuring certain libraries are installed, and getting a python script on the device running on startup.
 
 Since this project is still ongoing, currently I have a lot of notes of how I got to this point.  I will be refining these by removing unnecessary steps as well as how to copy a ssd card with everything already setup.
 
@@ -133,6 +133,13 @@ Sep 12 09:54:20 raspberrypi systemd[1]: Started rc-local.service - /etc/rc.local
 
 sleep 10
 
+# Wait for Bluetooth adapter to be ready before starting emoji OS
+rfkill unblock bluetooth
+for i in $(seq 1 20); do
+    hciconfig hci0 up 2>/dev/null && break
+    sleep 1
+done
+
 /usr/bin/python3 /home/tim/emoji-os/emoji_os_zero_1.py >> /home/tim/rc.local.log 2>&1 &
 
 exit 0
@@ -234,7 +241,6 @@ Instead:
 In the Image File field, type a filename for your backup, e.g.:
 
 C:\Users\<yourname>\raspi_backup.img
-
 
 In the Device dropdown (to the right), select the whole drive letter of your Pi SSD (e.g. F:).
 

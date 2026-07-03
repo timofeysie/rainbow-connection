@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.10"
+VERSION = " v0.5.11"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -89,7 +89,10 @@ threading.Thread(target=_battery_monitor, daemon=True).start()
 # Set SERVER_URL to enable reporting to the emoji server dashboard.
 # Leave empty to disable (safe default — server is not required to run).
 # no trailing slash please
-SERVER_URL = "https://emoji-staging.kogs.link"
+# deployed server
+# SERVER_URL = "https://emoji-staging.kogs.link"
+# Local server for testing
+SERVER_URL = "hppt://192.168.68.50:3000"
 # Logical Pi Zero id (POST /api/status and /api/emoji).
 CONTROLLER_ID = "zero-living-room"
 # If non-empty, used as badgeId for all API posts. If empty, badgeId is derived from
