@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.3.3"
+VERSION = "0.4.0"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -162,6 +162,65 @@ def draw_question_mark():
     matrix.pixelsShow()
 
 
+def _show_game_active():
+    """Solid green 4×4 centre square: game is live, waiting for a question."""
+    matrix.pixelsFill(matrix.black())
+    matrix.drawRectangleFill(2, 2, 5, 5, matrix.green())
+    matrix.pixelsShow()
+
+
+def _show_question_open():
+    """Question mark glyph: a question is open — scan ready."""
+    draw_question_mark()
+
+
+def _show_question_close():
+    """Small white 2×2 dot: between questions, game still active."""
+    matrix.pixelsFill(matrix.black())
+    matrix.drawRectangleFill(3, 3, 4, 4, matrix.white())
+    matrix.pixelsShow()
+
+
+def _show_game_ended():
+    """Scroll 'DONE' across the matrix then go dark."""
+    _m = glowbit.matrix8x8(rateLimitCharactersPerSecond=0.7)
+    _m.addTextScroll("DONE")
+    while _m.scrollingText:
+        _m.updateTextScroll()
+        _m.pixelsShow()
+    matrix.pixelsFill(matrix.black())
+    matrix.pixelsShow()
+
+
+def _handle_game_command(subcommand: str):
+    """Dispatch a GAME:<subcommand> received from the Zero via BLE."""
+    global _game_state, _game_nfc_display_until_ms
+    print(f"[GAME] command: {subcommand!r}")
+
+    if subcommand == "active":
+        _game_state = "active"
+        _game_nfc_display_until_ms = 0
+        _show_game_active()
+
+    elif subcommand == "question_open":
+        _game_state = "question_open"
+        _game_nfc_display_until_ms = 0
+        _show_question_open()
+
+    elif subcommand == "question_close":
+        _game_state = "question_close"
+        _game_nfc_display_until_ms = 0
+        _show_question_close()
+
+    elif subcommand == "ended":
+        _game_state = "ended"
+        _game_nfc_display_until_ms = 0
+        _show_game_ended()
+
+    else:
+        print(f"[GAME] unknown subcommand: {subcommand!r}")
+
+
 def draw_red_cross():
     """Draw a red '✕' (diagonal cross) on the 8×8 matrix.
 
@@ -216,12 +275,22 @@ prev_state = "none"  # or done
 pause = 0.2
 
 # === NFC State ===
-# True while the Zero has selected NFC mode (menu 3, pos 4 or neg 4).
+# True while the Zero has selected legacy NFC mode (menu 3, neg 4).
 nfc_mode_active = False
 # "question" = waiting, "circle" = blue circle shown, "x" = red cross shown
 nfc_display_state = "question"
 # Monotonic timestamp (time.ticks_ms) at which to revert from circle/x to question mark.
 nfc_display_until_ms = 0
+
+# === Game State (driven by GAME:* commands from the Zero) ===
+# None             — no game in progress / idle
+# "active"         — game started, no open question yet
+# "question_open"  — NFC scanning active; TAG: notifies sent on card read
+# "question_close" — between questions
+# "ended"          — game finished
+_game_state = None
+# Monotonic ms timestamp; when elapsed, revert game-mode NFC display to question mark.
+_game_nfc_display_until_ms = 0
 
 # === Helper Functions ===
 def check_menu():
@@ -691,28 +760,30 @@ def handle_command(command_data):
         command = command_data.decode('utf-8').strip()
         print(f"✓ Received command: '{command}'")
         
-        # Check if this is an emoji command (format: "MENU:POS:NEG")
         if ':' in command:
+            # Game lifecycle commands: GAME:<subcommand>
+            if command.startswith("GAME:"):
+                _handle_game_command(command[5:])
+                return
+
+            # NFC result from Zero: show circle or cross on the matrix
+            if command.startswith("NFC_RESULT:"):
+                _handle_nfc_result(command[11:])
+                return
+
+            # Emoji command (format: "MENU:POS:NEG")
             try:
                 parts = command.split(':')
                 if len(parts) == 3:
                     menu_val = int(parts[0])
                     pos_val = int(parts[1])
                     neg_val = int(parts[2])
-                    
+
                     print(f"Emoji Command - Menu: {menu_val}, Pos: {pos_val}, Neg: {neg_val}")
-                    
-                    # Handle emoji selection
                     handle_emoji_selection(menu_val, pos_val, neg_val)
                     return
             except ValueError:
                 print(f"Invalid emoji command format: '{command}'")
-        
-        # NFC result from Zero: show circle or cross on the matrix
-        if command.startswith("NFC_RESULT:"):
-            result = command[11:]
-            _handle_nfc_result(result)
-            return
 
         # Process legacy commands
         if command == "ON":
@@ -771,8 +842,9 @@ def handle_emoji_selection(menu_val, pos_val, neg_val):
     print(f"  Position: {pos_val}")
     print(f"  Negative: {neg_val}")
 
-    # NFC mode: menu 3, pos 4 or neg 4
-    if menu_val == 3 and (pos_val == 4 or neg_val == 4):
+    # Legacy NFC mode: menu 3, neg 4 only.
+    # (pos 4 is the game mode slot on the Zero and is never sent to the Pico.)
+    if menu_val == 3 and neg_val == 4:
         nfc_mode_active = True
         nfc_display_state = "question"
         nfc_display_until_ms = 0
@@ -842,7 +914,9 @@ print("Device Name: " + DEVICE_NAME)
 print("PAIR_NAME: " + PAIR_NAME)
 print("Pairing: expects first write 'PAIR:" + PAIR_NAME + "', replies PAIR_OK:<version>/PAIR_FAIL on TX notify")
 print("Supports emoji commands in format: 'MENU:POS:NEG' (after PAIR_OK)")
-print("NFC mode: menu=3 pos=4 or neg=4 — sends 'NFC:<card_id>' to Zero via BLE notify")
+print("Game commands: GAME:active/question_open/question_close/ended — drives matrix display")
+print("NFC game mode: GAME:question_open activates TAG:<cardUid> notifies on NFC read")
+print("NFC legacy mode: menu=3 neg=4 — sends 'NFC:<card_id>' to Zero via BLE notify")
 print("Legacy commands: ON, OFF, STATUS, BLINK (after PAIR_OK)")
 
 # === Main Loop ===
@@ -964,7 +1038,7 @@ while True:
                 print('button 3 pressed again, menu ', menu, "pos", pos, "neg", neg, "state", state)
                 draw_emoji()
 
-    # === NFC Polling (active only when Zero has selected NFC mode) ===
+    # === Legacy NFC polling (Zero sends menu 3, neg 4) — sends NFC: prefix ===
     if nfc_mode_active and rfid is not None:
         # Revert from circle/cross back to question mark after the display timer expires
         if nfc_display_state != "question" and time.ticks_diff(time.ticks_ms(), nfc_display_until_ms) >= 0:
@@ -977,12 +1051,41 @@ while True:
             try:
                 if rfid.tagPresent():
                     card_id = rfid.readID()
-                    print('NFC tag detected:', card_id)
+                    print('NFC (legacy) tag:', card_id)
                     if p.is_connected():
                         p.send(('NFC:' + card_id).encode())
                     else:
                         print('NFC: not connected to Zero — card ID not sent')
             except Exception as _nfc_poll_err:
                 print('NFC poll error:', _nfc_poll_err)
+
+    # === Game mode NFC polling (GAME:question_open active) — sends TAG: prefix ===
+    if _game_state == "question_open" and rfid is not None:
+        # Revert the scan-feedback indicator back to question mark after the timer.
+        if _game_nfc_display_until_ms and \
+                time.ticks_diff(time.ticks_ms(), _game_nfc_display_until_ms) >= 0:
+            _game_nfc_display_until_ms = 0
+            draw_question_mark()
+
+        # Send TAG: only while showing the question mark (gate prevents duplicate sends
+        # while the same card stays on the reader during the display-hold period).
+        if _game_nfc_display_until_ms == 0:
+            try:
+                if rfid.tagPresent():
+                    card_id = rfid.readID()
+                    print('NFC (game) tag:', card_id)
+                    if p.is_connected():
+                        p.send(('TAG:' + card_id).encode())
+                    else:
+                        print('NFC (game): not connected to Zero — TAG not sent')
+                    # Brief green circle as visual feedback; revert after display hold.
+                    matrix.pixelsFill(matrix.black())
+                    matrix.drawCircle(3, 3, 3, matrix.green())
+                    matrix.pixelsShow()
+                    _game_nfc_display_until_ms = time.ticks_add(
+                        time.ticks_ms(), NFC_PICO_RESULT_DISPLAY_S * 1000
+                    )
+            except Exception as _nfc_game_err:
+                print('NFC game poll error:', _nfc_game_err)
 
     sleep_ms(100)
