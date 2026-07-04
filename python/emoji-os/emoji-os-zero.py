@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.5.11"
+VERSION = " v0.6.0"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -92,9 +92,9 @@ threading.Thread(target=_battery_monitor, daemon=True).start()
 # deployed server
 # SERVER_URL = "https://emoji-staging.kogs.link"
 # Local server for testing
-SERVER_URL = "hppt://192.168.68.50:3000"
+SERVER_URL = "http://192.168.68.50:3000"
 # Logical Pi Zero id (POST /api/status and /api/emoji).
-CONTROLLER_ID = "zero-living-room"
+CONTROLLER_ID = "raspberry-pi-zero"
 # If non-empty, used as badgeId for all API posts. If empty, badgeId is derived from
 # the BLE address of the connected Pico (see _resolve_badge_id).
 BADGE_ID = ""
@@ -109,6 +109,35 @@ else:
         "Set SERVER_URL in emoji-os-zero.py (HTTPS base, no trailing slash).",
         flush=True,
     )
+
+# === WebSocket URL (derived from SERVER_URL) ===
+if SERVER_URL.startswith("https://"):
+    _WS_URL = "wss://" + SERVER_URL[len("https://"):]
+elif SERVER_URL.startswith("http://"):
+    _WS_URL = "ws://" + SERVER_URL[len("http://"):]
+else:
+    _WS_URL = ""
+
+# === WebSocket / Game state ===
+# Updated by the WS client as events arrive.
+_ws_game_id       = None   # str | None — current bound game
+_ws_game_state    = None   # "draft"|"lobby"|"active"|"completed"|None
+_ws_question_id   = None   # str | None — currently open question
+_ws_joined        = False  # True once join POST has been sent this session
+_join_pending     = False  # True after game.opened arrives; cleared by KEY2 join
+_ws_connected     = False  # True while the WS socket is open
+
+# Reconnect backoff bounds (seconds)
+_WS_BACKOFF_MIN_S = 2.0
+_WS_BACKOFF_MAX_S = 60.0
+
+# HTTP fallback: poll GET /api/pairs/:pairName when WS is down
+_WS_FALLBACK_POLL_S    = 30.0
+_last_ws_fallback_poll = 0.0
+
+# === Game mode state ===
+# True while the player has selected menu 3 · pos 4 (game mode slot).
+game_mode_active = False
 
 # === NFC Card Mapping ===
 # Each entry maps a card ID to a display name (printed to log) and a display
@@ -221,6 +250,20 @@ def _scan_device_service_uuids(device):
             return list(meta.get("uuids", []) or [])
     return []
 
+
+# === Game mode glyph — capital 'G' on a dark background ===
+# Used as the main emoji when game_mode_active is True.
+# Single-colour matrix (colour resolved via color_map, same as others_circle_matrix).
+game_mode_matrix = [
+    [0, 0, 1, 1, 1, 1, 0, 0],
+    [0, 1, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0],
+    [1, 0, 0, 0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 0, 0, 1, 0],
+    [0, 1, 0, 0, 0, 0, 1, 0],
+    [0, 0, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+]
 
 # BLE Controller class - from working controller-1.3.py
 class BLEController:
@@ -849,16 +892,46 @@ def _on_pico_disconnect(client: BleakClient):
         asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
 
 
+def _relay_nfc_tag(card_uid: str):
+    """Relay a TAG:<cardUid> notification from the Pico as POST /api/guesses.
+
+    Only fires when there is an active game and an open question; the UID is
+    sent as-is so the server can map it via the NFC card group.
+    """
+    if not _ws_game_id or not _ws_question_id:
+        print(
+            f"[NFC] TAG {card_uid!r} ignored — no active game/question "
+            f"(gameId={_ws_game_id} questionId={_ws_question_id})",
+            flush=True,
+        )
+        return
+    payload = {
+        "gameId":     _ws_game_id,
+        "questionId": _ws_question_id,
+        "pairName":   PAIR_NAME,
+        "badgeId":    _resolve_badge_id(),
+        "cardUid":    card_uid,
+    }
+    print(f"[NFC] relaying TAG {card_uid!r} → POST /api/guesses", flush=True)
+    post_to_server("/api/guesses", payload)
+
+
 def _on_pico_tx_notify(_sender: BleakGATTCharacteristic, data: bytearray):
     """Persistent TX notification handler — receives async messages from the Pico.
 
-    Currently handles NFC card reads: the Pico sends ``NFC:<card_id>`` whenever
-    it scans a tag while in NFC mode.
+    Handles two prefixes:
+    - ``TAG:<cardUid>``  — new game-mode path (Step 4 Pico firmware); relays
+      the UID to the server as a guess via POST /api/guesses.
+    - ``NFC:<card_id>``  — legacy path; looks up the card in NFC_CARD_MAP and
+      updates the Zero/Pico display (unchanged behaviour).
     """
     try:
         text = bytes(data).decode("utf-8", "ignore").strip()
         print(f"[PICO→ZERO] {text!r}", flush=True)
-        if text.startswith("NFC:"):
+        if text.startswith("TAG:"):
+            card_uid = text[4:]
+            _relay_nfc_tag(card_uid)
+        elif text.startswith("NFC:"):
             card_id = text[4:]
             _handle_nfc_card(card_id)
     except Exception as e:
@@ -930,9 +1003,171 @@ async def _reconnect():
         await ble_controller.connect_to_device()
 
 
+# === WebSocket client ===
+
+async def _ble_write_game_cmd(cmd: str):
+    """Write a GAME:* command to the Pico over BLE. No-op if not connected."""
+    if not (ble_controller.client and ble_controller.client.is_connected):
+        print(f"[WS] BLE not connected — skipping {cmd}", flush=True)
+        return
+    try:
+        await ble_controller.client.write_gatt_char(
+            UART_RX_CHAR_UUID, cmd.encode("utf-8")
+        )
+        print(f"[BLE] wrote {cmd!r}", flush=True)
+    except Exception as exc:
+        print(f"[BLE] write {cmd!r} failed: {exc}", flush=True)
+
+
+def _apply_game_state_to_display():
+    """Redraw the display to reflect the current game state (e.g. after WS reconnect)."""
+    if game_mode_active:
+        draw_display()
+
+
+async def _ws_handle_event(event: dict):
+    """Dispatch a single WebSocket event from the server."""
+    global _ws_game_id, _ws_game_state, _ws_question_id, _ws_joined, _join_pending
+
+    etype = event.get("type")
+    print(f"[WS] event: {etype}", flush=True)
+
+    if etype == "controller.welcome":
+        _ws_game_id     = event.get("gameId")
+        _ws_game_state  = event.get("state")
+        _ws_question_id = event.get("openQuestionId")
+        _ws_joined      = event.get("joined", False)
+        print(
+            f"[WS] welcome: game={_ws_game_id} state={_ws_game_state} "
+            f"joined={_ws_joined}",
+            flush=True,
+        )
+        _apply_game_state_to_display()
+
+    elif etype == "game.opened":
+        _ws_game_id    = event.get("gameId")
+        _ws_game_state = "lobby"
+        _ws_joined     = False
+        _join_pending  = True
+        print(f"[WS] game.opened: {_ws_game_id}", flush=True)
+        if game_mode_active:
+            draw_display()
+
+    elif etype == "game.started":
+        _ws_game_state = "active"
+        print("[WS] game.started — writing GAME:active to Pico", flush=True)
+        if game_mode_active:
+            draw_display()
+        await _ble_write_game_cmd("GAME:active")
+
+    elif etype == "question.opened":
+        _ws_question_id = event.get("questionId")
+        print(f"[WS] question.opened: {_ws_question_id}", flush=True)
+        if game_mode_active:
+            draw_display()
+        await _ble_write_game_cmd("GAME:question_open")
+
+    elif etype == "question.closed":
+        _ws_question_id = None
+        print("[WS] question.closed", flush=True)
+        if game_mode_active:
+            draw_display()
+        await _ble_write_game_cmd("GAME:question_close")
+
+    elif etype == "game.ended":
+        _ws_game_state  = "completed"
+        _ws_question_id = None
+        print("[WS] game.ended", flush=True)
+        if game_mode_active:
+            draw_display()
+        await _ble_write_game_cmd("GAME:ended")
+
+
+async def _ws_connect_loop():
+    """Persistent WebSocket client — runs for the lifetime of the process.
+
+    Connects to the server, sends controller.hello, then processes events.
+    Reconnects with exponential backoff on any disconnect or error.
+    """
+    global _ws_connected
+    if not _WS_URL:
+        print("[WS] _WS_URL is empty — WebSocket client disabled", flush=True)
+        return
+    import json
+    try:
+        import websockets as _ws_lib
+    except ImportError:
+        print(
+            "[WS] 'websockets' library not found — install with: "
+            "pip3 install websockets --break-system-packages",
+            flush=True,
+        )
+        return
+
+    backoff = _WS_BACKOFF_MIN_S
+    while True:
+        try:
+            uri = f"{_WS_URL}/ws"
+            print(f"[WS] connecting to {uri}", flush=True)
+            async with _ws_lib.connect(uri, ping_interval=None) as ws:
+                _ws_connected = True
+                backoff = _WS_BACKOFF_MIN_S   # reset on successful connect
+                print("[WS] connected — sending controller.hello", flush=True)
+                hello = {
+                    "type":              "controller.hello",
+                    "pairName":          PAIR_NAME,
+                    "controllerId":      CONTROLLER_ID,
+                    "controllerVersion": _CONTROLLER_VERSION,
+                    "picoVersion":       _pico_version,
+                    "token":             None,
+                }
+                await ws.send(json.dumps(hello))
+                async for raw in ws:
+                    try:
+                        event = json.loads(raw)
+                    except Exception:
+                        continue
+                    await _ws_handle_event(event)
+        except Exception as exc:
+            print(
+                f"[WS] disconnected: {exc!r}; retry in {backoff:.0f}s",
+                flush=True,
+            )
+        finally:
+            _ws_connected = False
+        await asyncio.sleep(backoff)
+        backoff = min(backoff * 2, _WS_BACKOFF_MAX_S)
+
+
 _last_status_liveness_post = 0.0
 # POST /api/status while connected at least this often so the dashboard can detect power loss.
 STATUS_LIVENESS_POST_S = 40.0
+
+
+def _poll_pair_binding():
+    """Fetch GET /api/pairs/:pairName and apply the snapshot as a welcome event.
+
+    Used as the HTTP fallback when the WebSocket is unavailable.
+    Runs in a daemon API thread (via post_to_server pattern) so it never
+    blocks the asyncio loop; the event is dispatched back via run_coroutine_threadsafe.
+    """
+    def _fetch():
+        import json as _json
+        data = fetch_from_server(f"/api/pairs/{PAIR_NAME}")
+        if not isinstance(data, dict):
+            return
+        synthetic_event = {
+            "type":           "controller.welcome",
+            "gameId":         data.get("gameId"),
+            "state":          data.get("state"),
+            "joined":         data.get("joined", False),
+            "openQuestionId": data.get("openQuestionId"),
+        }
+        if ble_event_loop and ble_event_loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                _ws_handle_event(synthetic_event), ble_event_loop
+            )
+    threading.Thread(target=_fetch, daemon=True).start()
 
 
 async def _heartbeat_loop(interval_s: float = 5.0):
@@ -943,8 +1178,11 @@ async def _heartbeat_loop(interval_s: float = 5.0):
 
     Also POST ``connected`` to the emoji server on an interval so the UI can
     mark the link offline when the Pi or Pico stops without a disconnect POST.
+
+    When the WebSocket is down, also polls GET /api/pairs/:pairName every
+    _WS_FALLBACK_POLL_S seconds so the game state stays fresh.
     """
-    global _last_status_liveness_post
+    global _last_status_liveness_post, _last_ws_fallback_poll
     while True:
         await asyncio.sleep(interval_s)
         if ble_controller.client and ble_controller.client.is_connected:
@@ -959,6 +1197,13 @@ async def _heartbeat_loop(interval_s: float = 5.0):
                 _last_status_liveness_post = nowm
                 print("[BLE] liveness — queueing POST /api/status connected", flush=True)
                 post_to_server("/api/status", _status_payload("connected"))
+        # HTTP fallback: poll pair binding when WS is not connected.
+        if not _ws_connected:
+            nowm = time.monotonic()
+            if nowm - _last_ws_fallback_poll >= _WS_FALLBACK_POLL_S:
+                _last_ws_fallback_poll = nowm
+                print("[WS] fallback — polling GET /api/pairs", flush=True)
+                _poll_pair_binding()
 
 # Initialize GPIO before LCD initialization to ensure lgpio allocation works
 # LCD_Config.GPIO_Init() will set up the specific pins with initial values
@@ -1050,6 +1295,10 @@ def draw_menu_row(draw, text, y_position, font, is_selected=False):
 
 def get_main_emoji():
     """Get the main emoji matrix based on current menu, pos, and neg selection"""
+    # Game mode overrides — show the 'G' glyph; status text drawn by draw_display().
+    if game_mode_active:
+        return game_mode_matrix
+
     # NFC mode overrides the main emoji regardless of current nav state
     if nfc_mode_active:
         if nfc_last_result == "circle":
@@ -1166,7 +1415,7 @@ def get_main_emoji():
             elif pos == 3:
                 return others_somi_matrix
             elif pos == 4:
-                return question_mark_matrix
+                return game_mode_matrix   # game mode slot
             elif neg == 1:
                 return others_x_matrix
             elif neg == 2:
@@ -1180,7 +1429,7 @@ def get_main_emoji():
         elif pos == 3:
             return others_somi_matrix
         elif pos == 4:
-            return question_mark_matrix
+            return game_mode_matrix       # game mode slot
         elif neg == 1:
             return others_x_matrix
         elif neg == 2:
@@ -1193,6 +1442,10 @@ def get_main_emoji():
 
 def get_main_emoji_animation():
     """Get the animation state of the main emoji"""
+    # Game mode — no wink animation while showing game status.
+    if game_mode_active:
+        return game_mode_matrix
+
     if menu == 0:  # Emojis menu
         # Show the animation for currently selected emoji when in choosing state
         if state == "choosing":
@@ -1281,7 +1534,7 @@ def get_main_emoji_animation():
         elif pos == 3:
             return others_somi_matrix
         elif pos == 4:
-            return question_mark_matrix
+            return game_mode_matrix       # game mode slot — no animation
         elif neg == 1:
             return others_x_matrix
         elif neg == 2:
@@ -1307,7 +1560,8 @@ def get_left_side_emojis():
         # Finn, Pikachu, Crab, and Frog in the four character slots.
         return [finn_matrix, pikachu_matrix, crab_matrix, frog_matrix]
     elif menu == 3:
-        return [others_circle_matrix, others_yes_matrix, others_somi_matrix, question_mark_matrix]
+        # pos 4 (index 3) is now the game mode entry — show 'G' glyph.
+        return [others_circle_matrix, others_yes_matrix, others_somi_matrix, game_mode_matrix]
     else:
         return [smiley_matrix, smiley_matrix, smiley_matrix, smiley_matrix]
 
@@ -1372,6 +1626,7 @@ def reset_prev():
     """Clear previous state tracking"""
     global prev_state, prev_menu, prev_pos, prev_neg
     global nfc_mode_active, nfc_last_result, nfc_last_card_name
+    global game_mode_active
     prev_state = "none"
     prev_menu = 0
     prev_pos = 0
@@ -1379,6 +1634,7 @@ def reset_prev():
     nfc_mode_active = False
     nfc_last_result = None
     nfc_last_card_name = ""
+    game_mode_active = False
 
 def check_animation_interruption():
     """Check if user wants to interrupt the current animation"""
@@ -1530,9 +1786,24 @@ def start_emoji_animation():
     """Start the appropriate animation based on menu selection"""
     global prev_menu, prev_pos, prev_neg, prev_state, menu, pos, neg, state
     global nfc_mode_active, nfc_last_result, nfc_last_card_name
+    global game_mode_active
 
-    # NFC mode: menu 3, pos 4 (positive NFC) or neg 4 (negative NFC)
-    if menu == 3 and (pos == 4 or neg == 4):
+    # Game mode: menu 3, pos 4, neg 0 — shows live game state on the display.
+    if menu == 3 and pos == 4 and neg == 0:
+        prev_state = "done"
+        prev_menu  = menu
+        prev_pos   = pos
+        prev_neg   = neg
+        game_mode_active = True
+        print("[GAME] entering game mode", flush=True)
+        state = "none"
+        pos   = 0
+        neg   = 0
+        draw_display()
+        return
+
+    # NFC mode: menu 3, neg 4 only (pos 4 is now game mode above).
+    if menu == 3 and neg == 4:
         prev_state = "done"
         prev_menu = menu
         prev_pos = pos
@@ -1713,6 +1984,19 @@ def draw_display():
         name_color = (0, 160, 255) if nfc_last_result == "circle" else (220, 60, 60)
         draw_centered_text(draw, nfc_last_card_name, 57, font, disp.width, name_color)
 
+    # === Game mode status text ===
+    if game_mode_active:
+        if _ws_game_state == "lobby" and not _ws_joined:
+            draw_centered_text(draw, "JOIN? KEY2", 57, font, disp.width, "yellow")
+        elif _ws_game_state == "lobby":
+            draw_centered_text(draw, "WAITING...", 57, font, disp.width, "white")
+        elif _ws_game_state == "active" and _ws_question_id:
+            draw_centered_text(draw, "SCAN NOW",   57, font, disp.width, (255, 200, 0))
+        elif _ws_game_state == "active":
+            draw_centered_text(draw, "GAME ON",    57, font, disp.width, (0, 220, 0))
+        elif _ws_game_state == "completed":
+            draw_centered_text(draw, "GAME OVER",  57, font, disp.width, (200, 0, 0))
+
     # === BLE Connection Status Indicator (lower left) ===
     draw_connection_indicator(clear_area=False)  # Don't clear since we already cleared the whole screen
 
@@ -1754,6 +2038,9 @@ def init_ble_connection():
             # Create a new event loop for this thread
             ble_event_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(ble_event_loop)
+
+            # Start WebSocket client alongside BLE — both share this event loop.
+            ble_event_loop.create_task(_ws_connect_loop())
 
             print("[BLE] startup — queueing POST /api/status", flush=True)
             post_to_server("/api/status", _status_payload("startup"))
@@ -1948,6 +2235,19 @@ try:
             # Only clear prev when *not* confirming the current choosing
             if state != "choosing":
                 reset_prev()
+
+            # Game mode: confirm join when a game is waiting in lobby.
+            if game_mode_active and _join_pending and _ws_game_id:
+                _join_pending = False
+                _ws_joined    = True
+                post_to_server(
+                    f"/api/games/{_ws_game_id}/join",
+                    {"pairName": PAIR_NAME, "controllerId": CONTROLLER_ID},
+                )
+                draw_display()   # redraws with "WAITING..." status
+                time.sleep(0.2)
+                button_states['key2'] = key2_pressed
+                continue
 
             if state == "start":
                 menu = (menu + 1) % 4

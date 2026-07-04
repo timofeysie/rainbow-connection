@@ -134,10 +134,32 @@ To run the emoji-os-zero.py, you need to install the bleak library.
 Bleak is a library for Bluetooth Low Energy (BLE) communication in Python.
 
 ```sh
-To run the nfc-zero-with-pairing.py file, you need to install the bleak library. Bleak is a library for Bluetooth Low Energy (BLE) communication in Python.
-
 sudo apt install python3-bleak
 ```
+
+## Install websockets
+
+From v0.6.0, `emoji-os-zero.py` includes a WebSocket client that connects to
+the emoji-app server for real-time game events. The `websockets` async library
+is required.
+
+On Trixie (and Bookworm) the system Python is externally managed, so use
+`--break-system-packages` (same approach as `spidev` above):
+
+```sh
+sudo pip3 install websockets --break-system-packages
+```
+
+Verify the install:
+
+```sh
+python3 -c "import websockets; print(websockets.__version__)"
+```
+
+If the Pi has internet access when the script starts, it will connect
+automatically. If `SERVER_URL` is empty or the server is unreachable, the
+WebSocket client disables itself gracefully and the rest of the script
+continues to work normally.
 
 To try out the pairing and NFC card reading, navigate to the following directory and run the example script:
 
