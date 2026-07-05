@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.6.0"
+VERSION = " v0.6.1"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -92,7 +92,7 @@ threading.Thread(target=_battery_monitor, daemon=True).start()
 # deployed server
 # SERVER_URL = "https://emoji-staging.kogs.link"
 # Local server for testing
-SERVER_URL = "http://192.168.68.50:3000"
+SERVER_URL = "http://192.168.68.52:3000"
 # Logical Pi Zero id (POST /api/status and /api/emoji).
 CONTROLLER_ID = "raspberry-pi-zero"
 # If non-empty, used as badgeId for all API posts. If empty, badgeId is derived from
@@ -253,16 +253,16 @@ def _scan_device_service_uuids(device):
 
 # === Game mode glyph — capital 'G' on a dark background ===
 # Used as the main emoji when game_mode_active is True.
-# Single-colour matrix (colour resolved via color_map, same as others_circle_matrix).
+# Uses the same letter-keyed color_map as all other matrices ('G'=green, ' '=off).
 game_mode_matrix = [
-    [0, 0, 1, 1, 1, 1, 0, 0],
-    [0, 1, 0, 0, 0, 0, 1, 0],
-    [1, 0, 0, 0, 0, 0, 0, 0],
-    [1, 0, 0, 0, 1, 1, 1, 0],
-    [1, 0, 0, 0, 0, 0, 1, 0],
-    [0, 1, 0, 0, 0, 0, 1, 0],
-    [0, 0, 1, 1, 1, 1, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0],
+    [' ', ' ', 'G', 'G', 'G', 'G', ' ', ' '],
+    [' ', 'G', ' ', ' ', ' ', ' ', 'G', ' '],
+    ['G', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    ['G', ' ', ' ', ' ', 'G', 'G', 'G', ' '],
+    ['G', ' ', ' ', ' ', ' ', ' ', 'G', ' '],
+    [' ', 'G', ' ', ' ', ' ', ' ', 'G', ' '],
+    [' ', ' ', 'G', 'G', 'G', 'G', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
 ]
 
 # BLE Controller class - from working controller-1.3.py

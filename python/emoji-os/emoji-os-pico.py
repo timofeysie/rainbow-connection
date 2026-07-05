@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -34,6 +34,8 @@ from emojis import (
     frog,
     bald,
     surprise,
+    draw_question_mark,
+    draw_red_cross,
 )
 
 # === BLE Imports ===
@@ -131,37 +133,6 @@ if rfid is None:
 NFC_PICO_RESULT_DISPLAY_S = 5
 
 
-def draw_question_mark():
-    """Draw a white '?' glyph on the 8×8 matrix (NFC waiting / idle state).
-
-    Pixel layout (0 = off, 1 = on):
-      . . # # # . . .
-      . # . . . # . .
-      . . . . . # . .
-      . . . . # . . .
-      . . . # . . . .
-      . . . . . . . .
-      . . . # . . . .
-      . . . . . . . .
-    """
-    matrix.pixelsFill(matrix.black())
-    Q = [
-        [0, 0, 1, 1, 1, 0, 0, 0],
-        [0, 1, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-    ]
-    for row, r in enumerate(Q):
-        for col, c in enumerate(r):
-            if c:
-                matrix.pixelSetXY(col, row, matrix.white())
-    matrix.pixelsShow()
-
-
 def _show_game_active():
     """Solid green 4×4 centre square: game is live, waiting for a question."""
     matrix.pixelsFill(matrix.black())
@@ -220,36 +191,6 @@ def _handle_game_command(subcommand: str):
     else:
         print(f"[GAME] unknown subcommand: {subcommand!r}")
 
-
-def draw_red_cross():
-    """Draw a red '✕' (diagonal cross) on the 8×8 matrix.
-
-    Pixel layout (0 = off, 1 = on):
-      # . . . . . . #
-      . # . . . . # .
-      . . # . . # . .
-      . . . # # . . .
-      . . . # # . . .
-      . . # . . # . .
-      . # . . . . # .
-      # . . . . . . #
-    """
-    matrix.pixelsFill(matrix.black())
-    X = [
-        [1, 0, 0, 0, 0, 0, 0, 1],
-        [0, 1, 0, 0, 0, 0, 1, 0],
-        [0, 0, 1, 0, 0, 1, 0, 0],
-        [0, 0, 0, 1, 1, 0, 0, 0],
-        [0, 0, 0, 1, 1, 0, 0, 0],
-        [0, 0, 1, 0, 0, 1, 0, 0],
-        [0, 1, 0, 0, 0, 0, 1, 0],
-        [1, 0, 0, 0, 0, 0, 0, 1],
-    ]
-    for row, r in enumerate(X):
-        for col, c in enumerate(r):
-            if c:
-                matrix.pixelSetXY(col, row, matrix.red())
-    matrix.pixelsShow()
 
 
 button1 = Pin(22, Pin.IN, Pin.PULL_DOWN)

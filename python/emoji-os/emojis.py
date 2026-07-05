@@ -1,4 +1,4 @@
-# emojis for emoji os v0.2.10
+# emojis for emoji os v0.2.11
 import glowbit
 import time
 from large_image import large_image
@@ -495,6 +495,68 @@ def bald():
                 col = 0
         row += 1
     matrix.pixelsShow()
+
+def draw_question_mark():
+    """Draw a white '?' glyph on the 8×8 matrix (NFC waiting / idle state).
+
+    Pixel layout (0 = off, 1 = on):
+      . . # # # . . .
+      . # . . . # . .
+      . . . . . # . .
+      . . . . # . . .
+      . . . # . . . .
+      . . . . . . . .
+      . . . # . . . .
+      . . . . . . . .
+    """
+    matrix.pixelsFill(matrix.black())
+    Q = [
+        [0, 0, 1, 1, 1, 0, 0, 0],
+        [0, 1, 0, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 1, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0],
+    ]
+    for row, r in enumerate(Q):
+        for col, c in enumerate(r):
+            if c:
+                matrix.pixelSetXY(col, row, matrix.white())
+    matrix.pixelsShow()
+
+
+def draw_red_cross():
+    """Draw a red '✕' (diagonal cross) on the 8×8 matrix.
+
+    Pixel layout (0 = off, 1 = on):
+      # . . . . . . #
+      . # . . . . # .
+      . . # . . # . .
+      . . . # # . . .
+      . . . # # . . .
+      . . # . . # . .
+      . # . . . . # .
+      # . . . . . . #
+    """
+    matrix.pixelsFill(matrix.black())
+    X = [
+        [1, 0, 0, 0, 0, 0, 0, 1],
+        [0, 1, 0, 0, 0, 0, 1, 0],
+        [0, 0, 1, 0, 0, 1, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0],
+        [0, 0, 1, 0, 0, 1, 0, 0],
+        [0, 1, 0, 0, 0, 0, 1, 0],
+        [1, 0, 0, 0, 0, 0, 0, 1],
+    ]
+    for row, r in enumerate(X):
+        for col, c in enumerate(r):
+            if c:
+                matrix.pixelSetXY(col, row, matrix.red())
+    matrix.pixelsShow()
+
 
 def surprise():
     print("surprise")
