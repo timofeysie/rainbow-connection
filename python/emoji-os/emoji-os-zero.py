@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.6.1"
+VERSION = " v0.6.2"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -92,7 +92,7 @@ threading.Thread(target=_battery_monitor, daemon=True).start()
 # deployed server
 # SERVER_URL = "https://emoji-staging.kogs.link"
 # Local server for testing
-SERVER_URL = "http://192.168.68.52:3000"
+SERVER_URL = "http://192.168.68.54:3000"
 # Logical Pi Zero id (POST /api/status and /api/emoji).
 CONTROLLER_ID = "raspberry-pi-zero"
 # If non-empty, used as badgeId for all API posts. If empty, badgeId is derived from
@@ -1019,10 +1019,23 @@ async def _ble_write_game_cmd(cmd: str):
         print(f"[BLE] write {cmd!r} failed: {exc}", flush=True)
 
 
-def _apply_game_state_to_display():
-    """Redraw the display to reflect the current game state (e.g. after WS reconnect)."""
+async def _apply_game_state_to_display():
+    """Redraw the Zero display and sync the Pico with the current game state.
+
+    Called after a WS reconnect/welcome snapshot and when the user enters game
+    mode locally, so both screens reflect the server-authoritative state.
+    """
     if game_mode_active:
         draw_display()
+    # Sync Pico with the current known game state so a reconnect or late
+    # game-mode entry picks up the right display without waiting for the next
+    # server event.
+    if _ws_game_state == "active" and _ws_question_id:
+        await _ble_write_game_cmd("GAME:question_open")
+    elif _ws_game_state == "active":
+        await _ble_write_game_cmd("GAME:active")
+    elif _ws_game_state == "completed":
+        await _ble_write_game_cmd("GAME:ended")
 
 
 async def _ws_handle_event(event: dict):
@@ -1042,7 +1055,7 @@ async def _ws_handle_event(event: dict):
             f"joined={_ws_joined}",
             flush=True,
         )
-        _apply_game_state_to_display()
+        await _apply_game_state_to_display()
 
     elif etype == "game.opened":
         _ws_game_id    = event.get("gameId")
@@ -1800,6 +1813,12 @@ def start_emoji_animation():
         pos   = 0
         neg   = 0
         draw_display()
+        # Sync Pico with the current server-known game state now that game mode
+        # is active (e.g. game was already active when the user selected this slot).
+        if ble_event_loop and ble_event_loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                _apply_game_state_to_display(), ble_event_loop
+            )
         return
 
     # NFC mode: menu 3, neg 4 only (pos 4 is now game mode above).
