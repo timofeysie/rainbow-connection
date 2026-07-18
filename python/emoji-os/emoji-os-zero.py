@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.6.2"
+VERSION = " v0.6.3"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -148,8 +148,8 @@ game_mode_active = False
 # built-in copy used when SERVER_URL is empty or the server is unreachable, so
 # the badge still works offline.
 NFC_CARD_MAP_FALLBACK = {
-    "5B:6F:B8:08": {"name": "R12 - Monkey", "display": "circle"},
-    "DB:93:B7:08": {"name": "W3 - Clown",   "display": "x"},
+    "5B:6F:B8:08": {"name": "R12 - Monkey", "display": "circle", "slotLabel": "A"},
+    "DB:93:B7:08": {"name": "W3 - Clown",   "display": "x",      "slotLabel": "B"},
 }
 # Populated from the server at startup; starts as a copy of the fallback.
 NFC_CARD_MAP = dict(NFC_CARD_MAP_FALLBACK)
@@ -188,6 +188,10 @@ try:
     _pair_mod = _imp_util.module_from_spec(_spec)
     _spec.loader.exec_module(_pair_mod)
     PAIR_NAME = _pair_mod.PAIR_NAME
+    if hasattr(_pair_mod, "NFC_CARD_MAP_LOCAL") and isinstance(_pair_mod.NFC_CARD_MAP_LOCAL, dict):
+        NFC_CARD_MAP_FALLBACK = _pair_mod.NFC_CARD_MAP_LOCAL
+        NFC_CARD_MAP = dict(NFC_CARD_MAP_FALLBACK)
+        print(f"[NFC] local card map: {len(NFC_CARD_MAP_FALLBACK)} card(s) from pair_config.py", flush=True)
     _PAIR_CONFIG_SOURCE = _PAIR_CONFIG_PATH
 except Exception as _pair_exc:
     PAIR_NAME = "default"
@@ -845,9 +849,10 @@ def fetch_from_server(path: str):
 def load_nfc_card_map():
     """Fetch the NFC card mapping from the server and update NFC_CARD_MAP.
 
-    Transforms the API's ``{"cards": [{"id", "name", "display"}, ...]}`` into the
-    in-memory ``{id: {"name", "display"}}`` shape used by _handle_nfc_card. On
-    any failure, keeps NFC_CARD_MAP_FALLBACK so the badge still works offline.
+    Transforms the API's ``{"cards": [{"id", "name", "display", "slotLabel"}, ...]}``
+    into the in-memory ``{id: {"name", "display", "slotLabel"}}`` shape used by
+    _handle_nfc_card and _relay_nfc_tag. On any failure, keeps NFC_CARD_MAP_FALLBACK
+    so the badge still works offline.
     """
     global NFC_CARD_MAP
     data = fetch_from_server("/api/nfc-cards")
@@ -864,10 +869,13 @@ def load_nfc_card_map():
     new_map = {}
     for card in cards:
         try:
-            new_map[card["id"]] = {
-                "name": card["name"],
+            entry = {
+                "name":    card["name"],
                 "display": card["display"],
             }
+            if "slotLabel" in card:
+                entry["slotLabel"] = card["slotLabel"]
+            new_map[card["id"]] = entry
         except (KeyError, TypeError):
             print(f"[NFC] skipping malformed card entry: {card!r}", flush=True)
 
@@ -905,14 +913,16 @@ def _relay_nfc_tag(card_uid: str):
             flush=True,
         )
         return
+    card_info = NFC_CARD_MAP.get(card_uid, {})
     payload = {
         "gameId":     _ws_game_id,
         "questionId": _ws_question_id,
         "pairName":   PAIR_NAME,
         "badgeId":    _resolve_badge_id(),
         "cardUid":    card_uid,
+        "slotLabel":  card_info.get("slotLabel"),
     }
-    print(f"[NFC] relaying TAG {card_uid!r} → POST /api/guesses", flush=True)
+    print(f"[NFC] relaying TAG {card_uid!r} slotLabel={payload['slotLabel']!r} → POST /api/guesses", flush=True)
     post_to_server("/api/guesses", payload)
 
 
