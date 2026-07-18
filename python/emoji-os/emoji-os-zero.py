@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.6.4"
+VERSION = " v0.6.5"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -1731,16 +1731,16 @@ def start_emoji_animation():
     global nfc_mode_active, nfc_last_result, nfc_last_card_name
     global game_mode_active, fullscreen_mode
 
-    # Game mode: menu 3, pos 4, neg 0 — shows live game state on the display.
-    # Stay in the status layout (not fullscreen) so JOIN?/SCAN text remains visible.
+    # Game mode: menu 3, pos 4, neg 0 — full-screen live game status display.
+    # KEY2 joins when a lobby is waiting; joystick navigation exits game mode.
     if menu == 3 and pos == 4 and neg == 0:
         prev_state = "done"
         prev_menu  = menu
         prev_pos   = pos
         prev_neg   = neg
         game_mode_active = True
-        fullscreen_mode = False
-        print("[GAME] entering game mode", flush=True)
+        fullscreen_mode = True
+        print("[GAME] entering game mode (fullscreen)", flush=True)
         state = "none"
         pos   = 0
         neg   = 0
@@ -1894,6 +1894,23 @@ def draw_battery_indicator():
         )
 
 
+def _game_status_label():
+    """Return (text, color) for the current game-mode status, or (None, None)."""
+    if not game_mode_active:
+        return None, None
+    if _ws_game_state == "lobby" and not _ws_joined:
+        return "JOIN? KEY2", "yellow"
+    if _ws_game_state == "lobby":
+        return "WAITING...", "white"
+    if _ws_game_state == "active" and _ws_question_id:
+        return "SCAN NOW", (255, 200, 0)
+    if _ws_game_state == "active":
+        return "GAME ON", (0, 220, 0)
+    if _ws_game_state == "completed":
+        return "GAME OVER", (200, 0, 0)
+    return None, None
+
+
 def draw_display():
     """Draw the complete display"""
     # Clear screen
@@ -1905,11 +1922,31 @@ def draw_display():
     else:
         current_emoji = get_main_emoji()
 
-    # === Full-screen selected mode (confirmed emoji only) ===
-    # Game/NFC keep the status layout so prompts and card names stay visible.
-    if fullscreen_mode and not game_mode_active and not nfc_mode_active:
-        scale = 16  # 8×16 = 128 — fills the LCD
-        draw_emoji(draw, current_emoji, color_map, scale, 0, 0)
+    # === Full-screen selected mode ===
+    # NFC keeps the status layout so card-name labels stay visible.
+    if fullscreen_mode and not nfc_mode_active:
+        if game_mode_active:
+            # Large 'G' fills most of the LCD; status strip overlays the top.
+            # WS events call draw_display() while game_mode_active so labels
+            # (JOIN? / SCAN NOW / …) update live during a game.
+            scale = 14
+            emoji_width = scale * 8
+            emoji_height = scale * 8
+            start_x = (disp.width - emoji_width) // 2
+            start_y = (disp.height - emoji_height) // 2
+            draw_emoji(draw, current_emoji, color_map, scale, start_x, start_y)
+
+            status_text, status_color = _game_status_label()
+            if status_text:
+                draw.rectangle((0, 0, disp.width, 16), outline=0, fill=0)
+                draw_centered_text(draw, status_text, 3, font, disp.width, status_color)
+
+            draw_connection_indicator(clear_area=False)
+            draw_battery_indicator()
+        else:
+            scale = 16  # 8×16 = 128 — fills the LCD
+            draw_emoji(draw, current_emoji, color_map, scale, 0, 0)
+
         disp.LCD_ShowImage(image, 0, 0)
         return
 
@@ -1948,18 +1985,10 @@ def draw_display():
         name_color = (0, 160, 255) if nfc_last_result == "circle" else (220, 60, 60)
         draw_centered_text(draw, nfc_last_card_name, 57, font, disp.width, name_color)
 
-    # === Game mode status text ===
-    if game_mode_active:
-        if _ws_game_state == "lobby" and not _ws_joined:
-            draw_centered_text(draw, "JOIN? KEY2", 57, font, disp.width, "yellow")
-        elif _ws_game_state == "lobby":
-            draw_centered_text(draw, "WAITING...", 57, font, disp.width, "white")
-        elif _ws_game_state == "active" and _ws_question_id:
-            draw_centered_text(draw, "SCAN NOW",   57, font, disp.width, (255, 200, 0))
-        elif _ws_game_state == "active":
-            draw_centered_text(draw, "GAME ON",    57, font, disp.width, (0, 220, 0))
-        elif _ws_game_state == "completed":
-            draw_centered_text(draw, "GAME OVER",  57, font, disp.width, (200, 0, 0))
+    # === Game mode status text (menu + status layout) ===
+    status_text, status_color = _game_status_label()
+    if status_text:
+        draw_centered_text(draw, status_text, 57, font, disp.width, status_color)
 
     # === BLE Connection Status Indicator (lower left) ===
     draw_connection_indicator(clear_area=False)  # Don't clear since we already cleared the whole screen
@@ -2194,8 +2223,24 @@ try:
         
         # === Handle KEY2 button (Menu/Confirm) ===
         if key2_pressed and not button_states['key2']:
+            # Game mode owns KEY2: join when a lobby is waiting; otherwise stay
+            # on the full-screen status view (joystick navigation exits).
+            if game_mode_active:
+                if _join_pending and _ws_game_id:
+                    _join_pending = False
+                    _ws_joined    = True
+                    post_to_server(
+                        f"/api/games/{_ws_game_id}/join",
+                        {"pairName": PAIR_NAME, "controllerId": CONTROLLER_ID},
+                    )
+                    draw_display()   # redraws with "WAITING..." status
+                    print('KEY2 - Game join confirmed')
+                time.sleep(0.2)
+                button_states['key2'] = key2_pressed
+                continue
+
             # Full-screen selected mode: KEY2 exits to menu + status layout.
-            if fullscreen_mode and not game_mode_active and not nfc_mode_active:
+            if fullscreen_mode and not nfc_mode_active:
                 fullscreen_mode = False
                 draw_display()
                 print('KEY2 - Exit fullscreen to status view')
@@ -2206,19 +2251,6 @@ try:
             # Only clear prev when *not* confirming the current choosing
             if state != "choosing":
                 reset_prev()
-
-            # Game mode: confirm join when a game is waiting in lobby.
-            if game_mode_active and _join_pending and _ws_game_id:
-                _join_pending = False
-                _ws_joined    = True
-                post_to_server(
-                    f"/api/games/{_ws_game_id}/join",
-                    {"pairName": PAIR_NAME, "controllerId": CONTROLLER_ID},
-                )
-                draw_display()   # redraws with "WAITING..." status
-                time.sleep(0.2)
-                button_states['key2'] = key2_pressed
-                continue
 
             if state == "start":
                 menu = (menu + 1) % 4
