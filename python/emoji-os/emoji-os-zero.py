@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.6.3"
+VERSION = " v0.6.4"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -1263,6 +1263,9 @@ is_winking = False  # Flag to control winking animation
 is_animating = False  # Flag to control main emoji animation
 animation_running = False  # Flag to prevent multiple animation threads
 stop_animation = False  # Flag to interrupt procedural animations
+# After confirm: True = selected emoji fills the whole LCD; KEY2 exits to the
+# menu + status layout (top menu, bottom emoji, BLE/battery indicators).
+fullscreen_mode = False
 
 # Previous state tracking for emoji toggling
 prev_menu = 0
@@ -1316,6 +1319,19 @@ def draw_menu_row(draw, text, y_position, font, is_selected=False):
     else:
         draw_centered_text(draw, text, row_y + 2, font, 128, "white")
 
+def _display_selection():
+    """Return (menu, pos, neg) for the main emoji.
+
+    Prefers the live selection; after confirm the code clears pos/neg while
+    leaving prev_* set, so fall back to the last confirmed choice.
+    """
+    if pos > 0 or neg > 0:
+        return menu, pos, neg
+    if prev_state == "done" and (prev_pos > 0 or prev_neg > 0):
+        return prev_menu, prev_pos, prev_neg
+    return menu, pos, neg
+
+
 def get_main_emoji():
     """Get the main emoji matrix based on current menu, pos, and neg selection"""
     # Game mode overrides — show the 'G' glyph; status text drawn by draw_display().
@@ -1331,133 +1347,70 @@ def get_main_emoji():
         else:
             return question_mark_matrix
 
-    if menu == 0:  # Emojis menu
-        # Show the currently selected emoji when in choosing state
-        if state == "choosing":
-            if pos == 1:
-                return regular_matrix
-            elif pos == 2:
-                return wry_matrix
-            elif pos == 3:
-                return happy_matrix
-            elif pos == 4:
-                return heart_eyes_matrix
-            elif neg == 1:
-                return thick_lips_matrix
-            elif neg == 2:
-                return sad_wry_matrix
-            elif neg == 3:
-                return sad_matrix
-            elif neg == 4:
-                return crossbone_eyes_matrix
-        # Show default when not in choosing state
-        elif pos == 1:
+    sel_menu, sel_pos, sel_neg = _display_selection()
+
+    if sel_menu == 0:  # Emojis menu
+        if sel_pos == 1:
             return regular_matrix
-        elif pos == 2:
+        elif sel_pos == 2:
             return wry_matrix
-        elif pos == 3:
+        elif sel_pos == 3:
             return happy_matrix
-        elif pos == 4:
+        elif sel_pos == 4:
             return heart_eyes_matrix
-        elif neg == 1:
+        elif sel_neg == 1:
             return thick_lips_matrix
-        elif neg == 2:
+        elif sel_neg == 2:
             return sad_wry_matrix
-        elif neg == 3:
+        elif sel_neg == 3:
             return sad_matrix
-        elif neg == 4:
+        elif sel_neg == 4:
             return crossbone_eyes_matrix
-    
-    elif menu == 1:  # Animations menu
-        # Return preview matrices for animations
-        if state == "choosing":
-            if pos == 1:
-                return fireworks_animation.preview
-            elif pos == 2:
-                return circular_rainbow_preview_matrix
-            elif pos == 3:
-                return chakana_matrix
-            elif pos == 4:
-                return heart_matrix
-            elif neg == 1:
-                return rain_animation.preview
-        elif pos == 1:
+
+    elif sel_menu == 1:  # Animations menu
+        if sel_pos == 1:
             return fireworks_animation.preview
-        elif pos == 2:
+        elif sel_pos == 2:
             return circular_rainbow_preview_matrix
-        elif pos == 3:
+        elif sel_pos == 3:
             return chakana_matrix
-        elif pos == 4:
+        elif sel_pos == 4:
             return heart_matrix
-        elif neg == 1:
+        elif sel_neg == 1:
             return rain_animation.preview
-    
-    elif menu == 2:  # Characters menu
-        # Show the currently selected character when in choosing state
-        if state == "choosing":
-            if pos == 1:
-                return finn_matrix
-            elif pos == 2:
-                return pikachu_matrix
-            elif pos == 3:
-                return crab_matrix
-            elif pos == 4:
-                return frog_matrix
-            elif neg == 1:
-                return bald_matrix
-            elif neg == 2:
-                return surprise_matrix
-            elif neg == 3:
-                return green_monster_matrix
-            elif neg == 4:
-                return angry_matrix
-        # Show last confirmed character/negative when not in choosing state
-        elif pos == 1:
+
+    elif sel_menu == 2:  # Characters menu
+        if sel_pos == 1:
             return finn_matrix
-        elif pos == 2:
+        elif sel_pos == 2:
             return pikachu_matrix
-        elif pos == 3:
+        elif sel_pos == 3:
             return crab_matrix
-        elif pos == 4:
+        elif sel_pos == 4:
             return frog_matrix
-        elif neg == 1:
+        elif sel_neg == 1:
             return bald_matrix
-        elif neg == 2:
+        elif sel_neg == 2:
             return surprise_matrix
-        elif neg == 3:
+        elif sel_neg == 3:
             return green_monster_matrix
-        elif neg == 4:
+        elif sel_neg == 4:
             return angry_matrix
 
-    elif menu == 3:  # Others menu
-        if state == "choosing":
-            if pos == 1:
-                return others_circle_matrix
-            elif pos == 2:
-                return others_yes_matrix
-            elif pos == 3:
-                return others_somi_matrix
-            elif pos == 4:
-                return game_mode_matrix   # game mode slot
-            elif neg == 1:
-                return others_x_matrix
-            elif neg == 2:
-                return others_no_matrix
-            elif neg == 4:
-                return question_mark_matrix
-        elif pos == 1:
+    elif sel_menu == 3:  # Others menu
+        if sel_pos == 1:
             return others_circle_matrix
-        elif pos == 2:
+        elif sel_pos == 2:
             return others_yes_matrix
-        elif pos == 3:
+        elif sel_pos == 3:
             return others_somi_matrix
-        elif pos == 4:
-            return game_mode_matrix       # game mode slot
-        elif neg == 1:
+        elif sel_pos == 4:
+            return game_mode_matrix   # game mode slot
+        elif sel_neg == 1:
             return others_x_matrix
-        elif neg == 2:
+        elif sel_neg == 2:
             return others_no_matrix
-        elif neg == 4:
+        elif sel_neg == 4:
             return question_mark_matrix
 
     # Default to regular smiley for other menus
@@ -1469,100 +1422,66 @@ def get_main_emoji_animation():
     if game_mode_active:
         return game_mode_matrix
 
-    if menu == 0:  # Emojis menu
-        # Show the animation for currently selected emoji when in choosing state
-        if state == "choosing":
-            if pos == 1:
-                return regular_wink_matrix
-            elif pos == 2:
-                return wry_wink_matrix
-            elif pos == 3:
-                return happy_wink_matrix
-            elif pos == 4:
-                return heart_eyes_wink_matrix
-            elif neg == 1:
-                return thick_lips_wink_matrix
-            elif neg == 2:
-                return sad_wry_wink_matrix
-            elif neg == 3:
-                return sad_wink_matrix
-            elif neg == 4:
-                return crossbone_eyes_wink_matrix
-        # Show animation for selected emoji when not in choosing state
-        elif pos == 1:
+    sel_menu, sel_pos, sel_neg = _display_selection()
+
+    if sel_menu == 0:  # Emojis menu
+        if sel_pos == 1:
             return regular_wink_matrix
-        elif pos == 2:
-            return happy_wink_matrix
-        elif pos == 3:
+        elif sel_pos == 2:
             return wry_wink_matrix
-        elif pos == 4:
+        elif sel_pos == 3:
+            return happy_wink_matrix
+        elif sel_pos == 4:
             return heart_eyes_wink_matrix
-        elif neg == 1:
+        elif sel_neg == 1:
             return thick_lips_wink_matrix
-        elif neg == 2:
+        elif sel_neg == 2:
             return sad_wry_wink_matrix
-        elif neg == 3:
+        elif sel_neg == 3:
             return sad_wink_matrix
-        elif neg == 4:
+        elif sel_neg == 4:
             return crossbone_eyes_wink_matrix
-    
-    elif menu == 1:  # Animations menu - circular rainbow, chakana, heart bounce previews
-        if pos == 2:
+
+    elif sel_menu == 1:  # Animations menu - circular rainbow, chakana, heart bounce previews
+        if sel_pos == 2:
             return circular_rainbow_wink_matrix
-        elif pos == 3:
+        elif sel_pos == 3:
             return chakana_matrix
-        elif pos == 4:
+        elif sel_pos == 4:
             return heart_bounce_matrix
-    
-    elif menu == 2:  # Characters menu animations (use character-specific matrices)
-        if state == "choosing":
-            if pos == 1:
-                return finn_wink_matrix
-            elif pos == 2:
-                return pikachu_wink_matrix
-            elif pos == 3:
-                return crab_wink_matrix
-            elif pos == 4:
-                return frog_wink_matrix
-            elif neg == 1:
-                return bald_wink_matrix
-            elif neg == 2:
-                return surprise_wink_matrix
-            elif neg == 3:
-                return green_monster_wink_matrix
-            elif neg == 4:
-                return angry_wink_matrix
-        elif pos == 1:
+
+    elif sel_menu == 2:  # Characters menu animations (use character-specific matrices)
+        if sel_pos == 1:
             return finn_wink_matrix
-        elif pos == 2:
+        elif sel_pos == 2:
             return pikachu_wink_matrix
-        elif pos == 3:
+        elif sel_pos == 3:
             return crab_wink_matrix
-        elif pos == 4:
+        elif sel_pos == 4:
             return frog_wink_matrix
-        elif neg == 1:
+        elif sel_neg == 1:
             return bald_wink_matrix
-        elif neg == 2:
+        elif sel_neg == 2:
             return surprise_wink_matrix
-        elif neg == 3:
+        elif sel_neg == 3:
             return green_monster_wink_matrix
-        elif neg == 4:
+        elif sel_neg == 4:
             return angry_wink_matrix
 
-    elif menu == 3:  # Others menu previews in animation phase
-        if pos == 1:
+    elif sel_menu == 3:  # Others menu previews in animation phase
+        if sel_pos == 1:
             return others_circle_matrix
-        elif pos == 2:
+        elif sel_pos == 2:
             return others_yes_matrix
-        elif pos == 3:
+        elif sel_pos == 3:
             return others_somi_matrix
-        elif pos == 4:
+        elif sel_pos == 4:
             return game_mode_matrix       # game mode slot — no animation
-        elif neg == 1:
+        elif sel_neg == 1:
             return others_x_matrix
-        elif neg == 2:
+        elif sel_neg == 2:
             return others_no_matrix
-        elif neg == 4:
+        elif sel_neg == 4:
             return question_mark_matrix
 
     # Default to wink smiley for other menus
@@ -1649,7 +1568,7 @@ def reset_prev():
     """Clear previous state tracking"""
     global prev_state, prev_menu, prev_pos, prev_neg
     global nfc_mode_active, nfc_last_result, nfc_last_card_name
-    global game_mode_active
+    global game_mode_active, fullscreen_mode
     prev_state = "none"
     prev_menu = 0
     prev_pos = 0
@@ -1658,6 +1577,7 @@ def reset_prev():
     nfc_last_result = None
     nfc_last_card_name = ""
     game_mode_active = False
+    fullscreen_mode = False
 
 def check_animation_interruption():
     """Check if user wants to interrupt the current animation"""
@@ -1703,13 +1623,14 @@ def send_emoji_to_pico(menu_val, pos_val, neg_val):
 def start_procedural_animation():
     """Start a procedural animation (fireworks or rain) with interruption support"""
     global animation_running, stop_animation, prev_menu, prev_pos, prev_neg, prev_state
-    global state, menu, pos, neg
+    global state, menu, pos, neg, fullscreen_mode
     
     if animation_running:
         return
     
     animation_running = True
     stop_animation = False
+    fullscreen_mode = True
     
     # Save current selection
     prev_state = "done"
@@ -1723,12 +1644,10 @@ def start_procedural_animation():
     # Clear the display for animation
     draw.rectangle((0, 0, disp.width, disp.height), outline=0, fill=0)
     
-    # Calculate position for full-screen animation (bottom half like emojis)
-    scale = 7
-    emoji_width = scale * 8
-    emoji_height = scale * 8
-    start_x = (disp.width - emoji_width) // 2
-    start_y = 64 + (64 - emoji_height)
+    # Full-screen selected mode: 8×8 matrix at scale 16 fills the 128×128 LCD.
+    scale = 16
+    start_x = 0
+    start_y = 0
     
     interrupted = False
     
@@ -1764,7 +1683,8 @@ def start_procedural_animation():
         animation_thread.start()
         return
     
-    # Animation completed normally - reset state
+    # Animation completed normally - keep confirmed selection via prev_*; clear
+    # live pos/neg so menu highlights are off while fullscreen_mode stays on.
     state = "none"
     pos = 0
     neg = 0
@@ -1809,15 +1729,17 @@ def start_emoji_animation():
     """Start the appropriate animation based on menu selection"""
     global prev_menu, prev_pos, prev_neg, prev_state, menu, pos, neg, state
     global nfc_mode_active, nfc_last_result, nfc_last_card_name
-    global game_mode_active
+    global game_mode_active, fullscreen_mode
 
     # Game mode: menu 3, pos 4, neg 0 — shows live game state on the display.
+    # Stay in the status layout (not fullscreen) so JOIN?/SCAN text remains visible.
     if menu == 3 and pos == 4 and neg == 0:
         prev_state = "done"
         prev_menu  = menu
         prev_pos   = pos
         prev_neg   = neg
         game_mode_active = True
+        fullscreen_mode = False
         print("[GAME] entering game mode", flush=True)
         state = "none"
         pos   = 0
@@ -1832,6 +1754,7 @@ def start_emoji_animation():
         return
 
     # NFC mode: menu 3, neg 4 only (pos 4 is now game mode above).
+    # Status layout keeps card-name labels visible when a tag is scanned.
     if menu == 3 and neg == 4:
         prev_state = "done"
         prev_menu = menu
@@ -1840,6 +1763,7 @@ def start_emoji_animation():
         nfc_mode_active = True
         nfc_last_result = None
         nfc_last_card_name = ""
+        fullscreen_mode = False
         print(f"[NFC] entering NFC mode (menu={menu} pos={pos} neg={neg})", flush=True)
         send_emoji_to_pico(menu, pos, neg)
         state = "none"
@@ -1852,19 +1776,22 @@ def start_emoji_animation():
     if menu == 1 and (pos == 1 or neg == 1):
         start_procedural_animation()
     else:
-        # Regular two-part emoji animation
+        # Regular two-part emoji animation — enter full-screen selected mode
         prev_state = "done"
         prev_menu = menu
         prev_pos = pos
         prev_neg = neg
+        fullscreen_mode = True
         
         # Run the animation
         emoji_two_part_animation()
         
-        # Reset to none state after animation completes (no menu selection)
+        # Reset to none state after animation completes (no menu selection).
+        # Keep fullscreen_mode; prev_* drives the main emoji via _display_selection().
         state = "none"
         pos = 0
         neg = 0
+        draw_display()
 
 def draw_connection_indicator(clear_area=True):
     """Draw the BLE connection status indicator in the lower left corner
@@ -1971,20 +1898,28 @@ def draw_display():
     """Draw the complete display"""
     # Clear screen
     draw.rectangle((0,0,disp.width,disp.height), outline=0, fill=0)
-    
+
+    # Get the appropriate main emoji
+    if is_winking or is_animating:
+        current_emoji = get_main_emoji_animation()
+    else:
+        current_emoji = get_main_emoji()
+
+    # === Full-screen selected mode (confirmed emoji only) ===
+    # Game/NFC keep the status layout so prompts and card names stay visible.
+    if fullscreen_mode and not game_mode_active and not nfc_mode_active:
+        scale = 16  # 8×16 = 128 — fills the LCD
+        draw_emoji(draw, current_emoji, color_map, scale, 0, 0)
+        disp.LCD_ShowImage(image, 0, 0)
+        return
+
     # === Main Emoji (bottom half) ===
     scale = 7
     emoji_width = scale * 8
     emoji_height = scale * 8
     start_x = (disp.width - emoji_width) // 2
     start_y = 64 + (64 - emoji_height)
-    
-    # Get the appropriate main emoji
-    if is_winking or is_animating:
-        current_emoji = get_main_emoji_animation()
-    else:
-        current_emoji = get_main_emoji()
-    
+
     draw_emoji(draw, current_emoji, color_map, scale, start_x, start_y)
     
     # === Left Side Emojis (with selection) ===
@@ -2048,7 +1983,7 @@ print("Emoji OS Zero " + VERSION + " started with BLE Controller functionality")
 print(f"[PAIR] strict pairing enabled — PAIR_NAME='{PAIR_NAME}', target='{TARGET_DEVICE_NAME}'")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive")
-print("KEY2: Navigate/confirm")
+print("KEY2: Navigate/confirm; exit full-screen selected mode")
 print("KEY3: Select negative")
 print("=" * 50)
 
@@ -2189,15 +2124,15 @@ try:
                 state = "choosing"
                 pos = 1
                 neg = 0
+                draw_display()
             elif state == "choosing":
                 # Show selected emoji and trigger appropriate animation
                 print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
-                # Start animation in a separate thread
+                # Start animation in a separate thread (owns the next redraw /
+                # full-screen transition — avoid flashing the menu layout here)
                 animation_thread = threading.Thread(target=start_emoji_animation)
                 animation_thread.daemon = True
                 animation_thread.start()
-                # Don't reset state here - let animation handle it
-            draw_display()
             print('Center - State:', state)
             time.sleep(0.2)
         button_states['center'] = center_pressed
@@ -2218,7 +2153,6 @@ try:
                     animation_thread = threading.Thread(target=start_emoji_animation)
                     animation_thread.daemon = True
                     animation_thread.start()
-                    draw_display()
                     time.sleep(0.2)
                     button_states['key1'] = key1_pressed
                     continue
@@ -2231,7 +2165,6 @@ try:
                     animation_thread = threading.Thread(target=start_emoji_animation)
                     animation_thread.daemon = True
                     animation_thread.start()
-                    draw_display()
                     time.sleep(0.2)
                     button_states['key1'] = key1_pressed
                     continue
@@ -2261,6 +2194,15 @@ try:
         
         # === Handle KEY2 button (Menu/Confirm) ===
         if key2_pressed and not button_states['key2']:
+            # Full-screen selected mode: KEY2 exits to menu + status layout.
+            if fullscreen_mode and not game_mode_active and not nfc_mode_active:
+                fullscreen_mode = False
+                draw_display()
+                print('KEY2 - Exit fullscreen to status view')
+                time.sleep(0.2)
+                button_states['key2'] = key2_pressed
+                continue
+
             # Only clear prev when *not* confirming the current choosing
             if state != "choosing":
                 reset_prev()
@@ -2281,15 +2223,17 @@ try:
             if state == "start":
                 menu = (menu + 1) % 4
                 check_menu()
+                draw_display()
             elif state == "none":
                 state = "start"
+                draw_display()
             elif state == "choosing":
-                # Don't reset prev here! First record prev, then animate
+                # Don't reset prev here! First record prev, then animate.
+                # Animation thread owns the next redraw / full-screen transition.
                 print(f"Selected: Menu {menu}, Pos {pos}, Neg {neg}")
                 animation_thread = threading.Thread(target=start_emoji_animation)
                 animation_thread.daemon = True
                 animation_thread.start()
-            draw_display()
             print('KEY2 - Menu:', menu, 'State:', state)
             time.sleep(0.2)
         button_states['key2'] = key2_pressed
@@ -2311,7 +2255,6 @@ try:
                     animation_thread.daemon = True
                     animation_thread.start()
                     # We do NOT reset prev_state here, so it doesn't fall through to other branches
-                    draw_display()
                     time.sleep(0.2)
                     button_states['key3'] = key3_pressed
                     continue
@@ -2324,7 +2267,6 @@ try:
                     animation_thread = threading.Thread(target=start_emoji_animation)
                     animation_thread.daemon = True
                     animation_thread.start()
-                    draw_display()
                     time.sleep(0.2)
                     button_states['key3'] = key3_pressed
                     continue
