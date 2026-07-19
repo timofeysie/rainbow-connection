@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.4.1"
+VERSION = "0.5.0"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -132,6 +132,59 @@ if rfid is None:
 # reverting to the question-mark waiting state.
 NFC_PICO_RESULT_DISPLAY_S = 5
 
+# Platform icon / display reference — shared state ids + labels (multiplayer-mode.md).
+# Log format: [GAME] pico | <state_id> | <label> | <detail>
+_GAME_STATE_LABELS = {
+    "lobby": "Lobby — not yet joined",
+    "lobby_joined": "Lobby — joined, waiting",
+    "active": "Game started / active",
+    "question_open": "Question open",
+    "card_scanned": "Card scanned",
+    "correct": "Correct answer",
+    "wrong": "Wrong answer",
+    "question_closed": "Question closed",
+    "game_ended": "Game ended",
+    "winner": "Game winner",
+    "loser": "Game loser",
+}
+
+# BLE GAME:<subcommand> → Platform icon state id (wire name may differ).
+_GAME_CMD_TO_STATE = {
+    "lobby": "lobby",
+    "lobby_joined": "lobby_joined",
+    "active": "active",
+    "question_open": "question_open",
+    "correct": "correct",
+    "wrong": "wrong",
+    "question_close": "question_closed",
+    "ended": "game_ended",
+    "winner": "winner",
+    "loser": "loser",
+}
+
+
+def _log_game_state(state_id, detail=""):
+    """Emit a narrative game-state line (see multiplayer-mode.md logging section)."""
+    label = _GAME_STATE_LABELS.get(state_id, state_id)
+    if detail:
+        print("[GAME] pico | {} | {} | {}".format(state_id, label, detail))
+    else:
+        print("[GAME] pico | {} | {}".format(state_id, label))
+
+
+def _show_game_lobby():
+    """Solid yellow 4×4 centre: lobby open, not yet joined."""
+    matrix.pixelsFill(matrix.black())
+    matrix.drawRectangleFill(2, 2, 5, 5, matrix.yellow())
+    matrix.pixelsShow()
+
+
+def _show_game_lobby_joined():
+    """White 4×4 outline: joined lobby, waiting for game start."""
+    matrix.pixelsFill(matrix.black())
+    matrix.drawRectangle(2, 2, 5, 5, matrix.white())
+    matrix.pixelsShow()
+
 
 def _show_game_active():
     """Solid green 4×4 centre square: game is live, waiting for a question."""
@@ -143,6 +196,33 @@ def _show_game_active():
 def _show_question_open():
     """Question mark glyph: a question is open — scan ready."""
     draw_question_mark()
+
+
+def _show_tap_ack():
+    """Green 4×4 outline: NFC tap acknowledged (awaiting correct/wrong)."""
+    matrix.pixelsFill(matrix.black())
+    matrix.drawRectangle(2, 2, 5, 5, matrix.green())
+    matrix.pixelsShow()
+
+
+def _show_correct():
+    """Blue filled circle: this pair answered correctly."""
+    matrix.pixelsFill(matrix.black())
+    colour = matrix.blue()
+    cx, cy = 3, 3
+    # Disk of radius ~3 on the 8×8 grid.
+    for y in range(8):
+        for x in range(8):
+            dx = x - cx
+            dy = y - cy
+            if dx * dx + dy * dy <= 10:
+                matrix.pixelSetXY(x, y, colour)
+    matrix.pixelsShow()
+
+
+def _show_wrong():
+    """Red X: this pair answered incorrectly (or no answer)."""
+    draw_red_cross()
 
 
 def _show_question_close():
@@ -163,33 +243,79 @@ def _show_game_ended():
     matrix.pixelsShow()
 
 
+def _show_winner():
+    """Fireworks animation (animations menu — positive 1)."""
+    matrix.fireworks()
+
+
+def _show_loser():
+    """Rain animation (animations menu)."""
+    matrix.rain()
+
+
 def _handle_game_command(subcommand: str):
     """Dispatch a GAME:<subcommand> received from the Zero via BLE."""
     global _game_state, _game_nfc_display_until_ms
-    print(f"[GAME] command: {subcommand!r}")
 
-    if subcommand == "active":
+    state_id = _GAME_CMD_TO_STATE.get(subcommand)
+    if state_id is None:
+        print("[GAME] pico | unknown | unknown GAME command | {!r}".format(subcommand))
+        return
+
+    _game_nfc_display_until_ms = 0
+    detail_by_cmd = {
+        "lobby": "yellow 4×4; BLE GAME:lobby",
+        "lobby_joined": "white 4×4 outline; BLE GAME:lobby_joined",
+        "active": "green 4×4; BLE GAME:active",
+        "question_open": "? glyph; NFC on; BLE GAME:question_open",
+        "correct": "blue filled circle; BLE GAME:correct",
+        "wrong": "red X; BLE GAME:wrong",
+        "question_close": "white 2×2 dot; BLE GAME:question_close",
+        "ended": "DONE scroll; BLE GAME:ended",
+        "winner": "fireworks; BLE GAME:winner",
+        "loser": "rain; BLE GAME:loser",
+    }
+    _log_game_state(state_id, detail_by_cmd.get(subcommand, "BLE GAME:" + subcommand))
+
+    if subcommand == "lobby":
+        _game_state = "lobby"
+        _show_game_lobby()
+
+    elif subcommand == "lobby_joined":
+        _game_state = "lobby_joined"
+        _show_game_lobby_joined()
+
+    elif subcommand == "active":
         _game_state = "active"
-        _game_nfc_display_until_ms = 0
         _show_game_active()
 
     elif subcommand == "question_open":
         _game_state = "question_open"
-        _game_nfc_display_until_ms = 0
         _show_question_open()
+
+    elif subcommand == "correct":
+        _game_state = "correct"
+        _show_correct()
+
+    elif subcommand == "wrong":
+        _game_state = "wrong"
+        _show_wrong()
 
     elif subcommand == "question_close":
         _game_state = "question_close"
-        _game_nfc_display_until_ms = 0
         _show_question_close()
 
     elif subcommand == "ended":
         _game_state = "ended"
-        _game_nfc_display_until_ms = 0
         _show_game_ended()
 
-    else:
-        print(f"[GAME] unknown subcommand: {subcommand!r}")
+    elif subcommand == "winner":
+        _game_state = "winner"
+        _show_winner()
+
+    elif subcommand == "loser":
+        _game_state = "loser"
+        _show_loser()
 
 
 
@@ -225,10 +351,15 @@ nfc_display_until_ms = 0
 
 # === Game State (driven by GAME:* commands from the Zero) ===
 # None             — no game in progress / idle
+# "lobby"          — open for joining; not yet joined
+# "lobby_joined"   — joined; waiting for start
 # "active"         — game started, no open question yet
 # "question_open"  — NFC scanning active; TAG: notifies sent on card read
+# "correct"        — answered correctly this question
+# "wrong"          — answered incorrectly this question
 # "question_close" — between questions
-# "ended"          — game finished
+# "ended"          — game finished (generic DONE scroll)
+# "winner" / "loser" — end-of-game celebration / consolation
 _game_state = None
 # Monotonic ms timestamp; when elapsed, revert game-mode NFC display to question mark.
 _game_nfc_display_until_ms = 0
@@ -855,7 +986,10 @@ print("Device Name: " + DEVICE_NAME)
 print("PAIR_NAME: " + PAIR_NAME)
 print("Pairing: expects first write 'PAIR:" + PAIR_NAME + "', replies PAIR_OK:<version>/PAIR_FAIL on TX notify")
 print("Supports emoji commands in format: 'MENU:POS:NEG' (after PAIR_OK)")
-print("Game commands: GAME:active/question_open/question_close/ended — drives matrix display")
+print(
+    "Game commands: GAME:lobby/lobby_joined/active/question_open/"
+    "correct/wrong/question_close/ended/winner/loser — drives matrix display"
+)
 print("NFC game mode: GAME:question_open activates TAG:<cardUid> notifies on NFC read")
 print("NFC legacy mode: menu=3 neg=4 — sends 'NFC:<card_id>' to Zero via BLE notify")
 print("Legacy commands: ON, OFF, STATUS, BLINK (after PAIR_OK)")
@@ -1014,15 +1148,20 @@ while True:
             try:
                 if rfid.tagPresent():
                     card_id = rfid.readID()
-                    print('NFC (game) tag:', card_id)
                     if p.is_connected():
                         p.send(('TAG:' + card_id).encode())
+                        _log_game_state(
+                            "card_scanned",
+                            "TAG:{}; green 4×4 outline".format(card_id),
+                        )
                     else:
-                        print('NFC (game): not connected to Zero — TAG not sent')
-                    # Brief green circle as visual feedback; revert after display hold.
-                    matrix.pixelsFill(matrix.black())
-                    matrix.drawCircle(3, 3, 3, matrix.green())
-                    matrix.pixelsShow()
+                        _log_game_state(
+                            "card_scanned",
+                            "TAG:{} not sent — BLE disconnected".format(card_id),
+                        )
+                    # Green 4×4 outline = tap acknowledged; Zero follows with
+                    # GAME:correct / GAME:wrong. Revert to ? if no follow-up.
+                    _show_tap_ack()
                     _game_nfc_display_until_ms = time.ticks_add(
                         time.ticks_ms(), NFC_PICO_RESULT_DISPLAY_S * 1000
                     )

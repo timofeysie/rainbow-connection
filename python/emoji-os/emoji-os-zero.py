@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.6.5"
+VERSION = " v0.7.0"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -126,6 +126,17 @@ _ws_question_id   = None   # str | None — currently open question
 _ws_joined        = False  # True once join POST has been sent this session
 _join_pending     = False  # True after game.opened arrives; cleared by KEY2 join
 _ws_connected     = False  # True while the WS socket is open
+# Question phase within an active game (drives Platform icon glyphs).
+# None = game active, no question opened yet; "open" / "closed" after first Q.
+_ws_question_phase = None  # None | "open" | "closed"
+# Per-question answer shown until question_closed (immediate guess feedback).
+_game_pair_result = None   # None | "correct" | "wrong"
+# True once this pair has shown correct/wrong for the open question (scan or
+# question.result). Survives question.closed so a late question.result does not
+# re-animate over the white 2×2 "Question closed" glyph.
+_game_answered_this_question = False
+# End-of-game outcome for LCD (winner/loser animations + glyph).
+_game_end_outcome = None   # None | "winner" | "loser" | "ended"
 
 # Reconnect backoff bounds (seconds)
 _WS_BACKOFF_MIN_S = 2.0
@@ -138,6 +149,45 @@ _last_ws_fallback_poll = 0.0
 # === Game mode state ===
 # True while the player has selected menu 3 · pos 4 (game mode slot).
 game_mode_active = False
+
+# Platform icon / display reference — shared state ids + labels (multiplayer-mode.md).
+# Log format: [GAME] zero | <state_id> | <label> | <detail>
+_GAME_STATE_LABELS = {
+    "lobby": "Lobby — not yet joined",
+    "lobby_joined": "Lobby — joined, waiting",
+    "active": "Game started / active",
+    "question_open": "Question open",
+    "card_scanned": "Card scanned",
+    "correct": "Correct answer",
+    "wrong": "Wrong answer",
+    "question_closed": "Question closed",
+    "game_ended": "Game ended",
+    "winner": "Game winner",
+    "loser": "Game loser",
+}
+
+# BLE GAME:<cmd> → Platform icon state id (wire name may differ from state id).
+_GAME_CMD_TO_STATE = {
+    "GAME:lobby": "lobby",
+    "GAME:lobby_joined": "lobby_joined",
+    "GAME:active": "active",
+    "GAME:question_open": "question_open",
+    "GAME:correct": "correct",
+    "GAME:wrong": "wrong",
+    "GAME:question_close": "question_closed",
+    "GAME:ended": "game_ended",
+    "GAME:winner": "winner",
+    "GAME:loser": "loser",
+}
+
+
+def _log_game_state(state_id: str, detail: str = "") -> None:
+    """Emit a narrative game-state line (see multiplayer-mode.md logging section)."""
+    label = _GAME_STATE_LABELS.get(state_id, state_id)
+    if detail:
+        print(f"[GAME] zero | {state_id} | {label} | {detail}", flush=True)
+    else:
+        print(f"[GAME] zero | {state_id} | {label}", flush=True)
 
 # === NFC Card Mapping ===
 # Each entry maps a card ID to a display name (printed to log) and a display
@@ -255,9 +305,8 @@ def _scan_device_service_uuids(device):
     return []
 
 
-# === Game mode glyph — capital 'G' on a dark background ===
-# Used as the main emoji when game_mode_active is True.
-# Uses the same letter-keyed color_map as all other matrices ('G'=green, ' '=off).
+# === Game mode glyphs (Platform icon / display reference) ===
+# Fallback 'G' while waiting for a server snapshot in game mode.
 game_mode_matrix = [
     [' ', ' ', 'G', 'G', 'G', 'G', ' ', ' '],
     [' ', 'G', ' ', ' ', ' ', ' ', 'G', ' '],
@@ -267,6 +316,66 @@ game_mode_matrix = [
     [' ', 'G', ' ', ' ', ' ', ' ', 'G', ' '],
     [' ', ' ', 'G', 'G', 'G', 'G', ' ', ' '],
     [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+# Lobby — not yet joined: solid yellow 4×4 centre
+game_lobby_matrix = [
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+# Lobby — joined, waiting: white 4×4 outline
+game_lobby_joined_matrix = [
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', 'W', 'W', 'W', 'W', ' ', ' '],
+    [' ', ' ', 'W', ' ', ' ', 'W', ' ', ' '],
+    [' ', ' ', 'W', ' ', ' ', 'W', ' ', ' '],
+    [' ', ' ', 'W', 'W', 'W', 'W', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+# Game started / active: solid green 4×4 centre
+game_active_matrix = [
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', 'G', 'G', 'G', 'G', ' ', ' '],
+    [' ', ' ', 'G', 'G', 'G', 'G', ' ', ' '],
+    [' ', ' ', 'G', 'G', 'G', 'G', ' ', ' '],
+    [' ', ' ', 'G', 'G', 'G', 'G', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+# Question closed: small white 2×2 centre dot
+game_question_closed_matrix = [
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', 'W', 'W', ' ', ' ', ' '],
+    [' ', ' ', ' ', 'W', 'W', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+# Correct answer: blue filled circle (U = blue in color_map)
+game_correct_matrix = [
+    [' ', ' ', ' ', 'U', 'U', ' ', ' ', ' '],
+    [' ', ' ', 'U', 'U', 'U', 'U', ' ', ' '],
+    [' ', 'U', 'U', 'U', 'U', 'U', 'U', ' '],
+    ['U', 'U', 'U', 'U', 'U', 'U', 'U', 'U'],
+    ['U', 'U', 'U', 'U', 'U', 'U', 'U', 'U'],
+    [' ', 'U', 'U', 'U', 'U', 'U', 'U', ' '],
+    [' ', ' ', 'U', 'U', 'U', 'U', ' ', ' '],
+    [' ', ' ', ' ', 'U', 'U', ' ', ' ', ' '],
 ]
 
 # BLE Controller class - from working controller-1.3.py
@@ -903,8 +1012,9 @@ def _on_pico_disconnect(client: BleakClient):
 def _relay_nfc_tag(card_uid: str):
     """Relay a TAG:<cardUid> notification from the Pico as POST /api/guesses.
 
-    Only fires when there is an active game and an open question; the UID is
-    sent as-is so the server can map it via the NFC card group.
+    On a successful response with ``isCorrect``, updates the Zero LCD and sends
+    ``GAME:correct`` / ``GAME:wrong`` to the Pico immediately (Platform icon
+    Card scanned → Correct/Wrong answer flow).
     """
     if not _ws_game_id or not _ws_question_id:
         print(
@@ -922,8 +1032,52 @@ def _relay_nfc_tag(card_uid: str):
         "cardUid":    card_uid,
         "slotLabel":  card_info.get("slotLabel"),
     }
-    print(f"[NFC] relaying TAG {card_uid!r} slotLabel={payload['slotLabel']!r} → POST /api/guesses", flush=True)
-    post_to_server("/api/guesses", payload)
+    _log_game_state(
+        "card_scanned",
+        f"TAG={card_uid!r} slotLabel={payload['slotLabel']!r} → POST /api/guesses",
+    )
+
+    def _post_guess_and_apply():
+        if not SERVER_URL:
+            print("[API] skip guess POST — SERVER_URL empty", flush=True)
+            return
+        url = f"{SERVER_URL}/api/guesses"
+        try:
+            kw = {"json": payload, "timeout": 5}
+            if API_HEADERS:
+                kw["headers"] = API_HEADERS
+            r = requests.post(url, **kw)
+            snippet = (r.text or "").replace("\n", " ").strip()
+            if len(snippet) > 100:
+                snippet = snippet[:100] + "…"
+            print(f"[API] response /api/guesses -> HTTP {r.status_code} {snippet}", flush=True)
+            if not r.ok:
+                return
+            try:
+                data = r.json()
+            except Exception:
+                data = {}
+            is_correct = data.get("isCorrect")
+            if is_correct is None:
+                print(
+                    "[GAME] zero | card_scanned | Card scanned | "
+                    "guess OK but no isCorrect in response — waiting for question.result",
+                    flush=True,
+                )
+                return
+            if ble_event_loop is None:
+                return
+            asyncio.run_coroutine_threadsafe(
+                _apply_pair_answer(
+                    bool(is_correct),
+                    f"POST /api/guesses isCorrect={is_correct} slotLabel={data.get('slotLabel')!r}",
+                ),
+                ble_event_loop,
+            )
+        except Exception as exc:
+            print(f"[API] request failed /api/guesses: {exc}", flush=True)
+
+    threading.Thread(target=_post_guess_and_apply, daemon=True).start()
 
 
 def _on_pico_tx_notify(_sender: BleakGATTCharacteristic, data: bytearray):
@@ -1017,16 +1171,118 @@ async def _reconnect():
 
 async def _ble_write_game_cmd(cmd: str):
     """Write a GAME:* command to the Pico over BLE. No-op if not connected."""
+    state_id = _GAME_CMD_TO_STATE.get(cmd)
     if not (ble_controller.client and ble_controller.client.is_connected):
-        print(f"[WS] BLE not connected — skipping {cmd}", flush=True)
+        if state_id:
+            _log_game_state(state_id, f"BLE not connected — skipping {cmd}")
+        else:
+            print(f"[WS] BLE not connected — skipping {cmd}", flush=True)
         return
     try:
         await ble_controller.client.write_gatt_char(
             UART_RX_CHAR_UUID, cmd.encode("utf-8")
         )
-        print(f"[BLE] wrote {cmd!r}", flush=True)
+        if state_id:
+            _log_game_state(state_id, f"BLE→{cmd}")
+        else:
+            print(f"[BLE] wrote {cmd!r}", flush=True)
     except Exception as exc:
-        print(f"[BLE] write {cmd!r} failed: {exc}", flush=True)
+        if state_id:
+            _log_game_state(state_id, f"BLE→{cmd} failed: {exc}")
+        else:
+            print(f"[BLE] write {cmd!r} failed: {exc}", flush=True)
+
+
+async def _apply_pair_answer(is_correct: bool, detail: str, *, force: bool = False):
+    """Show correct/wrong on Zero LCD and Pico; hold until question_closed."""
+    global _game_pair_result, _game_answered_this_question
+    state_id = "correct" if is_correct else "wrong"
+    if _game_answered_this_question and not force:
+        print(
+            f"[GAME] zero | {state_id} | {_GAME_STATE_LABELS[state_id]} | "
+            f"skip re-animate (already answered); {detail}",
+            flush=True,
+        )
+        return
+    # Do not flash correct/wrong after the question has already closed to the
+    # white 2×2 glyph — that would fight the Question closed state.
+    if _ws_question_phase == "closed" and not force:
+        print(
+            f"[GAME] zero | {state_id} | {_GAME_STATE_LABELS[state_id]} | "
+            f"skip — question already closed; {detail}",
+            flush=True,
+        )
+        _game_answered_this_question = True
+        return
+    _game_pair_result = state_id
+    _game_answered_this_question = True
+    _log_game_state(state_id, detail)
+    if game_mode_active:
+        draw_display()
+    await _ble_write_game_cmd("GAME:correct" if is_correct else "GAME:wrong")
+
+
+def _start_game_outcome_animation(is_winner: bool):
+    """Run fireworks (winner) or rain (loser) on the Zero LCD in a daemon thread."""
+    global animation_running, stop_animation, fullscreen_mode
+
+    def _run():
+        global animation_running, stop_animation, fullscreen_mode
+        if animation_running:
+            stop_animation = True
+            time.sleep(0.3)
+        animation_running = True
+        stop_animation = False
+        fullscreen_mode = True
+        scale = 16
+        try:
+            if is_winner:
+                fw_anim_func(
+                    draw, image, disp, scale, 0, 0,
+                    iters=10,
+                    interruption_check=lambda: stop_animation,
+                )
+            else:
+                rain_anim_func(
+                    draw, image, disp, scale, 0, 0,
+                    iters=80, density=1,
+                    interruption_check=lambda: stop_animation,
+                )
+        except Exception as exc:
+            print(f"[GAME] outcome animation error: {exc}", flush=True)
+        finally:
+            animation_running = False
+            if game_mode_active:
+                draw_display()
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def _game_mode_display_matrix():
+    """Return the 8×8 matrix for the current Platform icon game state."""
+    if _game_end_outcome == "winner":
+        return fireworks_animation.preview
+    if _game_end_outcome == "loser":
+        return rain_animation.preview
+    if _game_end_outcome == "ended":
+        return game_question_closed_matrix
+    if _game_pair_result == "correct":
+        return game_correct_matrix
+    if _game_pair_result == "wrong":
+        return others_x_matrix
+    if _ws_game_state == "lobby" and not _ws_joined:
+        return game_lobby_matrix
+    if _ws_game_state == "lobby":
+        return game_lobby_joined_matrix
+    if _ws_game_state == "active":
+        if _ws_question_phase == "open":
+            return question_mark_matrix
+        if _ws_question_phase == "closed":
+            return game_question_closed_matrix
+        return game_active_matrix
+    if _ws_game_state == "completed":
+        return game_question_closed_matrix
+    return game_mode_matrix
 
 
 async def _apply_game_state_to_display():
@@ -1035,22 +1291,40 @@ async def _apply_game_state_to_display():
     Called after a WS reconnect/welcome snapshot and when the user enters game
     mode locally, so both screens reflect the server-authoritative state.
     """
+    global _ws_question_phase
+    if _ws_game_state == "active" and _ws_question_id:
+        _ws_question_phase = "open"
+    elif _ws_game_state == "active" and _ws_question_phase is None:
+        pass  # keep None → green active until first question
     if game_mode_active:
         draw_display()
     # Sync Pico with the current known game state so a reconnect or late
     # game-mode entry picks up the right display without waiting for the next
     # server event.
-    if _ws_game_state == "active" and _ws_question_id:
+    if _ws_game_state == "lobby" and not _ws_joined:
+        await _ble_write_game_cmd("GAME:lobby")
+    elif _ws_game_state == "lobby" and _ws_joined:
+        await _ble_write_game_cmd("GAME:lobby_joined")
+    elif _ws_game_state == "active" and _ws_question_id:
         await _ble_write_game_cmd("GAME:question_open")
+    elif _ws_game_state == "active" and _ws_question_phase == "closed":
+        await _ble_write_game_cmd("GAME:question_close")
     elif _ws_game_state == "active":
         await _ble_write_game_cmd("GAME:active")
     elif _ws_game_state == "completed":
-        await _ble_write_game_cmd("GAME:ended")
+        if _game_end_outcome == "winner":
+            await _ble_write_game_cmd("GAME:winner")
+        elif _game_end_outcome == "loser":
+            await _ble_write_game_cmd("GAME:loser")
+        else:
+            await _ble_write_game_cmd("GAME:ended")
 
 
 async def _ws_handle_event(event: dict):
     """Dispatch a single WebSocket event from the server."""
     global _ws_game_id, _ws_game_state, _ws_question_id, _ws_joined, _join_pending
+    global _ws_question_phase, _game_pair_result, _game_answered_this_question
+    global _game_end_outcome
 
     etype = event.get("type")
     print(f"[WS] event: {etype}", flush=True)
@@ -1060,6 +1334,15 @@ async def _ws_handle_event(event: dict):
         _ws_game_state  = event.get("state")
         _ws_question_id = event.get("openQuestionId")
         _ws_joined      = event.get("joined", False)
+        _game_pair_result = None
+        _game_answered_this_question = False
+        _game_end_outcome = None
+        if _ws_game_state == "active" and _ws_question_id:
+            _ws_question_phase = "open"
+        elif _ws_game_state == "active":
+            _ws_question_phase = None
+        else:
+            _ws_question_phase = None
         print(
             f"[WS] welcome: game={_ws_game_id} state={_ws_game_state} "
             f"joined={_ws_joined}",
@@ -1072,27 +1355,44 @@ async def _ws_handle_event(event: dict):
         _ws_game_state = "lobby"
         _ws_joined     = False
         _join_pending  = True
-        print(f"[WS] game.opened: {_ws_game_id}", flush=True)
+        _ws_question_phase = None
+        _game_pair_result = None
+        _game_answered_this_question = False
+        _game_end_outcome = None
+        _log_game_state("lobby", f"WS game.opened gameId={_ws_game_id}")
         if game_mode_active:
             draw_display()
+        await _ble_write_game_cmd("GAME:lobby")
 
     elif etype == "game.started":
         _ws_game_state = "active"
-        print("[WS] game.started — writing GAME:active to Pico", flush=True)
+        _ws_question_phase = None
+        _game_pair_result = None
+        _game_answered_this_question = False
+        _game_end_outcome = None
+        _log_game_state("active", "WS game.started")
         if game_mode_active:
             draw_display()
         await _ble_write_game_cmd("GAME:active")
 
     elif etype == "question.opened":
         _ws_question_id = event.get("questionId")
-        print(f"[WS] question.opened: {_ws_question_id}", flush=True)
+        _ws_question_phase = "open"
+        _game_pair_result = None
+        _game_answered_this_question = False
+        _log_game_state(
+            "question_open",
+            f"WS question.opened questionId={_ws_question_id}",
+        )
         if game_mode_active:
             draw_display()
         await _ble_write_game_cmd("GAME:question_open")
 
     elif etype == "question.closed":
         _ws_question_id = None
-        print("[WS] question.closed", flush=True)
+        _ws_question_phase = "closed"
+        _game_pair_result = None  # LCD → white 2×2; answered flag kept for skip
+        _log_game_state("question_closed", "WS question.closed")
         if game_mode_active:
             draw_display()
         await _ble_write_game_cmd("GAME:question_close")
@@ -1100,10 +1400,50 @@ async def _ws_handle_event(event: dict):
     elif etype == "game.ended":
         _ws_game_state  = "completed"
         _ws_question_id = None
-        print("[WS] game.ended", flush=True)
-        if game_mode_active:
-            draw_display()
-        await _ble_write_game_cmd("GAME:ended")
+        _ws_question_phase = None
+        _game_pair_result = None
+        _game_answered_this_question = False
+        # Prefer winner/loser when enriched fields arrive (Step 8); else generic end.
+        if "isWinner" in event:
+            if event.get("isWinner"):
+                _game_end_outcome = "winner"
+                _log_game_state(
+                    "winner",
+                    f"WS game.ended rank={event.get('rank')} score={event.get('score')}",
+                )
+                if game_mode_active:
+                    draw_display()
+                await _ble_write_game_cmd("GAME:winner")
+                _start_game_outcome_animation(True)
+            else:
+                _game_end_outcome = "loser"
+                _log_game_state(
+                    "loser",
+                    f"WS game.ended rank={event.get('rank')} score={event.get('score')}",
+                )
+                if game_mode_active:
+                    draw_display()
+                await _ble_write_game_cmd("GAME:loser")
+                _start_game_outcome_animation(False)
+        else:
+            _game_end_outcome = "ended"
+            _log_game_state("game_ended", "WS game.ended")
+            if game_mode_active:
+                draw_display()
+            await _ble_write_game_cmd("GAME:ended")
+
+    elif etype == "question.result":
+        results = event.get("results") or []
+        pair_result = next(
+            (r for r in results if r.get("pairName") == PAIR_NAME),
+            None,
+        )
+        is_correct = bool(pair_result and pair_result.get("isCorrect"))
+        slot = pair_result.get("slotLabel") if pair_result else None
+        await _apply_pair_answer(
+            is_correct,
+            f"WS question.result slotLabel={slot!r}",
+        )
 
 
 async def _ws_connect_loop():
@@ -1334,9 +1674,9 @@ def _display_selection():
 
 def get_main_emoji():
     """Get the main emoji matrix based on current menu, pos, and neg selection"""
-    # Game mode overrides — show the 'G' glyph; status text drawn by draw_display().
+    # Game mode — Platform icon glyphs (lobby / ? / correct / …).
     if game_mode_active:
-        return game_mode_matrix
+        return _game_mode_display_matrix()
 
     # NFC mode overrides the main emoji regardless of current nav state
     if nfc_mode_active:
@@ -1418,9 +1758,9 @@ def get_main_emoji():
 
 def get_main_emoji_animation():
     """Get the animation state of the main emoji"""
-    # Game mode — no wink animation while showing game status.
+    # Game mode — no wink animation; keep the Platform icon glyph steady.
     if game_mode_active:
-        return game_mode_matrix
+        return _game_mode_display_matrix()
 
     sel_menu, sel_pos, sel_neg = _display_selection()
 
@@ -1895,18 +2235,18 @@ def draw_battery_indicator():
 
 
 def _game_status_label():
-    """Return (text, color) for the current game-mode status, or (None, None)."""
+    """Optional secondary text over the Platform icon glyph.
+
+    Most states are glyph-only (matching Pico). Keep an action hint for lobby
+    join, and GAME OVER when the game ends without a winner/loser enrichment.
+    """
     if not game_mode_active:
         return None, None
     if _ws_game_state == "lobby" and not _ws_joined:
         return "JOIN? KEY2", "yellow"
-    if _ws_game_state == "lobby":
-        return "WAITING...", "white"
-    if _ws_game_state == "active" and _ws_question_id:
-        return "SCAN NOW", (255, 200, 0)
-    if _ws_game_state == "active":
-        return "GAME ON", (0, 220, 0)
-    if _ws_game_state == "completed":
+    if _game_end_outcome == "ended" or (
+        _ws_game_state == "completed" and _game_end_outcome is None
+    ):
         return "GAME OVER", (200, 0, 0)
     return None, None
 
@@ -1926,9 +2266,8 @@ def draw_display():
     # NFC keeps the status layout so card-name labels stay visible.
     if fullscreen_mode and not nfc_mode_active:
         if game_mode_active:
-            # Large 'G' fills most of the LCD; status strip overlays the top.
-            # WS events call draw_display() while game_mode_active so labels
-            # (JOIN? / SCAN NOW / …) update live during a game.
+            # Platform icon glyph fills most of the LCD; optional status strip
+            # (e.g. JOIN? KEY2) overlays the top when an action is required.
             scale = 14
             emoji_width = scale * 8
             emoji_height = scale * 8
@@ -2234,7 +2573,15 @@ try:
                         {"pairName": PAIR_NAME, "controllerId": CONTROLLER_ID},
                     )
                     draw_display()   # redraws with "WAITING..." status
-                    print('KEY2 - Game join confirmed')
+                    _log_game_state(
+                        "lobby_joined",
+                        f"KEY2 join POST gameId={_ws_game_id} pair={PAIR_NAME}",
+                    )
+                    if ble_event_loop is not None:
+                        asyncio.run_coroutine_threadsafe(
+                            _ble_write_game_cmd("GAME:lobby_joined"),
+                            ble_event_loop,
+                        )
                 time.sleep(0.2)
                 button_states['key2'] = key2_pressed
                 continue

@@ -133,3 +133,226 @@ exposed through the GAP service after connect, instead of the firmware default
 
 - `python/emoji-os/emoji-os-pico-0.2.4.py` (now `VERSION = "0.3.1"`)
 - `python/emoji-os/emoji-os-zero.py` (now `VERSION = " v0.5.2"`)
+
+---
+
+## Real-Time Game Modes
+
+When a game is running, the Zero and Pico display different states driven by
+WebSocket events from the server. This section is the authoritative reference
+for what each device shows in every game state.
+
+### Server game lifecycle
+
+The server tracks a game through these states:
+
+| State | Meaning |
+| --- | --- |
+| `draft` | Game created; not yet open for players |
+| `lobby` | Open for joining; badges can join |
+| `active` | Game is live; questions can be opened |
+| `paused` | Game temporarily paused |
+| `completed` | Game finished normally |
+| `cancelled` | Game cancelled before completion |
+
+### Zero LCD status labels (game mode active)
+
+When the player has entered game mode (menu 3 / pos 4 on the Zero), the LCD
+shows a status label below the main emoji. The label and colour depend on the
+current server state and whether this pair has joined:
+
+| Server state | Joined? | Question open? | Zero LCD label | Colour |
+| --- | --- | --- | --- | --- |
+| `lobby` | No | — | `JOIN? KEY2` | Yellow |
+| `lobby` | Yes | — | `WAITING...` | White |
+| `active` | — | Yes | `SCAN NOW` | Amber |
+| `active` | — | No | `GAME ON` | Green |
+| `completed` | — | — | `GAME OVER` | Red |
+
+Pressing KEY2 while in `lobby` (not yet joined) sends a join request to the
+server. After joining, the label changes to `WAITING...` until the referee
+starts the game.
+
+### WebSocket events and Zero behaviour
+
+The Zero's `_ws_handle_event` function processes these server-to-controller
+events and relays the appropriate `GAME:*` BLE command to the Pico:
+
+| WS event | Zero action | BLE command sent to Pico |
+| --- | --- | --- |
+| `controller.welcome` | Snapshot current game state; sync Pico display | `GAME:active`, `GAME:question_open`, or `GAME:ended` depending on state |
+| `game.opened` | Set state → `lobby`; show `JOIN? KEY2` | *(none)* |
+| `game.started` | Set state → `active`; show `GAME ON` | `GAME:active` |
+| `question.opened` | Save `questionId`; show `SCAN NOW` | `GAME:question_open` |
+| `question.closed` | Clear `questionId`; show `GAME ON` | `GAME:question_close` |
+| `game.ended` | Set state → `completed`; show `GAME OVER` | `GAME:ended` |
+| `question.result` *(Step 8)* | Look up own pair in results | `GAME:correct` or `GAME:wrong` |
+| `game.ended` enriched *(Step 8)* | Check `isWinner` flag | `GAME:winner` or `GAME:loser` |
+
+### Pico matrix display (GAME:\* BLE commands)
+
+The Zero sends `GAME:<subcommand>` over BLE; the Pico renders the matching
+pattern on its 8×8 LED matrix:
+
+| BLE command | Pico `_game_state` | Matrix display | Duration |
+| --- | --- | --- | --- |
+| `GAME:active` | `"active"` | Solid green 4×4 centre square | Until next command |
+| `GAME:question_open` | `"question_open"` | Question mark glyph; NFC polling starts | Until card scan or next command |
+| `GAME:question_close` | `"question_close"` | Small white 2×2 centre dot | Until next command |
+| `GAME:ended` | `"ended"` | Scrolls `DONE` then goes dark | One-shot then off |
+| `GAME:correct` *(Step 8)* | planned | Bright flash (4×4 × 2), scrolls `YES` | ~4 s then reverts to `question_close` dot |
+| `GAME:wrong` *(Step 8)* | planned | Dim single-pixel blink × 2 | ~4 s then reverts to `question_close` dot |
+| `GAME:winner` *(Step 8)* | planned | Checkerboard pattern, scrolls `WIN` | Until next command |
+| `GAME:loser` *(Step 8)* | planned | Single dim blink then all off | Until next command |
+
+### NFC card scan flow
+
+This is the full path from physical card tap to server guess, for a single
+question answer:
+
+```
+1. Referee opens a question → server emits question.opened
+2. Zero receives question.opened → sends GAME:question_open to Pico
+3. Pico enters question_open state → NFC polling starts; shows ?
+
+4. Player taps NFC card on badge
+5. Pico reads card UID → sends TAG:<cardUid> over BLE to Zero
+6. Pico shows brief green circle (5 s) then reverts to ? (duplicate-send guard)
+
+7. Zero receives TAG: notification
+8. Zero looks up UID in NFC_CARD_MAP → resolves slotLabel (A/B/C/D/E)
+9. Zero POSTs { gameId, questionId, pairName, cardUid, slotLabel } to /api/guesses
+10. Server records guess
+
+--- question remains open for other pairs to answer ---
+
+11. Referee closes the question → server emits question.closed
+12. Zero receives question.closed → sends GAME:question_close to Pico
+13. Pico shows white 2×2 dot
+
+--- Step 8 (planned) ---
+14. Server emits question.result with per-pair correct/wrong outcome
+15. Zero receives question.result → looks up own pairName in results
+16. If correct  → Zero sends GAME:correct to Pico (bright flash ~4 s)
+17. If wrong    → Zero sends GAME:wrong to Pico (dim blink ~4 s)
+18. After ~4 s  → Pico automatically reverts to white 2×2 dot
+```
+
+### Scan feedback on the Pico (current vs. planned)
+
+| Stage | Current behaviour | Planned (Step 8) |
+| --- | --- | --- |
+| Card tap registered | Green circle outline for 5 s, then `?` | Same |
+| Correct answer revealed | *(no feedback — not yet implemented)* | Bright flash × 2, scrolls `YES` (~4 s) |
+| Wrong answer revealed | *(no feedback — not yet implemented)* | Dim blink × 2 (~4 s) |
+| Game winner at end | *(no feedback)* | Checkerboard, scrolls `WIN` |
+| Game loser at end | *(no feedback)* | Single dim blink, then off |
+
+The correct/wrong feedback fires when the **question closes** (when the
+referee clicks Close), not when the card is scanned. This lets all pairs
+answer before the result is revealed.
+
+---
+
+## Platform icon / display reference
+
+The table below maps every game event or state to its intended visual on each
+of the three platforms. "Step 8" rows are planned but not yet implemented.
+
+| Event / state | State id | Pico badge (8×8 LED matrix) | Zero game controller (LCD) | Emoji-app (Lucide icon) |
+| --- | --- | --- | --- | --- |
+| **Lobby — not yet joined** | `lobby` | Solid yellow 4×4 centre square | Solid yellow 4×4 centre square | `door-open` |
+| **Lobby — joined, waiting** | `lobby_joined` | White 4×4 outline square (1 px border, black interior) | White 4×4 outline square (1 px border, black interior) | `hand-platter` |
+| **Game started / active** | `active` | Solid green 4×4 centre square | Solid green 4×4 centre square | `turntable` |
+| **Question open** | `question_open` | Question mark `?` glyph; NFC polling active | Question mark `?` glyph | `message-circle-question-mark` |
+| **Card scanned** (tap acknowledged) | `card_scanned` | Green 4×4 outline square (1 px border); Zero then sends correct/wrong command immediately | Blue circle outline (correct) or red X (wrong) — Zero knows answer from `NFC_CARD_MAP` | Blue `circle` or red `x` (correct/wrong) |
+| **Correct answer** *(Step 8)* | `correct` | Blue filled circle | Blue filled circle | `circle` (blue) |
+| **Wrong answer** *(Step 8)* | `wrong` | Red X | Red X | `x` (red) |
+| **Question closed** | `question_closed` | Small white 2×2 centre dot | Small white 2×2 centre dot | `book-alert` |
+| **Game ended** | `game_ended` | Scrolls `DONE`, then goes dark | Text: `GAME OVER` (red) | `sparkles` |
+| **Game winner** *(Step 8)* | `winner` | Fireworks animation (animations menu — positive 1) | Fireworks animation (animations menu — positive 1) | `podium` |
+| **Game loser** *(Step 8)* | `loser` | Rain animation (animations menu) | Rain animation (animations menu) | `eye-closed` |
+
+### Shared game-state logging
+
+All three runtimes (Pico, Zero, React) emit the same narrative line when a
+Platform icon state is reached. Grep / merge the three consoles to read the
+game as a single story.
+
+**Format** (one line per state transition):
+
+```text
+[GAME] <platform> | <state_id> | <Event / state label> | <optional detail>
+```
+
+| Field | Values |
+| --- | --- |
+| `platform` | `pico` · `zero` · `react` |
+| `state_id` | Exact id from the **State id** column above |
+| label | Exact **Event / state** text from the table (without markdown bold) |
+| detail | Short platform-specific note (BLE command, icon name, pair, card UID, …) |
+
+**Examples** (interleaved from three devices during one question):
+
+```text
+[GAME] zero | question_open | Question open | WS question.opened; BLE→GAME:question_open
+[GAME] pico | question_open | Question open | ? glyph; NFC on
+[GAME] react | question_open | Question open | icon=message-circle-question-mark
+[GAME] pico | card_scanned | Card scanned | TAG:5B:6F:B8:08; green 4×4 outline
+[GAME] zero | card_scanned | Card scanned | TAG→POST /api/guesses slotLabel=A
+[GAME] zero | correct | Correct answer | guess isCorrect=true; BLE→GAME:correct
+[GAME] pico | correct | Correct answer | blue filled circle
+[GAME] react | correct | Correct answer | icon=circle pair=green slot=A
+[GAME] zero | question_closed | Question closed | WS question.closed; BLE→GAME:question_close
+[GAME] pico | question_closed | Question closed | white 2×2 dot
+[GAME] react | question_closed | Question closed | icon=book-alert
+```
+
+Rules:
+
+- Log **when the state is reached on that platform** (display shown, icon
+  updated, or BLE command sent) — not only when the WS event arrives.
+- Use the table **label** verbatim so logs match the design doc.
+- Keep `[GAME]` as the prefix so non-game logs (`[WS]`, `[BLE]`, `[NFC]`)
+  stay separate; those may remain for transport debugging.
+- BLE command names may differ slightly from `state_id`
+  (`GAME:question_close` → log `question_closed`; `GAME:ended` → log
+  `game_ended`). Always log the **state id**, and put the wire command in
+  the detail field.
+
+### Card scan → immediate correct/wrong flow
+
+When a player taps an NFC card during an open question, the Zero already has
+the full `NFC_CARD_MAP` (with `slotLabel` for each card UID). It can therefore
+resolve the answer immediately without waiting for the question to close:
+
+```
+1. Pico: card tapped → shows green 4×4 outline square (tap acknowledged)
+2. Pico: sends TAG:<cardUid> to Zero over BLE
+3. Zero: looks up cardUid in NFC_CARD_MAP → gets slotLabel
+4. Zero: POSTs guess to /api/guesses (response confirms correctness)
+5. Zero: shows blue circle (correct) or red X (wrong) on its own LCD
+6. Zero: sends GAME:correct or GAME:wrong to Pico over BLE
+7. Pico: shows blue filled circle (correct) or red X (wrong)
+8. Emoji-app: receives nfc.tagged WS event → shows blue circle or red X
+```
+
+The Zero needs to know the correct answer at step 4. Options:
+- The `POST /api/guesses` response can return `{ isCorrect: boolean }`.
+- Alternatively, `question.opened` can carry the correct `slotLabel` so
+  the Zero resolves it locally without a round-trip.
+
+### Notes
+
+- **Pico** displays are driven by `GAME:*` BLE commands from the Zero. The
+  green 4×4 outline square is the generic tap-acknowledgment; the blue circle
+  or red X follows immediately once the Zero resolves the answer.
+- **Zero LCD** lobby squares mirror the Pico so both devices show the same
+  state at a glance. The `?` glyph replaces the text `SCAN NOW` label so all
+  three platforms share the same question-open symbol.
+- **Emoji-app** icons are all from [Lucide](https://lucide.dev/icons/).
+  Colour variants (blue `circle`, red `x`) are applied via Tailwind classes;
+  the icon name itself is colour-neutral.
+- **Fireworks / rain animations** already exist in the Zero and Pico animation
+  libraries (accessible from the main menu). They are reused here as the
+  winner/loser end-state displays, so no new animations need to be authored.
