@@ -172,8 +172,12 @@ overlays only when an action is required:
 | `completed` | — | — | Winner / loser / ended | `GAME OVER` only if unenriched |
 
 Pressing **KEY1** (positive) while in `lobby` (not yet joined) POSTs join to
-the server. KEY2 stays menu/confirm only and does not join. Both devices then
-show the white outline (`lobby_joined`) until the referee starts the game.
+the server. **KEY2** exits game mode to menu select (it does not join). From
+there KEY1/KEY3 scroll options and KEY2 confirms an emoji as usual (full-screen
+on Zero + Pico). Re-entering game mode (Others → pos 4) restores the current
+server game status on both devices (e.g. already joined → white outline).
+While browsing emojis, live `GAME:*` BLE updates are deferred so the Pico keeps
+the selected emoji; they catch up on the next game-mode entry.
 
 ### WebSocket events and Zero behaviour
 
@@ -278,7 +282,7 @@ panel and joining from the Zero so both Zero and Pico show the lobby states.
    the pipe works.
 3. **WebSocket** — Zero connected to the emoji-app server (`[WS] connected`
    in the Zero log). After hello it polls `GET /api/pairs/<PAIR_NAME>`.
-4. **Versions** — Controller ≈ `0.7.2`, Pico ≈ `0.5.1` (see server
+4. **Versions** — Controller ≈ `0.7.3`, Pico ≈ `0.5.1` (see server
    `EXPECTED_*_VERSION`).
 
 ### Referee (emoji-app Game → Referee Controls)

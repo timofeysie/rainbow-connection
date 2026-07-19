@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.2"
+VERSION = " v0.7.3"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -1171,9 +1171,18 @@ async def _reconnect():
 
 # === WebSocket client ===
 
-async def _ble_write_game_cmd(cmd: str):
-    """Write a GAME:* command to the Pico over BLE. No-op if not connected."""
+async def _ble_write_game_cmd(cmd: str, *, force: bool = False):
+    """Write a GAME:* command to the Pico over BLE. No-op if not connected.
+
+    When the user has left game mode to browse emojis, skip BLE writes so the
+    Pico keeps the selected emoji. Re-entering game mode calls
+    ``_apply_game_state_to_display`` (force) to catch the Pico up.
+    """
     state_id = _GAME_CMD_TO_STATE.get(cmd)
+    if not force and not game_mode_active:
+        if state_id:
+            _log_game_state(state_id, f"game mode inactive — defer {cmd}")
+        return
     if not (ble_controller.client and ble_controller.client.is_connected):
         if state_id:
             _log_game_state(state_id, f"BLE not connected — skipping {cmd}")
@@ -1292,37 +1301,74 @@ async def _apply_game_state_to_display():
 
     Called after a WS reconnect/welcome snapshot and when the user enters game
     mode locally, so both screens reflect the server-authoritative state.
+    No-op while the user is browsing emojis outside game mode.
     """
     global _ws_question_phase
+    if not game_mode_active:
+        return
     if _ws_game_state == "active" and _ws_question_id:
         _ws_question_phase = "open"
     elif _ws_game_state == "active" and _ws_question_phase is None:
         pass  # keep None → green active until first question
-    if game_mode_active:
-        draw_display()
+    draw_display()
     # Sync Pico with the current known game state so a reconnect or late
     # game-mode entry picks up the right display without waiting for the next
-    # server event.
-    if _ws_game_state == "lobby" and not _ws_joined:
-        await _ble_write_game_cmd("GAME:lobby")
+    # server event. force=True: we are in game mode by definition here.
+    if _game_end_outcome == "winner":
+        await _ble_write_game_cmd("GAME:winner", force=True)
+    elif _game_end_outcome == "loser":
+        await _ble_write_game_cmd("GAME:loser", force=True)
+    elif _game_pair_result == "correct":
+        await _ble_write_game_cmd("GAME:correct", force=True)
+    elif _game_pair_result == "wrong":
+        await _ble_write_game_cmd("GAME:wrong", force=True)
+    elif _ws_game_state == "lobby" and not _ws_joined:
+        await _ble_write_game_cmd("GAME:lobby", force=True)
     elif _ws_game_state == "lobby" and _ws_joined:
-        await _ble_write_game_cmd("GAME:lobby_joined")
+        await _ble_write_game_cmd("GAME:lobby_joined", force=True)
     elif _ws_game_state == "active" and _ws_question_id:
-        await _ble_write_game_cmd("GAME:question_open")
+        await _ble_write_game_cmd("GAME:question_open", force=True)
     elif _ws_game_state == "active" and _ws_question_phase == "closed":
-        await _ble_write_game_cmd("GAME:question_close")
+        await _ble_write_game_cmd("GAME:question_close", force=True)
     elif _ws_game_state == "active":
-        await _ble_write_game_cmd("GAME:active")
+        await _ble_write_game_cmd("GAME:active", force=True)
     elif _ws_game_state == "completed":
         if _game_end_outcome == "winner":
-            await _ble_write_game_cmd("GAME:winner")
+            await _ble_write_game_cmd("GAME:winner", force=True)
         elif _game_end_outcome == "loser":
-            await _ble_write_game_cmd("GAME:loser")
+            await _ble_write_game_cmd("GAME:loser", force=True)
         else:
-            await _ble_write_game_cmd("GAME:ended")
+            await _ble_write_game_cmd("GAME:ended", force=True)
     else:
         # draft / None / unknown — show standby 'G' so Pico matches Zero game mode
-        await _ble_write_game_cmd("GAME:mode")
+        await _ble_write_game_cmd("GAME:mode", force=True)
+
+
+def _exit_game_mode_to_menu():
+    """Leave full-screen game mode and return to menu-select (state=start).
+
+    Server-side join / game snapshot globals are kept so re-entering game mode
+    restores the current status on Zero + Pico.
+    """
+    global game_mode_active, fullscreen_mode, state, menu, pos, neg
+    global prev_state, prev_menu, prev_pos, prev_neg
+    global nfc_mode_active, nfc_last_result, nfc_last_card_name
+    print("[GAME] exiting game mode → menu select (KEY2)", flush=True)
+    game_mode_active = False
+    fullscreen_mode = False
+    nfc_mode_active = False
+    nfc_last_result = None
+    nfc_last_card_name = ""
+    # Clear prev so KEY1/KEY3 do not immediately replay game-mode slot.
+    prev_state = "none"
+    prev_menu = 0
+    prev_pos = 0
+    prev_neg = 0
+    state = "start"
+    menu = 0
+    pos = 0
+    neg = 0
+    draw_display()
 
 
 async def _ws_handle_event(event: dict):
@@ -2092,7 +2138,7 @@ def start_emoji_animation():
     global game_mode_active, fullscreen_mode
 
     # Game mode: menu 3, pos 4, neg 0 — full-screen live game status display.
-    # KEY1 joins when a lobby is waiting; joystick navigation exits game mode.
+    # KEY1 joins when a lobby is waiting; KEY2 exits to menu select.
     if menu == 3 and pos == 4 and neg == 0:
         prev_state = "done"
         prev_menu  = menu
@@ -2371,7 +2417,7 @@ print("Emoji OS Zero " + VERSION + " started with BLE Controller functionality")
 print(f"[PAIR] strict pairing enabled — PAIR_NAME='{PAIR_NAME}', target='{TARGET_DEVICE_NAME}'")
 print("Joystick: Navigate menus")
 print("KEY1: Select positive; in game lobby press to join")
-print("KEY2: Navigate/confirm; exit full-screen selected mode")
+print("KEY2: Navigate/confirm; exit game/fullscreen to menu select")
 print("KEY3: Select negative")
 print("=" * 50)
 
@@ -2605,18 +2651,19 @@ try:
         
         # === Handle KEY2 button (Menu/Confirm) ===
         if key2_pressed and not button_states['key2']:
-            # Game mode: KEY2 does not join — leave join to KEY1. Stay on the
-            # full-screen status view (joystick navigation exits game mode).
+            # Game mode: KEY2 exits to menu select (does not join — that is KEY1).
             if game_mode_active:
+                _exit_game_mode_to_menu()
                 time.sleep(0.2)
                 button_states['key2'] = key2_pressed
                 continue
 
-            # Full-screen selected mode: KEY2 exits to menu + status layout.
+            # Full-screen selected emoji: KEY2 exits to menu + status layout.
             if fullscreen_mode and not nfc_mode_active:
                 fullscreen_mode = False
+                state = "start"
                 draw_display()
-                print('KEY2 - Exit fullscreen to status view')
+                print('KEY2 - Exit fullscreen to menu select')
                 time.sleep(0.2)
                 button_states['key2'] = key2_pressed
                 continue
@@ -2645,6 +2692,12 @@ try:
         
         # === Handle KEY3 button (Negative) ===
         if key3_pressed and not button_states['key3']:
+            # Game mode: KEY3 ignored (KEY1 joins; KEY2 exits to menu).
+            if game_mode_active:
+                time.sleep(0.2)
+                button_states['key3'] = key3_pressed
+                continue
+
             print('debug KEY3 - menu:', menu, "pos", pos, "neg", neg, 
                   "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
 
