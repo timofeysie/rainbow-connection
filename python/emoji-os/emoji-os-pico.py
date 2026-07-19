@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -135,6 +135,7 @@ NFC_PICO_RESULT_DISPLAY_S = 5
 # Platform icon / display reference — shared state ids + labels (multiplayer-mode.md).
 # Log format: [GAME] pico | <state_id> | <label> | <detail>
 _GAME_STATE_LABELS = {
+    "mode": "Game mode standby",
     "lobby": "Lobby — not yet joined",
     "lobby_joined": "Lobby — joined, waiting",
     "active": "Game started / active",
@@ -150,6 +151,7 @@ _GAME_STATE_LABELS = {
 
 # BLE GAME:<subcommand> → Platform icon state id (wire name may differ).
 _GAME_CMD_TO_STATE = {
+    "mode": "mode",
     "lobby": "lobby",
     "lobby_joined": "lobby_joined",
     "active": "active",
@@ -162,6 +164,18 @@ _GAME_CMD_TO_STATE = {
     "loser": "loser",
 }
 
+# Capital 'G' — matches Zero game_mode_matrix (standby before lobby).
+_GAME_MODE_G = [
+    [0, 0, 1, 1, 1, 1, 0, 0],
+    [0, 1, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0],
+    [1, 0, 0, 0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 0, 0, 1, 0],
+    [0, 1, 0, 0, 0, 0, 1, 0],
+    [0, 0, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+]
+
 
 def _log_game_state(state_id, detail=""):
     """Emit a narrative game-state line (see multiplayer-mode.md logging section)."""
@@ -170,6 +184,17 @@ def _log_game_state(state_id, detail=""):
         print("[GAME] pico | {} | {} | {}".format(state_id, label, detail))
     else:
         print("[GAME] pico | {} | {}".format(state_id, label))
+
+
+def _show_game_mode():
+    """Capital 'G': Zero entered game mode; waiting for lobby / game events."""
+    matrix.pixelsFill(matrix.black())
+    colour = matrix.white()
+    for row, r in enumerate(_GAME_MODE_G):
+        for col, c in enumerate(r):
+            if c:
+                matrix.pixelSetXY(col, row, colour)
+    matrix.pixelsShow()
 
 
 def _show_game_lobby():
@@ -264,6 +289,7 @@ def _handle_game_command(subcommand: str):
 
     _game_nfc_display_until_ms = 0
     detail_by_cmd = {
+        "mode": "G glyph; BLE GAME:mode",
         "lobby": "yellow 4×4; BLE GAME:lobby",
         "lobby_joined": "white 4×4 outline; BLE GAME:lobby_joined",
         "active": "green 4×4; BLE GAME:active",
@@ -277,7 +303,11 @@ def _handle_game_command(subcommand: str):
     }
     _log_game_state(state_id, detail_by_cmd.get(subcommand, "BLE GAME:" + subcommand))
 
-    if subcommand == "lobby":
+    if subcommand == "mode":
+        _game_state = "mode"
+        _show_game_mode()
+
+    elif subcommand == "lobby":
         _game_state = "lobby"
         _show_game_lobby()
 
@@ -987,7 +1017,7 @@ print("PAIR_NAME: " + PAIR_NAME)
 print("Pairing: expects first write 'PAIR:" + PAIR_NAME + "', replies PAIR_OK:<version>/PAIR_FAIL on TX notify")
 print("Supports emoji commands in format: 'MENU:POS:NEG' (after PAIR_OK)")
 print(
-    "Game commands: GAME:lobby/lobby_joined/active/question_open/"
+    "Game commands: GAME:mode/lobby/lobby_joined/active/question_open/"
     "correct/wrong/question_close/ended/winner/loser — drives matrix display"
 )
 print("NFC game mode: GAME:question_open activates TAG:<cardUid> notifies on NFC read")

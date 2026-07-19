@@ -155,22 +155,24 @@ The server tracks a game through these states:
 | `completed` | Game finished normally |
 | `cancelled` | Game cancelled before completion |
 
-### Zero LCD status labels (game mode active)
+### Zero LCD (game mode active)
 
 When the player has entered game mode (menu 3 / pos 4 on the Zero), the LCD
-shows a status label below the main emoji. The label and colour depend on the
-current server state and whether this pair has joined:
+shows the same Platform icon glyph as the Pico (full-screen). Optional text
+overlays only when an action is required:
 
-| Server state | Joined? | Question open? | Zero LCD label | Colour |
+| Server state | Joined? | Question phase | Zero LCD glyph | Overlay |
 | --- | --- | --- | --- | --- |
-| `lobby` | No | — | `JOIN? KEY2` | Yellow |
-| `lobby` | Yes | — | `WAITING...` | White |
-| `active` | — | Yes | `SCAN NOW` | Amber |
-| `active` | — | No | `GAME ON` | Green |
-| `completed` | — | — | `GAME OVER` | Red |
+| *(none / draft)* | — | — | Capital `G` (`mode`) | — |
+| `lobby` | No | — | Yellow 4×4 | `JOIN? KEY2` |
+| `lobby` | Yes | — | White 4×4 outline | — |
+| `active` | — | none | Green 4×4 | — |
+| `active` | — | open | `?` | — |
+| `active` | — | closed | White 2×2 | — |
+| `completed` | — | — | Winner / loser / ended | `GAME OVER` only if unenriched |
 
-Pressing KEY2 while in `lobby` (not yet joined) sends a join request to the
-server. After joining, the label changes to `WAITING...` until the referee
+Pressing KEY2 while in `lobby` (not yet joined) POSTs join to the server.
+Both devices then show the white outline (`lobby_joined`) until the referee
 starts the game.
 
 ### WebSocket events and Zero behaviour
@@ -180,12 +182,12 @@ events and relays the appropriate `GAME:*` BLE command to the Pico:
 
 | WS event | Zero action | BLE command sent to Pico |
 | --- | --- | --- |
-| `controller.welcome` | Snapshot current game state; sync Pico display | `GAME:active`, `GAME:question_open`, or `GAME:ended` depending on state |
-| `game.opened` | Set state → `lobby`; show `JOIN? KEY2` | *(none)* |
-| `game.started` | Set state → `active`; show `GAME ON` | `GAME:active` |
-| `question.opened` | Save `questionId`; show `SCAN NOW` | `GAME:question_open` |
-| `question.closed` | Clear `questionId`; show `GAME ON` | `GAME:question_close` |
-| `game.ended` | Set state → `completed`; show `GAME OVER` | `GAME:ended` |
+| `controller.welcome` | Lightweight ack only (no game fields). Zero then `GET /api/pairs/:pairName` and applies that as a rich welcome | From pair snapshot: `GAME:mode` / `lobby` / `lobby_joined` / `active` / … |
+| `game.opened` | Set state → `lobby`; show `JOIN? KEY2` | `GAME:lobby` |
+| `game.started` | Set state → `active`; show green active | `GAME:active` |
+| `question.opened` | Save `questionId`; show `?` | `GAME:question_open` |
+| `question.closed` | Clear `questionId`; show white 2×2 | `GAME:question_close` |
+| `game.ended` | Set state → `completed` | `GAME:ended` (or winner/loser) |
 | `question.result` | Look up own pair in results (skip if already answered on scan) | `GAME:correct` or `GAME:wrong` |
 | `game.ended` enriched | Check `isWinner` flag | `GAME:winner` or `GAME:loser` |
 
@@ -196,12 +198,13 @@ pattern on its 8×8 LED matrix:
 
 | BLE command | Pico `_game_state` | Matrix display | Duration |
 | --- | --- | --- | --- |
+| `GAME:mode` | `"mode"` | Capital white `G` (game-mode standby) | Until next command |
+| `GAME:lobby` | `"lobby"` | Solid yellow 4×4 centre | Until next command |
+| `GAME:lobby_joined` | `"lobby_joined"` | White 4×4 outline | Until next command |
 | `GAME:active` | `"active"` | Solid green 4×4 centre square | Until next command |
 | `GAME:question_open` | `"question_open"` | Question mark glyph; NFC polling starts | Until card scan or next command |
 | `GAME:question_close` | `"question_close"` | Small white 2×2 centre dot | Until next command |
 | `GAME:ended` | `"ended"` | Scrolls `DONE` then goes dark | One-shot then off |
-| `GAME:lobby` | `"lobby"` | Solid yellow 4×4 centre | Until next command |
-| `GAME:lobby_joined` | `"lobby_joined"` | White 4×4 outline | Until next command |
 | `GAME:correct` | `"correct"` | Blue filled circle | Until `question_close` / next |
 | `GAME:wrong` | `"wrong"` | Red X | Until `question_close` / next |
 | `GAME:winner` | `"winner"` | Fireworks animation | Until next / idle |
@@ -256,6 +259,69 @@ dashboard; devices that already answered skip a second animation.
 
 ---
 
+## Start and join a game (referee → Zero → Pico)
+
+End-to-end checklist for opening a lobby in the emoji-app **Referee Controls**
+panel and joining from the Zero so both Zero and Pico show the lobby states.
+
+### Prerequisites
+
+1. **Matching `PAIR_NAME`** — Zero and Pico both load the same `PAIR_NAME`
+   from `pair_config.py` (see [Configuration](#configuration)). The referee
+   **Bound pairs** entry must use that exact string. If the Zero logs
+   `PAIR_NAME='white'` but the UI shows `power-cable`, re-bind as `white`
+   (or change the device config and restart). Join and WS rooms are keyed by
+   this name; a mismatch means the controller never receives `game.opened`
+   and KEY2 join does nothing useful.
+2. **BLE link up** — Zero connected to `Pico-Client-<PAIR_NAME>` (Badges UI
+   shows connected). Sync a normal emoji first (menu 0 / pos 1) to confirm
+   the pipe works.
+3. **WebSocket** — Zero connected to the emoji-app server (`[WS] connected`
+   in the Zero log). After hello it polls `GET /api/pairs/<PAIR_NAME>`.
+4. **Versions** — Controller ≈ `0.7.1`, Pico ≈ `0.5.1` (see server
+   `EXPECTED_*_VERSION`).
+
+### Referee (emoji-app Game → Referee Controls)
+
+| Step | UI action | Server effect |
+| --- | --- | --- |
+| 1 | Open the game detail page | Game may be `completed` / `draft` / `lobby` |
+| 2 | If completed/cancelled: **Play Again** / **Restart** | State → `draft`; pairs stay bound but `joined` resets on next open |
+| 3 | **Bind** the controller’s `PAIR_NAME` (chip or typed name) | `POST /api/games/:id/pairs` — pair appears under Bound pairs as `not joined` |
+| 4 | Assign NFC card group if needed (**Reassign demo group**) | Cards available for later questions |
+| 5 | **Open for Joining** | State → `lobby`; WS `game.opened` to that pair’s room; dashboard shows Lobby |
+
+Do **not** press **Start Game** until the Bound pairs row shows `joined`.
+
+### Zero + Pico display sequence
+
+| Step | Operator action | Zero LCD | Pico matrix | Notes |
+| --- | --- | --- | --- | --- |
+| A | Menu **Others** → pos **4** (game) / confirm | Capital **G** (`mode`) | Capital **G** (`GAME:mode`) | Entering game mode always BLE-syncs Pico — even with no lobby yet |
+| B | After referee **Open for Joining** | Yellow 4×4 + `JOIN? KEY2` (`lobby`) | Yellow 4×4 (`GAME:lobby`) | From `game.opened` or pair-binding poll |
+| C | Press **KEY2** to join | White 4×4 outline (`lobby_joined`) | White 4×4 outline (`GAME:lobby_joined`) | `POST /api/games/:id/join`; UI Bound pairs → `joined` |
+| D | Referee **Start Game** | Green 4×4 (`active`) | Green 4×4 (`GAME:active`) | Ready for question open / NFC |
+
+### What usually goes wrong
+
+| Symptom | Likely cause |
+| --- | --- |
+| Pico keeps the last emoji after Zero enters game mode | Old Pico firmware without `GAME:mode`, or BLE not connected when entering game mode |
+| Yellow lobby never appears after Open for Joining | `PAIR_NAME` ≠ bound pair name, or Zero WS disconnected (missed `game.opened` and poll 404) |
+| KEY2 does nothing; UI stays `not joined` | `_join_pending` false — no lobby snapshot yet (fix pair name / WS / binding) |
+| Bound pair shows wrong name | Re-bind using the name printed in Zero’s `[PAIR]` startup line |
+
+### Suggested smoke test order
+
+1. Start Pico → Zero → emoji-app.
+2. Sync menu 0 / pos 1 (normal emoji) — Pico shows the emoji.
+3. Enter game mode on Zero — both show **G**.
+4. In referee: bind the Zero’s `PAIR_NAME`, **Play Again** if needed, **Open for Joining**.
+5. Both devices switch to yellow lobby; press KEY2 — both show white outline; UI shows `joined`.
+6. **Start Game** — both show green active.
+
+---
+
 ## Platform icon / display reference
 
 The table below maps every game event or state to its intended visual on each
@@ -263,6 +329,7 @@ of the three platforms. Step 8 rows (correct/wrong/winner/loser) are implemented
 
 | Event / state | State id | Pico badge (8×8 LED matrix) | Zero game controller (LCD) | Emoji-app (Lucide icon) |
 | --- | --- | --- | --- | --- |
+| **Game mode standby** | `mode` | Capital white `G` | Capital white `G` | *(n/a — referee uses game lifecycle)* |
 | **Lobby — not yet joined** | `lobby` | Solid yellow 4×4 centre square | Solid yellow 4×4 centre square | `door-open` |
 | **Lobby — joined, waiting** | `lobby_joined` | White 4×4 outline square (1 px border, black interior) | White 4×4 outline square (1 px border, black interior) | `hand-platter` |
 | **Game started / active** | `active` | Solid green 4×4 centre square | Solid green 4×4 centre square | `turntable` |

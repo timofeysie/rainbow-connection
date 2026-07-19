@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.0"
+VERSION = " v0.7.1"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -153,6 +153,7 @@ game_mode_active = False
 # Platform icon / display reference — shared state ids + labels (multiplayer-mode.md).
 # Log format: [GAME] zero | <state_id> | <label> | <detail>
 _GAME_STATE_LABELS = {
+    "mode": "Game mode standby",
     "lobby": "Lobby — not yet joined",
     "lobby_joined": "Lobby — joined, waiting",
     "active": "Game started / active",
@@ -168,6 +169,7 @@ _GAME_STATE_LABELS = {
 
 # BLE GAME:<cmd> → Platform icon state id (wire name may differ from state id).
 _GAME_CMD_TO_STATE = {
+    "GAME:mode": "mode",
     "GAME:lobby": "lobby",
     "GAME:lobby_joined": "lobby_joined",
     "GAME:active": "active",
@@ -1318,6 +1320,9 @@ async def _apply_game_state_to_display():
             await _ble_write_game_cmd("GAME:loser")
         else:
             await _ble_write_game_cmd("GAME:ended")
+    else:
+        # draft / None / unknown — show standby 'G' so Pico matches Zero game mode
+        await _ble_write_game_cmd("GAME:mode")
 
 
 async def _ws_handle_event(event: dict):
@@ -1330,10 +1335,21 @@ async def _ws_handle_event(event: dict):
     print(f"[WS] event: {etype}", flush=True)
 
     if etype == "controller.welcome":
+        # Server WS welcome is a lightweight ack (pairName only). A rich
+        # snapshot comes from GET /api/pairs (synthetic welcome) or later
+        # game.* events. Do not clear lobby/join state on the empty ack —
+        # that races with the post-hello poll and wipes game.opened.
+        if "gameId" not in event and "state" not in event:
+            print("[WS] welcome ack (no game snapshot)", flush=True)
+            return
         _ws_game_id     = event.get("gameId")
         _ws_game_state  = event.get("state")
         _ws_question_id = event.get("openQuestionId")
         _ws_joined      = event.get("joined", False)
+        # KEY2 join only works when lobby is open and we have not joined yet.
+        _join_pending = bool(
+            _ws_game_state == "lobby" and not _ws_joined and _ws_game_id
+        )
         _game_pair_result = None
         _game_answered_this_question = False
         _game_end_outcome = None
@@ -1345,7 +1361,7 @@ async def _ws_handle_event(event: dict):
             _ws_question_phase = None
         print(
             f"[WS] welcome: game={_ws_game_id} state={_ws_game_state} "
-            f"joined={_ws_joined}",
+            f"joined={_ws_joined} join_pending={_join_pending}",
             flush=True,
         )
         await _apply_game_state_to_display()
@@ -1485,6 +1501,10 @@ async def _ws_connect_loop():
                     "token":             None,
                 }
                 await ws.send(json.dumps(hello))
+                # Server welcome is a lightweight ack; load the authoritative
+                # pair binding so lobby/join state is correct even if we missed
+                # game.opened while disconnected.
+                _poll_pair_binding()
                 async for raw in ws:
                     try:
                         event = json.loads(raw)
