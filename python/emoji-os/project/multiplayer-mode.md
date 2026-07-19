@@ -174,10 +174,13 @@ overlays only when an action is required:
 Pressing **KEY1** (positive) while in `lobby` (not yet joined) POSTs join to
 the server. **KEY2** exits game mode to menu select (it does not join). From
 there KEY1/KEY3 scroll options and KEY2 confirms an emoji as usual (full-screen
-on Zero + Pico). Re-entering game mode (Others → pos 4) restores the current
-server game status on both devices (e.g. already joined → white outline).
-While browsing emojis, live `GAME:*` BLE updates are deferred so the Pico keeps
-the selected emoji; they catch up on the next game-mode entry.
+on Zero; Pico too unless a question is open). Re-entering game mode
+(Others → pos 4) refreshes the Zero LCD from the server snapshot.
+
+**Important:** `GAME:*` BLE commands (especially `GAME:question_open`) are
+always sent to the Pico while connected — the badge must arm NFC for card
+scans even if the Zero LCD is browsing emojis. While a question is open,
+emoji BLE writes are skipped so the Pico stays on `?` / scan-ready.
 
 ### WebSocket events and Zero behaviour
 
@@ -282,7 +285,7 @@ panel and joining from the Zero so both Zero and Pico show the lobby states.
    the pipe works.
 3. **WebSocket** — Zero connected to the emoji-app server (`[WS] connected`
    in the Zero log). After hello it polls `GET /api/pairs/<PAIR_NAME>`.
-4. **Versions** — Controller ≈ `0.7.3`, Pico ≈ `0.5.1` (see server
+4. **Versions** — Controller ≈ `0.7.4`, Pico ≈ `0.5.2` (see server
    `EXPECTED_*_VERSION`).
 
 ### Referee (emoji-app Game → Referee Controls)

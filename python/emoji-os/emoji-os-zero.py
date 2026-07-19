@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.3"
+VERSION = " v0.7.4"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -1174,15 +1174,12 @@ async def _reconnect():
 async def _ble_write_game_cmd(cmd: str, *, force: bool = False):
     """Write a GAME:* command to the Pico over BLE. No-op if not connected.
 
-    When the user has left game mode to browse emojis, skip BLE writes so the
-    Pico keeps the selected emoji. Re-entering game mode calls
-    ``_apply_game_state_to_display`` (force) to catch the Pico up.
+    Always forwarded while connected. The badge must receive ``GAME:question_open``
+    to arm NFC even if the Zero LCD has left game mode to browse emojis.
+    ``force`` is kept for call-site compatibility (ignored).
     """
+    del force  # API compat; game BLE is never deferred
     state_id = _GAME_CMD_TO_STATE.get(cmd)
-    if not force and not game_mode_active:
-        if state_id:
-            _log_game_state(state_id, f"game mode inactive — defer {cmd}")
-        return
     if not (ble_controller.client and ble_controller.client.is_connected):
         if state_id:
             _log_game_state(state_id, f"BLE not connected — skipping {cmd}")
@@ -1297,51 +1294,50 @@ def _game_mode_display_matrix():
 
 
 async def _apply_game_state_to_display():
-    """Redraw the Zero display and sync the Pico with the current game state.
+    """Redraw the Zero LCD (if in game mode) and sync the Pico game state.
 
     Called after a WS reconnect/welcome snapshot and when the user enters game
-    mode locally, so both screens reflect the server-authoritative state.
-    No-op while the user is browsing emojis outside game mode.
+    mode locally. Pico is always synced — NFC arming must not depend on the
+    Zero LCD being in game mode. Zero LCD redraw is skipped while browsing.
     """
     global _ws_question_phase
-    if not game_mode_active:
-        return
     if _ws_game_state == "active" and _ws_question_id:
         _ws_question_phase = "open"
     elif _ws_game_state == "active" and _ws_question_phase is None:
         pass  # keep None → green active until first question
-    draw_display()
+    if game_mode_active:
+        draw_display()
     # Sync Pico with the current known game state so a reconnect or late
     # game-mode entry picks up the right display without waiting for the next
-    # server event. force=True: we are in game mode by definition here.
+    # server event.
     if _game_end_outcome == "winner":
-        await _ble_write_game_cmd("GAME:winner", force=True)
+        await _ble_write_game_cmd("GAME:winner")
     elif _game_end_outcome == "loser":
-        await _ble_write_game_cmd("GAME:loser", force=True)
+        await _ble_write_game_cmd("GAME:loser")
     elif _game_pair_result == "correct":
-        await _ble_write_game_cmd("GAME:correct", force=True)
+        await _ble_write_game_cmd("GAME:correct")
     elif _game_pair_result == "wrong":
-        await _ble_write_game_cmd("GAME:wrong", force=True)
+        await _ble_write_game_cmd("GAME:wrong")
     elif _ws_game_state == "lobby" and not _ws_joined:
-        await _ble_write_game_cmd("GAME:lobby", force=True)
+        await _ble_write_game_cmd("GAME:lobby")
     elif _ws_game_state == "lobby" and _ws_joined:
-        await _ble_write_game_cmd("GAME:lobby_joined", force=True)
+        await _ble_write_game_cmd("GAME:lobby_joined")
     elif _ws_game_state == "active" and _ws_question_id:
-        await _ble_write_game_cmd("GAME:question_open", force=True)
+        await _ble_write_game_cmd("GAME:question_open")
     elif _ws_game_state == "active" and _ws_question_phase == "closed":
-        await _ble_write_game_cmd("GAME:question_close", force=True)
+        await _ble_write_game_cmd("GAME:question_close")
     elif _ws_game_state == "active":
-        await _ble_write_game_cmd("GAME:active", force=True)
+        await _ble_write_game_cmd("GAME:active")
     elif _ws_game_state == "completed":
         if _game_end_outcome == "winner":
-            await _ble_write_game_cmd("GAME:winner", force=True)
+            await _ble_write_game_cmd("GAME:winner")
         elif _game_end_outcome == "loser":
-            await _ble_write_game_cmd("GAME:loser", force=True)
+            await _ble_write_game_cmd("GAME:loser")
         else:
-            await _ble_write_game_cmd("GAME:ended", force=True)
-    else:
-        # draft / None / unknown — show standby 'G' so Pico matches Zero game mode
-        await _ble_write_game_cmd("GAME:mode", force=True)
+            await _ble_write_game_cmd("GAME:ended")
+    elif game_mode_active:
+        # draft / None / unknown — standby 'G' only when Zero is in game mode
+        await _ble_write_game_cmd("GAME:mode")
 
 
 def _exit_game_mode_to_menu():
@@ -2004,11 +2000,20 @@ def check_animation_interruption():
 def send_emoji_to_pico(menu_val, pos_val, neg_val):
     """Send emoji selection to Pico via BLE"""
     global ble_event_loop
-    
+
+    # Keep the badge on ? / NFC-ready while a question is open — do not overwrite
+    # with a decorative emoji (Zero LCD can still show the chosen emoji).
+    if _ws_question_id and _ws_question_phase == "open":
+        print(
+            "[GAME] skip emoji BLE — question open; Pico stays on scan state",
+            flush=True,
+        )
+        return
+
     if not ble_event_loop:
         print("BLE not initialized yet — cannot send to Pico or /api/emoji", flush=True)
         return
-    
+
     def send_command():
         try:
             # Use the existing event loop
@@ -2020,7 +2025,7 @@ def send_emoji_to_pico(menu_val, pos_val, neg_val):
             print(f"[BLE] send_emoji_command finished ok={ok} (False means no BLE write / no API)", flush=True)
         except Exception as e:
             print(f"Error sending to Pico: {e}", flush=True)
-    
+
     # Send in a separate thread to avoid blocking the main loop
     send_thread = threading.Thread(target=send_command)
     send_thread.daemon = True

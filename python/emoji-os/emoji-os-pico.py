@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -938,6 +938,7 @@ def handle_emoji_selection(menu_val, pos_val, neg_val):
     """Handle emoji selection from the Pi Zero"""
     global menu, pos, neg, state
     global nfc_mode_active, nfc_display_state, nfc_display_until_ms
+    global _game_state, _game_nfc_display_until_ms
 
     print(f"Processing emoji selection:")
     print(f"  Menu: {menu_val} ({get_menu_name(menu_val)})")
@@ -950,6 +951,8 @@ def handle_emoji_selection(menu_val, pos_val, neg_val):
         nfc_mode_active = True
         nfc_display_state = "question"
         nfc_display_until_ms = 0
+        _game_state = None
+        _game_nfc_display_until_ms = 0
         menu = menu_val
         pos = pos_val
         neg = neg_val
@@ -957,6 +960,11 @@ def handle_emoji_selection(menu_val, pos_val, neg_val):
         print("NFC mode activated — showing question mark, waiting for card")
         draw_question_mark()
         return
+
+    # Decorative emoji — leave game NFC state so TAG: polling stops until the
+    # next GAME:question_open (or other GAME:*) from the Zero.
+    _game_state = None
+    _game_nfc_display_until_ms = 0
 
     # Any other selection exits NFC mode
     nfc_mode_active = False
