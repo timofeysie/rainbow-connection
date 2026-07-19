@@ -92,7 +92,7 @@ threading.Thread(target=_battery_monitor, daemon=True).start()
 # deployed server
 # SERVER_URL = "https://emoji-staging.kogs.link"
 # Local server for testing
-SERVER_URL = "http://192.168.68.54:3000"
+SERVER_URL = "http://192.168.68.53:3000"
 # Logical Pi Zero id (POST /api/status and /api/emoji).
 CONTROLLER_ID = "raspberry-pi-zero"
 # If non-empty, used as badgeId for all API posts. If empty, badgeId is derived from
