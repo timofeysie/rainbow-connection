@@ -148,7 +148,8 @@ The server tracks a game through these states:
 
 | State | Meaning |
 | --- | --- |
-| `ready` | Game created; not yet open for players |
+| `draft` | Game created; setup on the webapp (questions, etc.) |
+| `ready` | Referee opened the game detail page; controllers show standby `G` |
 | `lobby` | Open for joining; badges can join |
 | `active` | Game is live; questions can be opened |
 | `paused` | Game temporarily paused |

@@ -1420,9 +1420,9 @@ async def _ws_handle_event(event: dict):
             print("[WS] welcome ack (no game snapshot)", flush=True)
             return
         _ws_game_id     = event.get("gameId")
-        # Normalize legacy server value "draft" → "ready".
+        # draft (setup) and ready (standby) both show the G glyph on controllers.
         raw_state = event.get("state")
-        _ws_game_state  = "ready" if raw_state == "draft" else raw_state
+        _ws_game_state = "ready" if raw_state in ("draft", "ready") else raw_state
         _ws_question_id = event.get("openQuestionId")
         _ws_joined      = event.get("joined", False)
         # KEY1 join only works when lobby is open and we have not joined yet.
