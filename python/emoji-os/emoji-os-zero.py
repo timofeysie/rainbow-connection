@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.4"
+VERSION = " v0.7.5"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -1011,12 +1011,24 @@ def _on_pico_disconnect(client: BleakClient):
         asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
 
 
+def _schedule_pair_answer(is_correct: bool, detail: str):
+    """Apply correct/wrong on Zero + Pico from any thread."""
+    if ble_event_loop is None:
+        return
+    asyncio.run_coroutine_threadsafe(
+        _apply_pair_answer(is_correct, detail),
+        ble_event_loop,
+    )
+
+
 def _relay_nfc_tag(card_uid: str):
     """Relay a TAG:<cardUid> notification from the Pico as POST /api/guesses.
 
-    On a successful response with ``isCorrect``, updates the Zero LCD and sends
-    ``GAME:correct`` / ``GAME:wrong`` to the Pico immediately (Platform icon
-    Card scanned → Correct/Wrong answer flow).
+    Card → slot map (demo):
+      R12 Monkey ``5B:6F:B8:08`` → slot **A**
+      W3 Clown   ``DB:93:B7:08`` → slot **B**
+    Server compares slot to the open question's correct option → blue circle /
+    red X. Unknown cards (no slotLabel) are treated as wrong (red X).
     """
     if not _ws_game_id or not _ws_question_id:
         print(
@@ -1026,22 +1038,39 @@ def _relay_nfc_tag(card_uid: str):
         )
         return
     card_info = NFC_CARD_MAP.get(card_uid, {})
+    slot_label = card_info.get("slotLabel")
+    _log_game_state(
+        "card_scanned",
+        f"TAG={card_uid!r} slotLabel={slot_label!r} → POST /api/guesses",
+    )
+
+    # Unknown / unmapped card → wrong (red X). Do not send invalid badgeId.
+    if not slot_label:
+        _schedule_pair_answer(
+            False,
+            f"unknown TAG={card_uid!r} — no slotLabel; treat as wrong",
+        )
+        return
+
     payload = {
         "gameId":     _ws_game_id,
         "questionId": _ws_question_id,
         "pairName":   PAIR_NAME,
-        "badgeId":    _resolve_badge_id(),
         "cardUid":    card_uid,
-        "slotLabel":  card_info.get("slotLabel"),
+        "slotLabel":  slot_label,
     }
-    _log_game_state(
-        "card_scanned",
-        f"TAG={card_uid!r} slotLabel={payload['slotLabel']!r} → POST /api/guesses",
-    )
+    # Guess API only accepts 24-char hex ObjectIds for badgeId; BLE slug
+    # (badge-88-…) must be omitted or the whole guess 400s with no feedback.
+    bid = _resolve_badge_id()
+    if isinstance(bid, str) and len(bid) == 24 and all(
+        c in "0123456789abcdefABCDEF" for c in bid
+    ):
+        payload["badgeId"] = bid
 
     def _post_guess_and_apply():
         if not SERVER_URL:
             print("[API] skip guess POST — SERVER_URL empty", flush=True)
+            _schedule_pair_answer(False, "SERVER_URL empty — treat scan as wrong")
             return
         url = f"{SERVER_URL}/api/guesses"
         try:
@@ -1054,6 +1083,10 @@ def _relay_nfc_tag(card_uid: str):
                 snippet = snippet[:100] + "…"
             print(f"[API] response /api/guesses -> HTTP {r.status_code} {snippet}", flush=True)
             if not r.ok:
+                _schedule_pair_answer(
+                    False,
+                    f"guess HTTP {r.status_code} — treat as wrong; {snippet}",
+                )
                 return
             try:
                 data = r.json()
@@ -1067,17 +1100,13 @@ def _relay_nfc_tag(card_uid: str):
                     flush=True,
                 )
                 return
-            if ble_event_loop is None:
-                return
-            asyncio.run_coroutine_threadsafe(
-                _apply_pair_answer(
-                    bool(is_correct),
-                    f"POST /api/guesses isCorrect={is_correct} slotLabel={data.get('slotLabel')!r}",
-                ),
-                ble_event_loop,
+            _schedule_pair_answer(
+                bool(is_correct),
+                f"POST /api/guesses isCorrect={is_correct} slotLabel={data.get('slotLabel')!r}",
             )
         except Exception as exc:
             print(f"[API] request failed /api/guesses: {exc}", flush=True)
+            _schedule_pair_answer(False, f"guess request failed — treat as wrong; {exc}")
 
     threading.Thread(target=_post_guess_and_apply, daemon=True).start()
 

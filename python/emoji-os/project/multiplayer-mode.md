@@ -250,6 +250,17 @@ question answer:
 18. After ~4 s  → Pico automatically reverts to white 2×2 dot
 ```
 
+### Demo NFC card → answer slot map
+
+| Physical card | Tag UID | Answer slot | Typical use |
+| --- | --- | --- | --- |
+| R12 Monkey | `5B:6F:B8:08` | **A** | Correct when the question’s correct option is A (e.g. “A Monkey”) → blue circle |
+| W3 Clown | `DB:93:B7:08` | **B** | Wrong when A is correct → red X |
+
+Any other / unknown UID is treated as **wrong** (red X). The same map lives in
+`NfcCardService` (server seed), Demo Set assign, Zero `NFC_CARD_MAP`, and
+`pair_config.py` `NFC_CARD_MAP_LOCAL`.
+
 ### Scan feedback on the Pico
 
 | Stage | Behaviour |
@@ -285,7 +296,7 @@ panel and joining from the Zero so both Zero and Pico show the lobby states.
    the pipe works.
 3. **WebSocket** — Zero connected to the emoji-app server (`[WS] connected`
    in the Zero log). After hello it polls `GET /api/pairs/<PAIR_NAME>`.
-4. **Versions** — Controller ≈ `0.7.4`, Pico ≈ `0.5.2` (see server
+4. **Versions** — Controller ≈ `0.7.5`, Pico ≈ `0.5.2` (see server
    `EXPECTED_*_VERSION`).
 
 ### Referee (emoji-app Game → Referee Controls)
@@ -307,7 +318,8 @@ Do **not** press **Start Game** until the Bound pairs row shows `joined`.
 | A | Menu **Others** → pos **4** (game) / confirm | Capital **G** (`mode`) | Capital **G** (`GAME:mode`) | Entering game mode always BLE-syncs Pico — even with no lobby yet |
 | B | After referee **Open for Joining** | Yellow 4×4 + `JOIN? KEY1` (`lobby`) | Yellow 4×4 (`GAME:lobby`) | From `game.opened` or pair-binding poll |
 | C | Press **KEY1** (pos) to join | White 4×4 outline (`lobby_joined`) | White 4×4 outline (`GAME:lobby_joined`) | `POST /api/games/:id/join`; UI Bound pairs → `joined` |
-| D | Referee **Start Game** | Green 4×4 (`active`) | Green 4×4 (`GAME:active`) | Ready for question open / NFC |
+| D | Referee **Start Game** | Green then `?` (`question_open`) | Green then `?` (`GAME:question_open`) | Server auto-opens the next closed question so NFC arms immediately |
+| E | Player taps NFC card | Correct/wrong glyph | Correct/wrong glyph | Pico sends `TAG:`; Zero POSTs guess |
 
 ### What usually goes wrong
 
@@ -325,7 +337,7 @@ Do **not** press **Start Game** until the Bound pairs row shows `joined`.
 3. Enter game mode on Zero — both show **G**.
 4. In referee: bind the Zero’s `PAIR_NAME`, **Play Again** if needed, **Open for Joining**.
 5. Both devices switch to yellow lobby; press KEY1 — both show white outline; UI shows `joined`.
-6. **Start Game** — both show green active.
+6. **Start Game** — both briefly show green active, then `?` (question auto-opens); tap an NFC card.
 
 ---
 
