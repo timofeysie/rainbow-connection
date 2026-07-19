@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.1"
+VERSION = " v0.7.2"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -124,7 +124,7 @@ _ws_game_id       = None   # str | None — current bound game
 _ws_game_state    = None   # "draft"|"lobby"|"active"|"completed"|None
 _ws_question_id   = None   # str | None — currently open question
 _ws_joined        = False  # True once join POST has been sent this session
-_join_pending     = False  # True after game.opened arrives; cleared by KEY2 join
+_join_pending     = False  # True after game.opened arrives; cleared by KEY1 join
 _ws_connected     = False  # True while the WS socket is open
 # Question phase within an active game (drives Platform icon glyphs).
 # None = game active, no question opened yet; "open" / "closed" after first Q.
@@ -1346,7 +1346,7 @@ async def _ws_handle_event(event: dict):
         _ws_game_state  = event.get("state")
         _ws_question_id = event.get("openQuestionId")
         _ws_joined      = event.get("joined", False)
-        # KEY2 join only works when lobby is open and we have not joined yet.
+        # KEY1 join only works when lobby is open and we have not joined yet.
         _join_pending = bool(
             _ws_game_state == "lobby" and not _ws_joined and _ws_game_id
         )
@@ -2092,7 +2092,7 @@ def start_emoji_animation():
     global game_mode_active, fullscreen_mode
 
     # Game mode: menu 3, pos 4, neg 0 — full-screen live game status display.
-    # KEY2 joins when a lobby is waiting; joystick navigation exits game mode.
+    # KEY1 joins when a lobby is waiting; joystick navigation exits game mode.
     if menu == 3 and pos == 4 and neg == 0:
         prev_state = "done"
         prev_menu  = menu
@@ -2263,7 +2263,7 @@ def _game_status_label():
     if not game_mode_active:
         return None, None
     if _ws_game_state == "lobby" and not _ws_joined:
-        return "JOIN? KEY2", "yellow"
+        return "JOIN? KEY1", "yellow"
     if _game_end_outcome == "ended" or (
         _ws_game_state == "completed" and _game_end_outcome is None
     ):
@@ -2287,7 +2287,7 @@ def draw_display():
     if fullscreen_mode and not nfc_mode_active:
         if game_mode_active:
             # Platform icon glyph fills most of the LCD; optional status strip
-            # (e.g. JOIN? KEY2) overlays the top when an action is required.
+            # (e.g. JOIN? KEY1) overlays the top when an action is required.
             scale = 14
             emoji_width = scale * 8
             emoji_height = scale * 8
@@ -2370,7 +2370,7 @@ draw_display()
 print("Emoji OS Zero " + VERSION + " started with BLE Controller functionality")
 print(f"[PAIR] strict pairing enabled — PAIR_NAME='{PAIR_NAME}', target='{TARGET_DEVICE_NAME}'")
 print("Joystick: Navigate menus")
-print("KEY1: Select positive")
+print("KEY1: Select positive; in game lobby press to join")
 print("KEY2: Navigate/confirm; exit full-screen selected mode")
 print("KEY3: Select negative")
 print("=" * 50)
@@ -2527,6 +2527,29 @@ try:
         
         # === Handle KEY1 button (Positive) ===
         if key1_pressed and not button_states['key1']:
+            # Game mode: KEY1 (pos) joins when a lobby is waiting.
+            if game_mode_active:
+                if _join_pending and _ws_game_id:
+                    _join_pending = False
+                    _ws_joined    = True
+                    post_to_server(
+                        f"/api/games/{_ws_game_id}/join",
+                        {"pairName": PAIR_NAME, "controllerId": CONTROLLER_ID},
+                    )
+                    draw_display()
+                    _log_game_state(
+                        "lobby_joined",
+                        f"KEY1 join POST gameId={_ws_game_id} pair={PAIR_NAME}",
+                    )
+                    if ble_event_loop is not None:
+                        asyncio.run_coroutine_threadsafe(
+                            _ble_write_game_cmd("GAME:lobby_joined"),
+                            ble_event_loop,
+                        )
+                time.sleep(0.2)
+                button_states['key1'] = key1_pressed
+                continue
+
             print('debug KEY1 - menu:', menu, "pos", pos, "neg", neg, 
                 "state", state, "prev_pos", prev_pos, "prev_neg", prev_neg, "prev_state", prev_state)
 
@@ -2582,26 +2605,9 @@ try:
         
         # === Handle KEY2 button (Menu/Confirm) ===
         if key2_pressed and not button_states['key2']:
-            # Game mode owns KEY2: join when a lobby is waiting; otherwise stay
-            # on the full-screen status view (joystick navigation exits).
+            # Game mode: KEY2 does not join — leave join to KEY1. Stay on the
+            # full-screen status view (joystick navigation exits game mode).
             if game_mode_active:
-                if _join_pending and _ws_game_id:
-                    _join_pending = False
-                    _ws_joined    = True
-                    post_to_server(
-                        f"/api/games/{_ws_game_id}/join",
-                        {"pairName": PAIR_NAME, "controllerId": CONTROLLER_ID},
-                    )
-                    draw_display()   # redraws with "WAITING..." status
-                    _log_game_state(
-                        "lobby_joined",
-                        f"KEY2 join POST gameId={_ws_game_id} pair={PAIR_NAME}",
-                    )
-                    if ble_event_loop is not None:
-                        asyncio.run_coroutine_threadsafe(
-                            _ble_write_game_cmd("GAME:lobby_joined"),
-                            ble_event_loop,
-                        )
                 time.sleep(0.2)
                 button_states['key2'] = key2_pressed
                 continue

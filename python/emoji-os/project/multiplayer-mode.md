@@ -164,16 +164,16 @@ overlays only when an action is required:
 | Server state | Joined? | Question phase | Zero LCD glyph | Overlay |
 | --- | --- | --- | --- | --- |
 | *(none / draft)* | — | — | Capital `G` (`mode`) | — |
-| `lobby` | No | — | Yellow 4×4 | `JOIN? KEY2` |
+| `lobby` | No | — | Yellow 4×4 | `JOIN? KEY1` |
 | `lobby` | Yes | — | White 4×4 outline | — |
 | `active` | — | none | Green 4×4 | — |
 | `active` | — | open | `?` | — |
 | `active` | — | closed | White 2×2 | — |
 | `completed` | — | — | Winner / loser / ended | `GAME OVER` only if unenriched |
 
-Pressing KEY2 while in `lobby` (not yet joined) POSTs join to the server.
-Both devices then show the white outline (`lobby_joined`) until the referee
-starts the game.
+Pressing **KEY1** (positive) while in `lobby` (not yet joined) POSTs join to
+the server. KEY2 stays menu/confirm only and does not join. Both devices then
+show the white outline (`lobby_joined`) until the referee starts the game.
 
 ### WebSocket events and Zero behaviour
 
@@ -183,7 +183,7 @@ events and relays the appropriate `GAME:*` BLE command to the Pico:
 | WS event | Zero action | BLE command sent to Pico |
 | --- | --- | --- |
 | `controller.welcome` | Lightweight ack only (no game fields). Zero then `GET /api/pairs/:pairName` and applies that as a rich welcome | From pair snapshot: `GAME:mode` / `lobby` / `lobby_joined` / `active` / … |
-| `game.opened` | Set state → `lobby`; show `JOIN? KEY2` | `GAME:lobby` |
+| `game.opened` | Set state → `lobby`; show `JOIN? KEY1` | `GAME:lobby` |
 | `game.started` | Set state → `active`; show green active | `GAME:active` |
 | `question.opened` | Save `questionId`; show `?` | `GAME:question_open` |
 | `question.closed` | Clear `questionId`; show white 2×2 | `GAME:question_close` |
@@ -272,13 +272,13 @@ panel and joining from the Zero so both Zero and Pico show the lobby states.
    `PAIR_NAME='white'` but the UI shows `power-cable`, re-bind as `white`
    (or change the device config and restart). Join and WS rooms are keyed by
    this name; a mismatch means the controller never receives `game.opened`
-   and KEY2 join does nothing useful.
+   and KEY1 join does nothing useful.
 2. **BLE link up** — Zero connected to `Pico-Client-<PAIR_NAME>` (Badges UI
    shows connected). Sync a normal emoji first (menu 0 / pos 1) to confirm
    the pipe works.
 3. **WebSocket** — Zero connected to the emoji-app server (`[WS] connected`
    in the Zero log). After hello it polls `GET /api/pairs/<PAIR_NAME>`.
-4. **Versions** — Controller ≈ `0.7.1`, Pico ≈ `0.5.1` (see server
+4. **Versions** — Controller ≈ `0.7.2`, Pico ≈ `0.5.1` (see server
    `EXPECTED_*_VERSION`).
 
 ### Referee (emoji-app Game → Referee Controls)
@@ -298,8 +298,8 @@ Do **not** press **Start Game** until the Bound pairs row shows `joined`.
 | Step | Operator action | Zero LCD | Pico matrix | Notes |
 | --- | --- | --- | --- | --- |
 | A | Menu **Others** → pos **4** (game) / confirm | Capital **G** (`mode`) | Capital **G** (`GAME:mode`) | Entering game mode always BLE-syncs Pico — even with no lobby yet |
-| B | After referee **Open for Joining** | Yellow 4×4 + `JOIN? KEY2` (`lobby`) | Yellow 4×4 (`GAME:lobby`) | From `game.opened` or pair-binding poll |
-| C | Press **KEY2** to join | White 4×4 outline (`lobby_joined`) | White 4×4 outline (`GAME:lobby_joined`) | `POST /api/games/:id/join`; UI Bound pairs → `joined` |
+| B | After referee **Open for Joining** | Yellow 4×4 + `JOIN? KEY1` (`lobby`) | Yellow 4×4 (`GAME:lobby`) | From `game.opened` or pair-binding poll |
+| C | Press **KEY1** (pos) to join | White 4×4 outline (`lobby_joined`) | White 4×4 outline (`GAME:lobby_joined`) | `POST /api/games/:id/join`; UI Bound pairs → `joined` |
 | D | Referee **Start Game** | Green 4×4 (`active`) | Green 4×4 (`GAME:active`) | Ready for question open / NFC |
 
 ### What usually goes wrong
@@ -308,7 +308,7 @@ Do **not** press **Start Game** until the Bound pairs row shows `joined`.
 | --- | --- |
 | Pico keeps the last emoji after Zero enters game mode | Old Pico firmware without `GAME:mode`, or BLE not connected when entering game mode |
 | Yellow lobby never appears after Open for Joining | `PAIR_NAME` ≠ bound pair name, or Zero WS disconnected (missed `game.opened` and poll 404) |
-| KEY2 does nothing; UI stays `not joined` | `_join_pending` false — no lobby snapshot yet (fix pair name / WS / binding) |
+| KEY1 does nothing; UI stays `not joined` | `_join_pending` false — no lobby snapshot yet (fix pair name / WS / binding) |
 | Bound pair shows wrong name | Re-bind using the name printed in Zero’s `[PAIR]` startup line |
 
 ### Suggested smoke test order
@@ -317,7 +317,7 @@ Do **not** press **Start Game** until the Bound pairs row shows `joined`.
 2. Sync menu 0 / pos 1 (normal emoji) — Pico shows the emoji.
 3. Enter game mode on Zero — both show **G**.
 4. In referee: bind the Zero’s `PAIR_NAME`, **Play Again** if needed, **Open for Joining**.
-5. Both devices switch to yellow lobby; press KEY2 — both show white outline; UI shows `joined`.
+5. Both devices switch to yellow lobby; press KEY1 — both show white outline; UI shows `joined`.
 6. **Start Game** — both show green active.
 
 ---
