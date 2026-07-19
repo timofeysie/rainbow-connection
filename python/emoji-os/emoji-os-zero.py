@@ -121,7 +121,7 @@ else:
 # === WebSocket / Game state ===
 # Updated by the WS client as events arrive.
 _ws_game_id       = None   # str | None — current bound game
-_ws_game_state    = None   # "draft"|"lobby"|"active"|"completed"|None
+_ws_game_state    = None   # "ready"|"lobby"|"active"|"completed"|None
 _ws_question_id   = None   # str | None — currently open question
 _ws_joined        = False  # True once join POST has been sent this session
 _join_pending     = False  # True after game.opened arrives; cleared by KEY1 join
@@ -1297,11 +1297,15 @@ def _start_game_outcome_animation(is_winner: bool):
 
 def _game_mode_display_matrix():
     """Return the 8×8 matrix for the current Platform icon game state."""
-    if _game_end_outcome == "winner":
-        return fireworks_animation.preview
-    if _game_end_outcome == "loser":
-        return rain_animation.preview
-    if _game_end_outcome == "ended":
+    # Winner/loser glyphs only while the server game is still completed.
+    # After Play Again → ready, stale _game_end_outcome must not keep fireworks.
+    if _ws_game_state == "completed":
+        if _game_end_outcome == "winner":
+            return fireworks_animation.preview
+        if _game_end_outcome == "loser":
+            return rain_animation.preview
+        if _game_end_outcome == "ended":
+            return game_question_closed_matrix
         return game_question_closed_matrix
     if _game_pair_result == "correct":
         return game_correct_matrix
@@ -1317,9 +1321,16 @@ def _game_mode_display_matrix():
         if _ws_question_phase == "closed":
             return game_question_closed_matrix
         return game_active_matrix
-    if _ws_game_state == "completed":
-        return game_question_closed_matrix
+    # ready / None / unknown — standby 'G'
     return game_mode_matrix
+
+
+def _clear_game_end_ui():
+    """Stop outcome animation and clear winner/loser sticky state."""
+    global _game_end_outcome, stop_animation
+    _game_end_outcome = None
+    if animation_running:
+        stop_animation = True
 
 
 async def _apply_game_state_to_display():
@@ -1338,11 +1349,13 @@ async def _apply_game_state_to_display():
         draw_display()
     # Sync Pico with the current known game state so a reconnect or late
     # game-mode entry picks up the right display without waiting for the next
-    # server event.
-    if _game_end_outcome == "winner":
+    # server event. End outcomes only while completed — never after ready.
+    if _ws_game_state == "completed" and _game_end_outcome == "winner":
         await _ble_write_game_cmd("GAME:winner")
-    elif _game_end_outcome == "loser":
+    elif _ws_game_state == "completed" and _game_end_outcome == "loser":
         await _ble_write_game_cmd("GAME:loser")
+    elif _ws_game_state == "completed":
+        await _ble_write_game_cmd("GAME:ended")
     elif _game_pair_result == "correct":
         await _ble_write_game_cmd("GAME:correct")
     elif _game_pair_result == "wrong":
@@ -1357,15 +1370,8 @@ async def _apply_game_state_to_display():
         await _ble_write_game_cmd("GAME:question_close")
     elif _ws_game_state == "active":
         await _ble_write_game_cmd("GAME:active")
-    elif _ws_game_state == "completed":
-        if _game_end_outcome == "winner":
-            await _ble_write_game_cmd("GAME:winner")
-        elif _game_end_outcome == "loser":
-            await _ble_write_game_cmd("GAME:loser")
-        else:
-            await _ble_write_game_cmd("GAME:ended")
     elif game_mode_active:
-        # draft / None / unknown — standby 'G' only when Zero is in game mode
+        # ready / None / unknown — standby 'G' only when Zero is in game mode
         await _ble_write_game_cmd("GAME:mode")
 
 
@@ -1414,7 +1420,9 @@ async def _ws_handle_event(event: dict):
             print("[WS] welcome ack (no game snapshot)", flush=True)
             return
         _ws_game_id     = event.get("gameId")
-        _ws_game_state  = event.get("state")
+        # Normalize legacy server value "draft" → "ready".
+        raw_state = event.get("state")
+        _ws_game_state  = "ready" if raw_state == "draft" else raw_state
         _ws_question_id = event.get("openQuestionId")
         _ws_joined      = event.get("joined", False)
         # KEY1 join only works when lobby is open and we have not joined yet.
@@ -1423,7 +1431,9 @@ async def _ws_handle_event(event: dict):
         )
         _game_pair_result = None
         _game_answered_this_question = False
-        _game_end_outcome = None
+        # Snapshot welcome has no winner enrichment — clear sticky end UI so a
+        # reconnect or re-entry after Play Again does not re-show fireworks.
+        _clear_game_end_ui()
         if _ws_game_state == "active" and _ws_question_id:
             _ws_question_phase = "open"
         elif _ws_game_state == "active":
@@ -1437,6 +1447,21 @@ async def _ws_handle_event(event: dict):
         )
         await _apply_game_state_to_display()
 
+    elif etype == "game.ready":
+        # Play Again / Restart — back to standby 'G' (not winner fireworks).
+        _ws_game_state = "ready"
+        _ws_question_id = None
+        _ws_question_phase = None
+        _ws_joined = False
+        _join_pending = False
+        _game_pair_result = None
+        _game_answered_this_question = False
+        _clear_game_end_ui()
+        _log_game_state("mode", "WS game.ready — standby G")
+        if game_mode_active:
+            draw_display()
+        await _ble_write_game_cmd("GAME:mode")
+
     elif etype == "game.opened":
         _ws_game_id    = event.get("gameId")
         _ws_game_state = "lobby"
@@ -1445,7 +1470,7 @@ async def _ws_handle_event(event: dict):
         _ws_question_phase = None
         _game_pair_result = None
         _game_answered_this_question = False
-        _game_end_outcome = None
+        _clear_game_end_ui()
         _log_game_state("lobby", f"WS game.opened gameId={_ws_game_id}")
         if game_mode_active:
             draw_display()
@@ -1456,7 +1481,7 @@ async def _ws_handle_event(event: dict):
         _ws_question_phase = None
         _game_pair_result = None
         _game_answered_this_question = False
-        _game_end_outcome = None
+        _clear_game_end_ui()
         _log_game_state("active", "WS game.started")
         if game_mode_active:
             draw_display()
@@ -2344,8 +2369,8 @@ def _game_status_label():
         return None, None
     if _ws_game_state == "lobby" and not _ws_joined:
         return "JOIN? KEY1", "yellow"
-    if _game_end_outcome == "ended" or (
-        _ws_game_state == "completed" and _game_end_outcome is None
+    if _ws_game_state == "completed" and (
+        _game_end_outcome == "ended" or _game_end_outcome is None
     ):
         return "GAME OVER", (200, 0, 0)
     return None, None

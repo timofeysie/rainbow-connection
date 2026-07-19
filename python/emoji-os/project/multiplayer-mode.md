@@ -148,7 +148,7 @@ The server tracks a game through these states:
 
 | State | Meaning |
 | --- | --- |
-| `draft` | Game created; not yet open for players |
+| `ready` | Game created; not yet open for players |
 | `lobby` | Open for joining; badges can join |
 | `active` | Game is live; questions can be opened |
 | `paused` | Game temporarily paused |
@@ -163,7 +163,7 @@ overlays only when an action is required:
 
 | Server state | Joined? | Question phase | Zero LCD glyph | Overlay |
 | --- | --- | --- | --- | --- |
-| *(none / draft)* | — | — | Capital `G` (`mode`) | — |
+| *(none / ready)* | — | — | Capital `G` (`mode`) | — |
 | `lobby` | No | — | Yellow 4×4 | `JOIN? KEY1` |
 | `lobby` | Yes | — | White 4×4 outline | — |
 | `active` | — | none | Green 4×4 | — |
@@ -303,8 +303,8 @@ panel and joining from the Zero so both Zero and Pico show the lobby states.
 
 | Step | UI action | Server effect |
 | --- | --- | --- |
-| 1 | Open the game detail page | Game may be `completed` / `draft` / `lobby` |
-| 2 | If completed/cancelled: **Play Again** / **Restart** | State → `draft`; pairs stay bound but `joined` resets on next open |
+| 1 | Open the game detail page | Game may be `completed` / `ready` / `lobby` |
+| 2 | If completed/cancelled: **Play Again** / **Restart** | State → `ready` (controllers get `game.ready` → standby `G`); pairs stay bound but `joined` resets |
 | 3 | **Bind** the controller’s `PAIR_NAME` (chip or typed name) | `POST /api/games/:id/pairs` — pair appears under Bound pairs as `not joined` |
 | 4 | Assign NFC card group if needed (**Reassign demo group**) | Cards available for later questions |
 | 5 | **Open for Joining** | State → `lobby`; WS `game.opened` to that pair’s room; dashboard shows Lobby |
