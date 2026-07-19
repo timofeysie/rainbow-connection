@@ -186,8 +186,8 @@ events and relays the appropriate `GAME:*` BLE command to the Pico:
 | `question.opened` | Save `questionId`; show `SCAN NOW` | `GAME:question_open` |
 | `question.closed` | Clear `questionId`; show `GAME ON` | `GAME:question_close` |
 | `game.ended` | Set state → `completed`; show `GAME OVER` | `GAME:ended` |
-| `question.result` *(Step 8)* | Look up own pair in results | `GAME:correct` or `GAME:wrong` |
-| `game.ended` enriched *(Step 8)* | Check `isWinner` flag | `GAME:winner` or `GAME:loser` |
+| `question.result` | Look up own pair in results (skip if already answered on scan) | `GAME:correct` or `GAME:wrong` |
+| `game.ended` enriched | Check `isWinner` flag | `GAME:winner` or `GAME:loser` |
 
 ### Pico matrix display (GAME:\* BLE commands)
 
@@ -200,10 +200,12 @@ pattern on its 8×8 LED matrix:
 | `GAME:question_open` | `"question_open"` | Question mark glyph; NFC polling starts | Until card scan or next command |
 | `GAME:question_close` | `"question_close"` | Small white 2×2 centre dot | Until next command |
 | `GAME:ended` | `"ended"` | Scrolls `DONE` then goes dark | One-shot then off |
-| `GAME:correct` *(Step 8)* | planned | Bright flash (4×4 × 2), scrolls `YES` | ~4 s then reverts to `question_close` dot |
-| `GAME:wrong` *(Step 8)* | planned | Dim single-pixel blink × 2 | ~4 s then reverts to `question_close` dot |
-| `GAME:winner` *(Step 8)* | planned | Checkerboard pattern, scrolls `WIN` | Until next command |
-| `GAME:loser` *(Step 8)* | planned | Single dim blink then all off | Until next command |
+| `GAME:lobby` | `"lobby"` | Solid yellow 4×4 centre | Until next command |
+| `GAME:lobby_joined` | `"lobby_joined"` | White 4×4 outline | Until next command |
+| `GAME:correct` | `"correct"` | Blue filled circle | Until `question_close` / next |
+| `GAME:wrong` | `"wrong"` | Red X | Until `question_close` / next |
+| `GAME:winner` | `"winner"` | Fireworks animation | Until next / idle |
+| `GAME:loser` | `"loser"` | Rain animation | Until next / idle |
 
 ### NFC card scan flow
 
@@ -238,26 +240,26 @@ question answer:
 18. After ~4 s  → Pico automatically reverts to white 2×2 dot
 ```
 
-### Scan feedback on the Pico (current vs. planned)
+### Scan feedback on the Pico
 
-| Stage | Current behaviour | Planned (Step 8) |
-| --- | --- | --- |
-| Card tap registered | Green circle outline for 5 s, then `?` | Same |
-| Correct answer revealed | *(no feedback — not yet implemented)* | Bright flash × 2, scrolls `YES` (~4 s) |
-| Wrong answer revealed | *(no feedback — not yet implemented)* | Dim blink × 2 (~4 s) |
-| Game winner at end | *(no feedback)* | Checkerboard, scrolls `WIN` |
-| Game loser at end | *(no feedback)* | Single dim blink, then off |
+| Stage | Behaviour |
+| --- | --- |
+| Card tap registered | Green 4×4 outline; Zero then sends correct/wrong |
+| Correct answer revealed | Blue filled circle (immediate after guess POST) |
+| Wrong answer revealed | Red X (immediate after guess POST) |
+| Game winner at end | Fireworks |
+| Game loser at end | Rain |
 
-The correct/wrong feedback fires when the **question closes** (when the
-referee clicks Close), not when the card is scanned. This lets all pairs
-answer before the result is revealed.
+Correct/wrong feedback fires **immediately on card scan** once the guess
+response returns `isCorrect`. `question.result` on close updates the
+dashboard; devices that already answered skip a second animation.
 
 ---
 
 ## Platform icon / display reference
 
 The table below maps every game event or state to its intended visual on each
-of the three platforms. "Step 8" rows are planned but not yet implemented.
+of the three platforms. Step 8 rows (correct/wrong/winner/loser) are implemented.
 
 | Event / state | State id | Pico badge (8×8 LED matrix) | Zero game controller (LCD) | Emoji-app (Lucide icon) |
 | --- | --- | --- | --- | --- |
@@ -266,12 +268,12 @@ of the three platforms. "Step 8" rows are planned but not yet implemented.
 | **Game started / active** | `active` | Solid green 4×4 centre square | Solid green 4×4 centre square | `turntable` |
 | **Question open** | `question_open` | Question mark `?` glyph; NFC polling active | Question mark `?` glyph | `message-circle-question-mark` |
 | **Card scanned** (tap acknowledged) | `card_scanned` | Green 4×4 outline square (1 px border); Zero then sends correct/wrong command immediately | Blue circle outline (correct) or red X (wrong) — Zero knows answer from `NFC_CARD_MAP` | Blue `circle` or red `x` (correct/wrong) |
-| **Correct answer** *(Step 8)* | `correct` | Blue filled circle | Blue filled circle | `circle` (blue) |
-| **Wrong answer** *(Step 8)* | `wrong` | Red X | Red X | `x` (red) |
+| **Correct answer** | `correct` | Blue filled circle | Blue filled circle | `circle` (blue) |
+| **Wrong answer** | `wrong` | Red X | Red X | `x` (red) |
 | **Question closed** | `question_closed` | Small white 2×2 centre dot | Small white 2×2 centre dot | `book-alert` |
 | **Game ended** | `game_ended` | Scrolls `DONE`, then goes dark | Text: `GAME OVER` (red) | `sparkles` |
-| **Game winner** *(Step 8)* | `winner` | Fireworks animation (animations menu — positive 1) | Fireworks animation (animations menu — positive 1) | `podium` |
-| **Game loser** *(Step 8)* | `loser` | Rain animation (animations menu) | Rain animation (animations menu) | `eye-closed` |
+| **Game winner** | `winner` | Fireworks animation (animations menu — positive 1) | Fireworks animation (animations menu — positive 1) | `podium` *(app uses `Trophy` until Lucide ships `Podium`)* |
+| **Game loser** | `loser` | Rain animation (animations menu) | Rain animation (animations menu) | `eye-closed` |
 
 ### Shared game-state logging
 
