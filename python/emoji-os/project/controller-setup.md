@@ -10,6 +10,100 @@ The current repository for the code in this project is: [https://github.com/timo
 
 You can setup the UPS HAT first, or the display, it shouldn't matter.  I will cover the UPS HAT first but skip ahead if you want to setup the display and test that first.
 
+## [Waveshare UPS HAT (C) setup](https://www.waveshare.com/wiki/UPS_HAT_(C))
+
+Official docs: [UPS HAT (C)](https://www.waveshare.com/wiki/UPS_HAT_(C)).
+
+Setup the UPS HAT as described in the documentation above.  Then we can run these commands on the Raspberry Pi running with the SSD card.
+
+### Enable I2C
+
+```sh
+sudo raspi-config
+```
+
+Choose **Interfacing Options → I2C → Yes**, then reboot:
+
+```sh
+sudo reboot
+```
+
+### Confirm I2C is active
+
+```sh
+ls /dev/i2c-*
+```
+
+You should see `/dev/i2c-1`. If not, I2C is not enabled yet.
+
+Install the I2C tools (and smbus for Python) if needed:
+
+```sh
+sudo apt-get install -y i2c-tools python3-smbus
+```
+
+### Download and run the Waveshare demo
+
+```sh
+sudo apt-get install p7zip
+wget https://files.waveshare.com/upload/4/40/UPS_HAT_C.7z
+7zr x UPS_HAT_C.7z -r -o./
+cd UPS_HAT_C/
+python3 INA219.py
+```
+
+Success looks like this:
+
+```text
+Load Voltage:   4.024 V
+Current:       -0.480 A
+Power:          1.893 W
+Percent:       85.3%
+```
+
+### Troubleshooting: `OSError: [Errno 5] Input/output error`
+
+If you get something like:
+
+```text
+OSError: [Errno 5] Input/output error
+```
+
+on `self.bus.write_i2c_block_data(...)`, the Pi is not talking to the INA219. That is almost always a hardware or I2C visibility issue, not a bug in the script.
+
+First check whether the Pi sees the device:
+
+```sh
+i2cdetect -y 1
+```
+
+For UPS HAT (C) you typically want `43` in the grid (address `0x43`, which the demo script uses):
+
+```text
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+40: -- -- -- 43 -- -- -- -- -- -- -- -- -- -- -- --
+```
+
+- If you see `43` → I2C communication is working; look elsewhere (script version, permissions).
+- If you do not see `43` → the Pi cannot talk to the board yet.
+
+Likely causes, in order:
+
+1. **HAT not seated / pins blocked** — Confirm the HAT is fully on the header, pins are aligned, and nothing (including a battery lead) is blocking the Zero’s pins. This was the failure mode that produced Errno 5 here.
+2. **I2C not actually enabled** — Re-check `ls /dev/i2c-1` after reboot.
+3. **Wrong address** — Some boards show `40` (`0x40`) instead of `43`. If so, change `INA219(addr=0x43)` to `INA219(addr=0x40)` in the demo script.
+4. **Power** — Battery plugged in, board switch ON if present; the INA219 may not respond without battery power.
+5. **Python / permissions** — Prefer `python3 INA219.py`, or try `sudo python3 INA219.py`.
+
+Quick checklist:
+
+```sh
+ls /dev/i2c-1
+i2cdetect -y 1
+```
+
+Once `i2cdetect` shows the expected address, `python3 INA219.py` should print voltage, current, power, and percent.
+
 ## [Waveshare 1.44inch LCD display HAT setup](https://www.waveshare.com/wiki/1.44inch_LCD_HAT)
 
 The are the instructions from the link the last time I did this.
