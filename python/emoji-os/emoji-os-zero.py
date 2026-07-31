@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.7"
+VERSION = " v0.7.8"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -329,16 +329,16 @@ game_mode_matrix = [
     [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
 ]
 
-# Lobby — not yet joined: solid yellow 4×4 centre
+# Lobby prompt: yellow centre, green KEY1 top-right, red KEY3 bottom-right
 game_lobby_matrix = [
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', 'G', 'G'],
+    [' ', ' ', ' ', ' ', ' ', ' ', 'G', 'G'],
     [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
     [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
     [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
     [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', 'R', 'R'],
+    [' ', ' ', ' ', ' ', ' ', ' ', 'R', 'R'],
 ]
 
 # Lobby — joined, waiting: white 4×4 outline
@@ -2424,7 +2424,7 @@ def _game_status_label():
     if not game_mode_active:
         return None, None
     if _ws_game_state == "lobby" and not _ws_joined:
-        return "JOIN? KEY1", "yellow"
+        return "KEY1 JOIN  KEY3 NO", "yellow"
     if _ws_game_state == "active" and _ws_question_phase == "closed":
         if _next_question_ready is True:
             return "READY", (0, 200, 0)

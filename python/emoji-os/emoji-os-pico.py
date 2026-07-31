@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.5.3"
+VERSION = "0.5.4"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -204,9 +204,11 @@ def _show_game_mode():
 
 
 def _show_game_lobby():
-    """Solid yellow 4×4 centre: lobby open, not yet joined."""
+    """Yellow lobby with green KEY1 and red KEY3 corner choices."""
     matrix.pixelsFill(matrix.black())
     matrix.drawRectangleFill(2, 2, 5, 5, matrix.yellow())
+    matrix.drawRectangleFill(6, 0, 7, 1, matrix.green())
+    matrix.drawRectangleFill(6, 6, 7, 7, matrix.red())
     matrix.pixelsShow()
 
 
@@ -314,7 +316,7 @@ def _handle_game_command(subcommand: str):
     _game_nfc_display_until_ms = 0
     detail_by_cmd = {
         "mode": "G glyph; BLE GAME:mode",
-        "lobby": "yellow 4×4; BLE GAME:lobby",
+        "lobby": "yellow 4×4 + green/red choices; BLE GAME:lobby",
         "lobby_joined": "white 4×4 outline; BLE GAME:lobby_joined",
         "active": "green 4×4; BLE GAME:active",
         "question_open": "? glyph; NFC on; BLE GAME:question_open",

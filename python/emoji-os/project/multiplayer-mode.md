@@ -165,7 +165,7 @@ overlays only when an action is required:
 | Server state | Joined? | Question phase | Zero LCD glyph | Overlay |
 | --- | --- | --- | --- | --- |
 | *(none / ready)* | — | — | Capital `G` (`mode`) | — |
-| `lobby` | No | — | Yellow 4×4 | `JOIN? KEY1` |
+| `lobby` | No | — | Yellow 4×4 + green/red corner choices | `KEY1 JOIN  KEY3 NO` |
 | `lobby` | Yes | — | White 4×4 outline | — |
 | `active` | — | none | Green 4×4 | — |
 | `active` | — | open | `?` | — |
@@ -195,7 +195,7 @@ events and relays the appropriate `GAME:*` BLE command to the Pico:
 | WS event | Zero action | BLE command sent to Pico |
 | --- | --- | --- |
 | `controller.welcome` | Lightweight ack only (no game fields). Zero then `GET /api/pairs/:pairName` and applies that as a rich welcome | From pair snapshot: `GAME:mode` / `lobby` / `lobby_joined` / `active` / … |
-| `game.opened` | Set state → `lobby`; show `JOIN? KEY1` | `GAME:lobby` |
+| `game.opened` | Set state → `lobby`; show join / do-not-join choices | `GAME:lobby` |
 | `game.started` | Set state → `active`; show green active | `GAME:active` |
 | `question.opened` | Save `questionId`; show `?` | `GAME:question_open` |
 | `question.closed` | Clear `questionId`; prompt KEY1 ready / KEY3 wait | `GAME:ready_prompt` |
@@ -211,7 +211,7 @@ pattern on its 8×8 LED matrix:
 | BLE command | Pico `_game_state` | Matrix display | Duration |
 | --- | --- | --- | --- |
 | `GAME:mode` | `"mode"` | Capital white `G` (game-mode standby) | Until next command |
-| `GAME:lobby` | `"lobby"` | Solid yellow 4×4 centre | Until next command |
+| `GAME:lobby` | `"lobby"` | Yellow 4×4 centre + green 2×2 top-right + red 2×2 bottom-right | Until next command |
 | `GAME:lobby_joined` | `"lobby_joined"` | White 4×4 outline | Until next command |
 | `GAME:active` | `"active"` | Solid green 4×4 centre square | Until next command |
 | `GAME:question_open` | `"question_open"` | Question mark glyph; NFC polling starts | Until card scan or next command |
@@ -322,7 +322,7 @@ Do **not** press **Start Game** until the Bound pairs row shows `joined`.
 | Step | Operator action | Zero LCD | Pico matrix | Notes |
 | --- | --- | --- | --- | --- |
 | A | Menu **Others** → pos **4** (game) / confirm | Capital **G** (`mode`) | Capital **G** (`GAME:mode`) | Entering game mode always BLE-syncs Pico — even with no lobby yet |
-| B | After referee **Open for Joining** | Yellow 4×4 + `JOIN? KEY1` (`lobby`) | Yellow 4×4 (`GAME:lobby`) | From `game.opened` or pair-binding poll |
+| B | After referee **Open for Joining** | Yellow 4×4 + green/red choices (`lobby`) | Yellow 4×4 + green/red choices (`GAME:lobby`) | KEY1 joins; KEY3 leaves the pair unjoined |
 | C | Press **KEY1** (pos) to join | White 4×4 outline (`lobby_joined`) | White 4×4 outline (`GAME:lobby_joined`) | `POST /api/games/:id/join`; UI Bound pairs → `joined` |
 | D | Referee **Start Game** | Green then `?` (`question_open`) | Green then `?` (`GAME:question_open`) | Server auto-opens the next closed question so NFC arms immediately |
 | E | Player taps NFC card | Correct/wrong glyph | Correct/wrong glyph | Pico sends `TAG:`; Zero POSTs guess |
@@ -357,7 +357,7 @@ of the three platforms. Step 8 rows (correct/wrong/winner/loser) are implemented
 | Event / state | State id | Pico badge (8×8 LED matrix) | Zero game controller (LCD) | Emoji-app (Lucide icon) |
 | --- | --- | --- | --- | --- |
 | **Game mode standby** | `mode` | Capital white `G` | Capital white `G` | *(n/a — referee uses game lifecycle)* |
-| **Lobby — not yet joined** | `lobby` | Solid yellow 4×4 centre square | Solid yellow 4×4 centre square | `door-open` |
+| **Lobby — not yet joined** | `lobby` | Yellow 4×4 + green/red corner choices | Yellow 4×4 + green/red corner choices | `door-open` |
 | **Lobby — joined, waiting** | `lobby_joined` | White 4×4 outline square (1 px border, black interior) | White 4×4 outline square (1 px border, black interior) | `hand-platter` |
 | **Game started / active** | `active` | Solid green 4×4 centre square | Solid green 4×4 centre square | `turntable` |
 | **Question open** | `question_open` | Question mark `?` glyph; NFC polling active | Question mark `?` glyph | `message-circle-question-mark` |
