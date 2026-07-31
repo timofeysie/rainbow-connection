@@ -106,11 +106,13 @@ Once `i2cdetect` shows the expected address, `python3 INA219.py` should print vo
 
 ## [Waveshare 1.44inch LCD display HAT setup](https://www.waveshare.com/wiki/1.44inch_LCD_HAT)
 
-The are the instructions from the link the last time I did this.
+These are the instructions from the link above as of mid 2026.
 
-Open terminal, use command to enter the configuration page
+Open a terminal and use the command to enter the configuration page:
 
+```sh
 sudo raspi-config
+```
 
 Choose Interfacing Options -> SPI -> Yes  to enable SPI interface
 

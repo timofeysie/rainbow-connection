@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.5"
+VERSION = " v0.7.7"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -92,7 +92,7 @@ threading.Thread(target=_battery_monitor, daemon=True).start()
 # deployed server
 # SERVER_URL = "https://emoji-staging.kogs.link"
 # Local server for testing
-SERVER_URL = "http://192.168.68.53:3000"
+SERVER_URL = "http://192.168.68.51:3000"
 # Logical Pi Zero id (POST /api/status and /api/emoji).
 CONTROLLER_ID = "raspberry-pi-zero"
 # If non-empty, used as badgeId for all API posts. If empty, badgeId is derived from
@@ -135,6 +135,9 @@ _game_pair_result = None   # None | "correct" | "wrong"
 # question.result). Survives question.closed so a late question.result does not
 # re-animate over the white 2×2 "Question closed" glyph.
 _game_answered_this_question = False
+# Player response while between questions: None = prompt, True = ready,
+# False = needs more time.
+_next_question_ready = None
 # End-of-game outcome for LCD (winner/loser animations + glyph).
 _game_end_outcome = None   # None | "winner" | "loser" | "ended"
 
@@ -162,6 +165,9 @@ _GAME_STATE_LABELS = {
     "correct": "Correct answer",
     "wrong": "Wrong answer",
     "question_closed": "Question closed",
+    "ready_prompt": "Ready for next question?",
+    "ready": "Ready for next question",
+    "wait": "Needs more time",
     "game_ended": "Game ended",
     "winner": "Game winner",
     "loser": "Game loser",
@@ -177,6 +183,9 @@ _GAME_CMD_TO_STATE = {
     "GAME:correct": "correct",
     "GAME:wrong": "wrong",
     "GAME:question_close": "question_closed",
+    "GAME:ready_prompt": "ready_prompt",
+    "GAME:ready": "ready",
+    "GAME:wait": "wait",
     "GAME:ended": "game_ended",
     "GAME:winner": "winner",
     "GAME:loser": "loser",
@@ -1367,7 +1376,12 @@ async def _apply_game_state_to_display():
     elif _ws_game_state == "active" and _ws_question_id:
         await _ble_write_game_cmd("GAME:question_open")
     elif _ws_game_state == "active" and _ws_question_phase == "closed":
-        await _ble_write_game_cmd("GAME:question_close")
+        if _next_question_ready is True:
+            await _ble_write_game_cmd("GAME:ready")
+        elif _next_question_ready is False:
+            await _ble_write_game_cmd("GAME:wait")
+        else:
+            await _ble_write_game_cmd("GAME:ready_prompt")
     elif _ws_game_state == "active":
         await _ble_write_game_cmd("GAME:active")
     elif game_mode_active:
@@ -1402,10 +1416,46 @@ def _exit_game_mode_to_menu():
     draw_display()
 
 
+def _respond_to_ready_prompt(ready: bool) -> bool:
+    """Record KEY1 ready / KEY3 wait while between questions."""
+    global _next_question_ready
+    if not (
+        game_mode_active
+        and _ws_game_state == "active"
+        and _ws_question_phase == "closed"
+        and _ws_game_id
+    ):
+        return False
+
+    _next_question_ready = ready
+    post_to_server(
+        f"/api/games/{_ws_game_id}/readiness",
+        {
+            "pairName": PAIR_NAME,
+            "controllerId": CONTROLLER_ID,
+            "ready": ready,
+        },
+    )
+    draw_display()
+    state_id = "ready" if ready else "wait"
+    _log_game_state(
+        state_id,
+        f"{'KEY1 ready' if ready else 'KEY3 wait'} POST "
+        f"gameId={_ws_game_id} pair={PAIR_NAME}",
+    )
+    if ble_event_loop is not None:
+        asyncio.run_coroutine_threadsafe(
+            _ble_write_game_cmd("GAME:ready" if ready else "GAME:wait"),
+            ble_event_loop,
+        )
+    return True
+
+
 async def _ws_handle_event(event: dict):
     """Dispatch a single WebSocket event from the server."""
     global _ws_game_id, _ws_game_state, _ws_question_id, _ws_joined, _join_pending
     global _ws_question_phase, _game_pair_result, _game_answered_this_question
+    global _next_question_ready
     global _game_end_outcome
 
     etype = event.get("type")
@@ -1425,6 +1475,7 @@ async def _ws_handle_event(event: dict):
         _ws_game_state = "ready" if raw_state in ("draft", "ready") else raw_state
         _ws_question_id = event.get("openQuestionId")
         _ws_joined      = event.get("joined", False)
+        _next_question_ready = event.get("readyForNextQuestion")
         # KEY1 join only works when lobby is open and we have not joined yet.
         _join_pending = bool(
             _ws_game_state == "lobby" and not _ws_joined and _ws_game_id
@@ -1437,7 +1488,7 @@ async def _ws_handle_event(event: dict):
         if _ws_game_state == "active" and _ws_question_id:
             _ws_question_phase = "open"
         elif _ws_game_state == "active":
-            _ws_question_phase = None
+            _ws_question_phase = "closed"
         else:
             _ws_question_phase = None
         print(
@@ -1456,6 +1507,7 @@ async def _ws_handle_event(event: dict):
         _join_pending = False
         _game_pair_result = None
         _game_answered_this_question = False
+        _next_question_ready = None
         _clear_game_end_ui()
         _log_game_state("mode", "WS game.ready — standby G")
         if game_mode_active:
@@ -1470,6 +1522,7 @@ async def _ws_handle_event(event: dict):
         _ws_question_phase = None
         _game_pair_result = None
         _game_answered_this_question = False
+        _next_question_ready = None
         _clear_game_end_ui()
         _log_game_state("lobby", f"WS game.opened gameId={_ws_game_id}")
         if game_mode_active:
@@ -1481,6 +1534,7 @@ async def _ws_handle_event(event: dict):
         _ws_question_phase = None
         _game_pair_result = None
         _game_answered_this_question = False
+        _next_question_ready = None
         _clear_game_end_ui()
         _log_game_state("active", "WS game.started")
         if game_mode_active:
@@ -1492,6 +1546,7 @@ async def _ws_handle_event(event: dict):
         _ws_question_phase = "open"
         _game_pair_result = None
         _game_answered_this_question = False
+        _next_question_ready = None
         _log_game_state(
             "question_open",
             f"WS question.opened questionId={_ws_question_id}",
@@ -1504,10 +1559,11 @@ async def _ws_handle_event(event: dict):
         _ws_question_id = None
         _ws_question_phase = "closed"
         _game_pair_result = None  # LCD → white 2×2; answered flag kept for skip
+        _next_question_ready = None
         _log_game_state("question_closed", "WS question.closed")
         if game_mode_active:
             draw_display()
-        await _ble_write_game_cmd("GAME:question_close")
+        await _ble_write_game_cmd("GAME:ready_prompt")
 
     elif etype == "game.ended":
         _ws_game_state  = "completed"
@@ -2369,6 +2425,12 @@ def _game_status_label():
         return None, None
     if _ws_game_state == "lobby" and not _ws_joined:
         return "JOIN? KEY1", "yellow"
+    if _ws_game_state == "active" and _ws_question_phase == "closed":
+        if _next_question_ready is True:
+            return "READY", (0, 200, 0)
+        if _next_question_ready is False:
+            return "WAIT", (220, 40, 40)
+        return "KEY1 READY  KEY3 WAIT", "yellow"
     if _ws_game_state == "completed" and (
         _game_end_outcome == "ended" or _game_end_outcome is None
     ):
@@ -2632,9 +2694,11 @@ try:
         
         # === Handle KEY1 button (Positive) ===
         if key1_pressed and not button_states['key1']:
-            # Game mode: KEY1 (pos) joins when a lobby is waiting.
+            # Game mode: KEY1 joins a lobby or confirms readiness between rounds.
             if game_mode_active:
-                if _join_pending and _ws_game_id:
+                if _respond_to_ready_prompt(True):
+                    pass
+                elif _join_pending and _ws_game_id:
                     _join_pending = False
                     _ws_joined    = True
                     post_to_server(
@@ -2751,8 +2815,9 @@ try:
         
         # === Handle KEY3 button (Negative) ===
         if key3_pressed and not button_states['key3']:
-            # Game mode: KEY3 ignored (KEY1 joins; KEY2 exits to menu).
+            # Game mode: KEY3 asks the referee to wait between rounds.
             if game_mode_active:
+                _respond_to_ready_prompt(False)
                 time.sleep(0.2)
                 button_states['key3'] = key3_pressed
                 continue

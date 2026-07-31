@@ -169,14 +169,18 @@ overlays only when an action is required:
 | `lobby` | Yes | — | White 4×4 outline | — |
 | `active` | — | none | Green 4×4 | — |
 | `active` | — | open | `?` | — |
-| `active` | — | closed | White 2×2 | — |
+| `active` | — | closed, no response | White 2×2 | `KEY1 READY  KEY3 WAIT` |
+| `active` | — | closed, ready | White 2×2 | `READY` |
+| `active` | — | closed, wait | White 2×2 | `WAIT` |
 | `completed` | — | — | Winner / loser / ended | `GAME OVER` only if unenriched |
 
 Pressing **KEY1** (positive) while in `lobby` (not yet joined) POSTs join to
-the server. **KEY2** exits game mode to menu select (it does not join). From
-there KEY1/KEY3 scroll options and KEY2 confirms an emoji as usual (full-screen
-on Zero; Pico too unless a question is open). Re-entering game mode
-(Others → pos 4) refreshes the Zero LCD from the server snapshot.
+the server. Between questions, **KEY1** reports ready and **KEY3** reports wait.
+The response is persisted on the pair binding and broadcast to the frontend.
+**KEY2** exits game mode to menu select (it does not join). From there KEY1/KEY3
+scroll options and KEY2 confirms an emoji as usual (full-screen on Zero; Pico
+too unless a question is open). Re-entering game mode (Others → pos 4)
+refreshes the Zero LCD from the server snapshot.
 
 **Important:** `GAME:*` BLE commands (especially `GAME:question_open`) are
 always sent to the Pico while connected — the badge must arm NFC for card
@@ -194,7 +198,7 @@ events and relays the appropriate `GAME:*` BLE command to the Pico:
 | `game.opened` | Set state → `lobby`; show `JOIN? KEY1` | `GAME:lobby` |
 | `game.started` | Set state → `active`; show green active | `GAME:active` |
 | `question.opened` | Save `questionId`; show `?` | `GAME:question_open` |
-| `question.closed` | Clear `questionId`; show white 2×2 | `GAME:question_close` |
+| `question.closed` | Clear `questionId`; prompt KEY1 ready / KEY3 wait | `GAME:ready_prompt` |
 | `game.ended` | Set state → `completed` | `GAME:ended` (or winner/loser) |
 | `question.result` | Look up own pair in results (skip if already answered on scan) | `GAME:correct` or `GAME:wrong` |
 | `game.ended` enriched | Check `isWinner` flag | `GAME:winner` or `GAME:loser` |
@@ -212,6 +216,9 @@ pattern on its 8×8 LED matrix:
 | `GAME:active` | `"active"` | Solid green 4×4 centre square | Until next command |
 | `GAME:question_open` | `"question_open"` | Question mark glyph; NFC polling starts | Until card scan or next command |
 | `GAME:question_close` | `"question_close"` | Small white 2×2 centre dot | Until next command |
+| `GAME:ready_prompt` | `"ready_prompt"` | Green 2×2 top-right and red 2×2 bottom-right | Until response or next command |
+| `GAME:ready` | `"ready"` | Green 2×2 top-right | Until next command |
+| `GAME:wait` | `"wait"` | Red 2×2 bottom-right | Until next command |
 | `GAME:ended` | `"ended"` | Scrolls `DONE` then goes dark | One-shot then off |
 | `GAME:correct` | `"correct"` | Blue filled circle | Until `question_close` / next |
 | `GAME:wrong` | `"wrong"` | Red X | Until `question_close` / next |
@@ -223,7 +230,7 @@ pattern on its 8×8 LED matrix:
 This is the full path from physical card tap to server guess, for a single
 question answer:
 
-```
+```text
 1. Referee opens a question → server emits question.opened
 2. Zero receives question.opened → sends GAME:question_open to Pico
 3. Pico enters question_open state → NFC polling starts; shows ?
@@ -239,16 +246,14 @@ question answer:
 
 --- question remains open for other pairs to answer ---
 
-11. Referee closes the question → server emits question.closed
-12. Zero receives question.closed → sends GAME:question_close to Pico
-13. Pico shows white 2×2 dot
-
---- Step 8 (planned) ---
-14. Server emits question.result with per-pair correct/wrong outcome
-15. Zero receives question.result → looks up own pairName in results
-16. If correct  → Zero sends GAME:correct to Pico (bright flash ~4 s)
-17. If wrong    → Zero sends GAME:wrong to Pico (dim blink ~4 s)
-18. After ~4 s  → Pico automatically reverts to white 2×2 dot
+11. Referee closes the question → server clears readiness, then emits
+    question.closed and question.result
+12. Zero receives question.closed → sends GAME:ready_prompt to Pico
+13. A question.result received after close does not overwrite the ready prompt
+14. Pico shows green top-right and red bottom-right 2×2 choices
+15. Player presses KEY1 ready or KEY3 wait
+16. Zero POSTs readiness and sends GAME:ready or GAME:wait to Pico
+17. Frontend updates the pair's between-round readiness badge
 ```
 
 ### Demo NFC card → answer slot map
@@ -321,6 +326,8 @@ Do **not** press **Start Game** until the Bound pairs row shows `joined`.
 | C | Press **KEY1** (pos) to join | White 4×4 outline (`lobby_joined`) | White 4×4 outline (`GAME:lobby_joined`) | `POST /api/games/:id/join`; UI Bound pairs → `joined` |
 | D | Referee **Start Game** | Green then `?` (`question_open`) | Green then `?` (`GAME:question_open`) | Server auto-opens the next closed question so NFC arms immediately |
 | E | Player taps NFC card | Correct/wrong glyph | Correct/wrong glyph | Pico sends `TAG:`; Zero POSTs guess |
+| F | Question closes | `KEY1 READY  KEY3 WAIT` | Green 2×2 top-right + red 2×2 bottom-right | Readiness is reset for every bound pair |
+| G | Player presses **KEY1** / **KEY3** | `READY` / `WAIT` | Matching green / red corner square | `POST /api/games/:id/readiness`; frontend updates live |
 
 ### What usually goes wrong
 
@@ -357,7 +364,9 @@ of the three platforms. Step 8 rows (correct/wrong/winner/loser) are implemented
 | **Card scanned** (tap acknowledged) | `card_scanned` | Green 4×4 outline square (1 px border); Zero then sends correct/wrong command immediately | Blue circle outline (correct) or red X (wrong) — Zero knows answer from `NFC_CARD_MAP` | Blue `circle` or red `x` (correct/wrong) |
 | **Correct answer** | `correct` | Blue filled circle | Blue filled circle | `circle` (blue) |
 | **Wrong answer** | `wrong` | Red X | Red X | `x` (red) |
-| **Question closed** | `question_closed` | Small white 2×2 centre dot | Small white 2×2 centre dot | `book-alert` |
+| **Ready prompt** | `ready_prompt` | Green 2×2 top-right + red 2×2 bottom-right | White 2×2 + `KEY1 READY  KEY3 WAIT` | `circle-help` |
+| **Ready** | `ready` | Green 2×2 top-right | White 2×2 + `READY` | `circle-check` |
+| **Wait** | `wait` | Red 2×2 bottom-right | White 2×2 + `WAIT` | `circle-x` |
 | **Game ended** | `game_ended` | Scrolls `DONE`, then goes dark | Text: `GAME OVER` (red) | `sparkles` |
 | **Game winner** | `winner` | Fireworks animation (animations menu — positive 1) | Fireworks animation (animations menu — positive 1) | `podium` *(app uses `Trophy` until Lucide ships `Podium`)* |
 | **Game loser** | `loser` | Rain animation (animations menu) | Rain animation (animations menu) | `eye-closed` |
@@ -392,9 +401,10 @@ game as a single story.
 [GAME] zero | correct | Correct answer | guess isCorrect=true; BLE→GAME:correct
 [GAME] pico | correct | Correct answer | blue filled circle
 [GAME] react | correct | Correct answer | icon=circle pair=green slot=A
-[GAME] zero | question_closed | Question closed | WS question.closed; BLE→GAME:question_close
-[GAME] pico | question_closed | Question closed | white 2×2 dot
-[GAME] react | question_closed | Question closed | icon=book-alert
+[GAME] zero | question_closed | Question closed | WS question.closed
+[GAME] zero | ready_prompt | Ready for next question? | BLE→GAME:ready_prompt
+[GAME] pico | ready_prompt | Ready for next question? | green top-right + red bottom-right
+[GAME] zero | ready | Ready for next question | KEY1 ready POST
 ```
 
 Rules:
@@ -415,7 +425,7 @@ When a player taps an NFC card during an open question, the Zero already has
 the full `NFC_CARD_MAP` (with `slotLabel` for each card UID). It can therefore
 resolve the answer immediately without waiting for the question to close:
 
-```
+```text
 1. Pico: card tapped → shows green 4×4 outline square (tap acknowledged)
 2. Pico: sends TAG:<cardUid> to Zero over BLE
 3. Zero: looks up cardUid in NFC_CARD_MAP → gets slotLabel
@@ -427,6 +437,7 @@ resolve the answer immediately without waiting for the question to close:
 ```
 
 The Zero needs to know the correct answer at step 4. Options:
+
 - The `POST /api/guesses` response can return `{ isCorrect: boolean }`.
 - Alternatively, `question.opened` can carry the correct `slotLabel` so
   the Zero resolves it locally without a round-trip.

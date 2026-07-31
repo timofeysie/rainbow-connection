@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -144,6 +144,9 @@ _GAME_STATE_LABELS = {
     "correct": "Correct answer",
     "wrong": "Wrong answer",
     "question_closed": "Question closed",
+    "ready_prompt": "Ready for next question?",
+    "ready": "Ready for next question",
+    "wait": "Needs more time",
     "game_ended": "Game ended",
     "winner": "Game winner",
     "loser": "Game loser",
@@ -159,6 +162,9 @@ _GAME_CMD_TO_STATE = {
     "correct": "correct",
     "wrong": "wrong",
     "question_close": "question_closed",
+    "ready_prompt": "ready_prompt",
+    "ready": "ready",
+    "wait": "wait",
     "ended": "game_ended",
     "winner": "winner",
     "loser": "loser",
@@ -257,6 +263,24 @@ def _show_question_close():
     matrix.pixelsShow()
 
 
+def _show_ready_prompt():
+    """Green KEY1 choice at top-right; red KEY3 choice at bottom-right."""
+    matrix.pixelsFill(matrix.black())
+    matrix.drawRectangleFill(6, 0, 7, 1, matrix.green())
+    matrix.drawRectangleFill(6, 6, 7, 7, matrix.red())
+    matrix.pixelsShow()
+
+
+def _show_ready_response(ready):
+    """Show the selected ready/wait choice in its matching right corner."""
+    matrix.pixelsFill(matrix.black())
+    if ready:
+        matrix.drawRectangleFill(6, 0, 7, 1, matrix.green())
+    else:
+        matrix.drawRectangleFill(6, 6, 7, 7, matrix.red())
+    matrix.pixelsShow()
+
+
 def _show_game_ended():
     """Scroll 'DONE' across the matrix then go dark."""
     _m = glowbit.matrix8x8(rateLimitCharactersPerSecond=0.7)
@@ -297,6 +321,9 @@ def _handle_game_command(subcommand: str):
         "correct": "blue filled circle; BLE GAME:correct",
         "wrong": "red X; BLE GAME:wrong",
         "question_close": "white 2×2 dot; BLE GAME:question_close",
+        "ready_prompt": "green top-right + red bottom-right; BLE GAME:ready_prompt",
+        "ready": "green top-right; BLE GAME:ready",
+        "wait": "red bottom-right; BLE GAME:wait",
         "ended": "DONE scroll; BLE GAME:ended",
         "winner": "fireworks; BLE GAME:winner",
         "loser": "rain; BLE GAME:loser",
@@ -334,6 +361,18 @@ def _handle_game_command(subcommand: str):
     elif subcommand == "question_close":
         _game_state = "question_close"
         _show_question_close()
+
+    elif subcommand == "ready_prompt":
+        _game_state = "ready_prompt"
+        _show_ready_prompt()
+
+    elif subcommand == "ready":
+        _game_state = "ready"
+        _show_ready_response(True)
+
+    elif subcommand == "wait":
+        _game_state = "wait"
+        _show_ready_response(False)
 
     elif subcommand == "ended":
         _game_state = "ended"
@@ -1026,7 +1065,8 @@ print("Pairing: expects first write 'PAIR:" + PAIR_NAME + "', replies PAIR_OK:<v
 print("Supports emoji commands in format: 'MENU:POS:NEG' (after PAIR_OK)")
 print(
     "Game commands: GAME:mode/lobby/lobby_joined/active/question_open/"
-    "correct/wrong/question_close/ended/winner/loser — drives matrix display"
+    "correct/wrong/question_close/ready_prompt/ready/wait/ended/winner/loser "
+    "— drives matrix display"
 )
 print("NFC game mode: GAME:question_open activates TAG:<cardUid> notifies on NFC read")
 print("NFC legacy mode: menu=3 neg=4 — sends 'NFC:<card_id>' to Zero via BLE notify")
