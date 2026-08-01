@@ -198,7 +198,7 @@ events and relays the appropriate `GAME:*` BLE command to the Pico:
 | `game.opened` | Set state → `lobby`; show join / do-not-join choices | `GAME:lobby` |
 | `game.started` | Set state → `active`; show green active | `GAME:active` |
 | `question.opened` | Save `questionId`; show `?` | `GAME:question_open` |
-| `question.closed` | Clear `questionId`; prompt KEY1 ready / KEY3 wait | `GAME:ready_prompt` |
+| `question.closed` | Clear `questionId`; prompt ready/wait, or show yellow when `isFinalRound` | `GAME:ready_prompt` or `GAME:rounds_complete` |
 | `game.ended` | Set state → `completed` | `GAME:ended` (or winner/loser) |
 | `question.result` | Look up own pair in results (skip if already answered on scan) | `GAME:correct` or `GAME:wrong` |
 | `game.ended` enriched | Check `isWinner` flag | `GAME:winner` or `GAME:loser` |
@@ -216,6 +216,7 @@ pattern on its 8×8 LED matrix:
 | `GAME:active` | `"active"` | Solid green 4×4 centre square | Until next command |
 | `GAME:question_open` | `"question_open"` | Question mark glyph; NFC polling starts | Until card scan or next command |
 | `GAME:question_close` | `"question_close"` | Small white 2×2 centre dot | Until next command |
+| `GAME:rounds_complete` | `"rounds_complete"` | Solid yellow 4×4 centre without lobby choice corners | Until game ends |
 | `GAME:ready_prompt` | `"ready_prompt"` | Green 2×2 top-right and red 2×2 bottom-right | Until response or next command |
 | `GAME:ready` | `"ready"` | Green 2×2 top-right | Until next command |
 | `GAME:wait` | `"wait"` | Red 2×2 bottom-right | Until next command |
@@ -248,7 +249,8 @@ question answer:
 
 11. Referee closes the question → server clears readiness, then emits
     question.closed and question.result
-12. Zero receives question.closed → sends GAME:ready_prompt to Pico
+12. Zero receives question.closed → sends GAME:ready_prompt, or
+    GAME:rounds_complete when isFinalRound is true
 13. A question.result received after close does not overwrite the ready prompt
 14. Pico shows green top-right and red bottom-right 2×2 choices
 15. Player presses KEY1 ready or KEY3 wait
@@ -367,6 +369,7 @@ of the three platforms. Step 8 rows (correct/wrong/winner/loser) are implemented
 | **Ready prompt** | `ready_prompt` | Green 2×2 top-right + red 2×2 bottom-right | White 2×2 + `KEY1 READY  KEY3 WAIT` | `circle-help` |
 | **Ready** | `ready` | Green 2×2 top-right | White 2×2 + `READY` | `circle-check` |
 | **Wait** | `wait` | Red 2×2 bottom-right | White 2×2 + `WAIT` | `circle-x` |
+| **All rounds complete** | `rounds_complete` | Solid yellow 4×4 centre without choice corners | Solid yellow 4×4 centre + `ROUNDS COMPLETE` | Player: `Game complete`; referee can end game |
 | **Game ended** | `game_ended` | Scrolls `DONE`, then goes dark | Text: `GAME OVER` (red) | `sparkles` |
 | **Game winner** | `winner` | Fireworks animation (animations menu — positive 1) | Fireworks animation (animations menu — positive 1) | `podium` *(app uses `Trophy` until Lucide ships `Podium`)* |
 | **Game loser** | `loser` | Rain animation (animations menu) | Rain animation (animations menu) | `eye-closed` |

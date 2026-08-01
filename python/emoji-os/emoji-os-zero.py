@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.8"
+VERSION = " v0.7.9"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -127,8 +127,9 @@ _ws_joined        = False  # True once join POST has been sent this session
 _join_pending     = False  # True after game.opened arrives; cleared by KEY1 join
 _ws_connected     = False  # True while the WS socket is open
 # Question phase within an active game (drives Platform icon glyphs).
-# None = game active, no question opened yet; "open" / "closed" after first Q.
-_ws_question_phase = None  # None | "open" | "closed"
+# None = game active before round 1; "open" / "closed" between rounds;
+# "complete" after the final round closes but before the referee ends the game.
+_ws_question_phase = None  # None | "open" | "closed" | "complete"
 # Per-question answer shown until question_closed (immediate guess feedback).
 _game_pair_result = None   # None | "correct" | "wrong"
 # True once this pair has shown correct/wrong for the open question (scan or
@@ -165,6 +166,7 @@ _GAME_STATE_LABELS = {
     "correct": "Correct answer",
     "wrong": "Wrong answer",
     "question_closed": "Question closed",
+    "rounds_complete": "All rounds complete",
     "ready_prompt": "Ready for next question?",
     "ready": "Ready for next question",
     "wait": "Needs more time",
@@ -183,6 +185,7 @@ _GAME_CMD_TO_STATE = {
     "GAME:correct": "correct",
     "GAME:wrong": "wrong",
     "GAME:question_close": "question_closed",
+    "GAME:rounds_complete": "rounds_complete",
     "GAME:ready_prompt": "ready_prompt",
     "GAME:ready": "ready",
     "GAME:wait": "wait",
@@ -373,6 +376,18 @@ game_question_closed_matrix = [
     [' ', ' ', ' ', 'W', 'W', ' ', ' ', ' '],
     [' ', ' ', ' ', 'W', 'W', ' ', ' ', ' '],
     [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+]
+
+# All rounds complete: solid yellow 4×4 centre, without lobby choice corners
+game_rounds_complete_matrix = [
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
+    [' ', ' ', 'Y', 'Y', 'Y', 'Y', ' ', ' '],
     [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
     [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
 ]
@@ -1252,7 +1267,7 @@ async def _apply_pair_answer(is_correct: bool, detail: str, *, force: bool = Fal
         return
     # Do not flash correct/wrong after the question has already closed to the
     # white 2×2 glyph — that would fight the Question closed state.
-    if _ws_question_phase == "closed" and not force:
+    if _ws_question_phase in ("closed", "complete") and not force:
         print(
             f"[GAME] zero | {state_id} | {_GAME_STATE_LABELS[state_id]} | "
             f"skip — question already closed; {detail}",
@@ -1327,6 +1342,8 @@ def _game_mode_display_matrix():
     if _ws_game_state == "active":
         if _ws_question_phase == "open":
             return question_mark_matrix
+        if _ws_question_phase == "complete":
+            return game_rounds_complete_matrix
         if _ws_question_phase == "closed":
             return game_question_closed_matrix
         return game_active_matrix
@@ -1375,6 +1392,8 @@ async def _apply_game_state_to_display():
         await _ble_write_game_cmd("GAME:lobby_joined")
     elif _ws_game_state == "active" and _ws_question_id:
         await _ble_write_game_cmd("GAME:question_open")
+    elif _ws_game_state == "active" and _ws_question_phase == "complete":
+        await _ble_write_game_cmd("GAME:rounds_complete")
     elif _ws_game_state == "active" and _ws_question_phase == "closed":
         if _next_question_ready is True:
             await _ble_write_game_cmd("GAME:ready")
@@ -1488,7 +1507,9 @@ async def _ws_handle_event(event: dict):
         if _ws_game_state == "active" and _ws_question_id:
             _ws_question_phase = "open"
         elif _ws_game_state == "active":
-            _ws_question_phase = "closed"
+            _ws_question_phase = (
+                "complete" if event.get("roundsComplete") else "closed"
+            )
         else:
             _ws_question_phase = None
         print(
@@ -1557,13 +1578,19 @@ async def _ws_handle_event(event: dict):
 
     elif etype == "question.closed":
         _ws_question_id = None
-        _ws_question_phase = "closed"
+        _ws_question_phase = (
+            "complete" if event.get("isFinalRound") else "closed"
+        )
         _game_pair_result = None  # LCD → white 2×2; answered flag kept for skip
         _next_question_ready = None
         _log_game_state("question_closed", "WS question.closed")
         if game_mode_active:
             draw_display()
-        await _ble_write_game_cmd("GAME:ready_prompt")
+        if _ws_question_phase == "complete":
+            _log_game_state("rounds_complete", "final question closed")
+            await _ble_write_game_cmd("GAME:rounds_complete")
+        else:
+            await _ble_write_game_cmd("GAME:ready_prompt")
 
     elif etype == "game.ended":
         _ws_game_state  = "completed"
@@ -2431,6 +2458,8 @@ def _game_status_label():
         if _next_question_ready is False:
             return "WAIT", (220, 40, 40)
         return "KEY1 READY  KEY3 WAIT", "yellow"
+    if _ws_game_state == "active" and _ws_question_phase == "complete":
+        return "ROUNDS COMPLETE", "yellow"
     if _ws_game_state == "completed" and (
         _game_end_outcome == "ended" or _game_end_outcome is None
     ):

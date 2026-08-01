@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.5.4"
+VERSION = "0.5.5"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -144,6 +144,7 @@ _GAME_STATE_LABELS = {
     "correct": "Correct answer",
     "wrong": "Wrong answer",
     "question_closed": "Question closed",
+    "rounds_complete": "All rounds complete",
     "ready_prompt": "Ready for next question?",
     "ready": "Ready for next question",
     "wait": "Needs more time",
@@ -162,6 +163,7 @@ _GAME_CMD_TO_STATE = {
     "correct": "correct",
     "wrong": "wrong",
     "question_close": "question_closed",
+    "rounds_complete": "rounds_complete",
     "ready_prompt": "ready_prompt",
     "ready": "ready",
     "wait": "wait",
@@ -265,6 +267,13 @@ def _show_question_close():
     matrix.pixelsShow()
 
 
+def _show_rounds_complete():
+    """Solid yellow centre without the lobby join/no corner choices."""
+    matrix.pixelsFill(matrix.black())
+    matrix.drawRectangleFill(2, 2, 5, 5, matrix.yellow())
+    matrix.pixelsShow()
+
+
 def _show_ready_prompt():
     """Green KEY1 choice at top-right; red KEY3 choice at bottom-right."""
     matrix.pixelsFill(matrix.black())
@@ -323,6 +332,7 @@ def _handle_game_command(subcommand: str):
         "correct": "blue filled circle; BLE GAME:correct",
         "wrong": "red X; BLE GAME:wrong",
         "question_close": "white 2×2 dot; BLE GAME:question_close",
+        "rounds_complete": "yellow 4×4; BLE GAME:rounds_complete",
         "ready_prompt": "green top-right + red bottom-right; BLE GAME:ready_prompt",
         "ready": "green top-right; BLE GAME:ready",
         "wait": "red bottom-right; BLE GAME:wait",
@@ -363,6 +373,10 @@ def _handle_game_command(subcommand: str):
     elif subcommand == "question_close":
         _game_state = "question_close"
         _show_question_close()
+
+    elif subcommand == "rounds_complete":
+        _game_state = "rounds_complete"
+        _show_rounds_complete()
 
     elif subcommand == "ready_prompt":
         _game_state = "ready_prompt"
@@ -1067,7 +1081,8 @@ print("Pairing: expects first write 'PAIR:" + PAIR_NAME + "', replies PAIR_OK:<v
 print("Supports emoji commands in format: 'MENU:POS:NEG' (after PAIR_OK)")
 print(
     "Game commands: GAME:mode/lobby/lobby_joined/active/question_open/"
-    "correct/wrong/question_close/ready_prompt/ready/wait/ended/winner/loser "
+    "correct/wrong/question_close/rounds_complete/ready_prompt/ready/wait/"
+    "ended/winner/loser "
     "— drives matrix display"
 )
 print("NFC game mode: GAME:question_open activates TAG:<cardUid> notifies on NFC read")
