@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.9"
+VERSION = " v0.7.10"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -1093,8 +1093,11 @@ def _relay_nfc_tag(card_uid: str):
 
     def _post_guess_and_apply():
         if not SERVER_URL:
-            print("[API] skip guess POST — SERVER_URL empty", flush=True)
-            _schedule_pair_answer(False, "SERVER_URL empty — treat scan as wrong")
+            print(
+                "[API] skip guess POST — SERVER_URL empty; "
+                "leaving tap acknowledgement pending",
+                flush=True,
+            )
             return
         url = f"{SERVER_URL}/api/guesses"
         try:
@@ -1107,9 +1110,11 @@ def _relay_nfc_tag(card_uid: str):
                 snippet = snippet[:100] + "…"
             print(f"[API] response /api/guesses -> HTTP {r.status_code} {snippet}", flush=True)
             if not r.ok:
-                _schedule_pair_answer(
-                    False,
-                    f"guess HTTP {r.status_code} — treat as wrong; {snippet}",
+                print(
+                    "[GAME] zero | card_scanned | Card scanned | "
+                    f"guess HTTP {r.status_code}; outcome unknown — "
+                    f"waiting for question.result; {snippet}",
+                    flush=True,
                 )
                 return
             try:
@@ -1130,7 +1135,12 @@ def _relay_nfc_tag(card_uid: str):
             )
         except Exception as exc:
             print(f"[API] request failed /api/guesses: {exc}", flush=True)
-            _schedule_pair_answer(False, f"guess request failed — treat as wrong; {exc}")
+            print(
+                "[GAME] zero | card_scanned | Card scanned | "
+                f"guess request failed; outcome unknown — "
+                f"waiting for question.result; {exc}",
+                flush=True,
+            )
 
     threading.Thread(target=_post_guess_and_apply, daemon=True).start()
 
