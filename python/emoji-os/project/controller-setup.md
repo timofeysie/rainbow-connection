@@ -272,17 +272,24 @@ Open the rc.local file with the nano editor:
 sudo nano /etc/rc.local
 ```
 
-Past the following text into the nano editor:
+Paste the following text into the nano editor:
 
-```
+```sh
 #!/bin/sh -e
 
 sleep 10
 
 echo "=== rc.local starting ===" >> /home/tim/rc.local.log
-echo "Running emoji_os_zero_1.py..." >> /home/tim/rc.local.log
+echo "Enabling Bluetooth..." >> /home/tim/rc.local.log
 
-/usr/bin/python3 /home/tim/repos/rainbow-connection/python/emoji-os/emoji_os_zero.py >> /home/tim/rc.local.log 2>&1
+rfkill unblock bluetooth
+systemctl start bluetooth
+sleep 3
+bluetoothctl power on >> /home/tim/rc.local.log 2>&1 || true
+
+echo "Running emoji-os-zero.py..." >> /home/tim/rc.local.log
+
+/usr/bin/python3 /home/tim/repos/rainbow-connection/python/emoji-os/emoji-os-zero.py >> /home/tim/rc.local.log 2>&1
 
 echo "=== rc.local done ===" >> /home/tim/rc.local.log
 
