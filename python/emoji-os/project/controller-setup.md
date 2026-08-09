@@ -279,7 +279,7 @@ Paste the following text into the nano editor:
 
 sleep 10
 
-echo "=== rc.local starting ===" >> /home/tim/rc.local.log
+echo "=== rc.local starting at $(date '+%Y-%m-%d %H:%M:%S %Z') ===" >> /home/tim/rc.local.log
 echo "Enabling Bluetooth..." >> /home/tim/rc.local.log
 
 rfkill unblock bluetooth

@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.10"
+VERSION = " v0.7.11"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version learned from the PAIR_OK:<version> handshake reply.
@@ -17,8 +17,10 @@ import threading
 import asyncio
 import warnings
 import subprocess
+import socket
 import requests
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 from bleak import BleakScanner, BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import RPi.GPIO as GPIO
@@ -109,6 +111,67 @@ else:
         "Set SERVER_URL in emoji-os-zero.py (HTTPS base, no trailing slash).",
         flush=True,
     )
+
+# === Network Monitoring ===
+# This checks whether Linux has a usable route to the configured emoji server.
+# It does not send any data; connecting a UDP socket only asks the kernel which
+# local interface/address it would use.
+_network_connected = False
+_network_indicator_dirty = True
+_NETWORK_CHECK_INTERVAL_S = 5.0
+
+
+def _has_network_route():
+    """Return True when a non-loopback route to SERVER_URL is available."""
+    target_host = "1.1.1.1"
+    target_port = 53
+    if SERVER_URL:
+        try:
+            parsed = urlparse(SERVER_URL)
+            if parsed.hostname:
+                target_host = parsed.hostname
+            if parsed.port:
+                target_port = parsed.port
+            elif parsed.scheme == "https":
+                target_port = 443
+            else:
+                target_port = 80
+        except Exception:
+            pass
+
+    probe = None
+    try:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        probe.settimeout(1.0)
+        probe.connect((target_host, target_port))
+        local_ip = probe.getsockname()[0]
+        return local_ip not in ("0.0.0.0", "127.0.0.1")
+    except Exception:
+        return False
+    finally:
+        if probe is not None:
+            try:
+                probe.close()
+            except Exception:
+                pass
+
+
+def _network_monitor():
+    """Poll network routing and flag the display when its state changes."""
+    global _network_connected, _network_indicator_dirty
+    previous = None
+    while True:
+        connected = _has_network_route()
+        if connected != previous:
+            _network_connected = connected
+            _network_indicator_dirty = True
+            label = "connected" if connected else "not connected"
+            print(f"[NET] network {label}", flush=True)
+            previous = connected
+        time.sleep(_NETWORK_CHECK_INTERVAL_S)
+
+
+threading.Thread(target=_network_monitor, daemon=True).start()
 
 # === WebSocket URL (derived from SERVER_URL) ===
 if SERVER_URL.startswith("https://"):
@@ -2452,6 +2515,48 @@ def draw_battery_indicator():
         )
 
 
+def draw_network_indicator():
+    """Draw Wi-Fi route status directly above the battery indicator.
+
+    Green Wi-Fi arcs mean the Zero has a usable network route. Red crossed
+    arcs mean it does not. This reports LAN routing independently of BLE state
+    and does not require the emoji server itself to be running.
+    """
+    color = (0, 200, 0) if _network_connected else (220, 40, 40)
+    center_x = disp.width - 13
+
+    # Three compact Wi-Fi arcs, safely above the battery percentage row.
+    draw.arc(
+        [center_x - 10, 84, center_x + 10, 104],
+        start=215,
+        end=325,
+        fill=color,
+        width=2,
+    )
+    draw.arc(
+        [center_x - 7, 89, center_x + 7, 103],
+        start=215,
+        end=325,
+        fill=color,
+        width=2,
+    )
+    draw.arc(
+        [center_x - 4, 94, center_x + 4, 102],
+        start=215,
+        end=325,
+        fill=color,
+        width=2,
+    )
+    draw.ellipse([center_x - 1, 100, center_x + 1, 102], fill=color)
+
+    if not _network_connected:
+        draw.line(
+            [center_x - 8, 86, center_x + 8, 102],
+            fill=color,
+            width=2,
+        )
+
+
 def _game_status_label():
     """Optional secondary text over the Platform icon glyph.
 
@@ -2507,6 +2612,7 @@ def draw_display():
                 draw_centered_text(draw, status_text, 3, font, disp.width, status_color)
 
             draw_connection_indicator(clear_area=False)
+            draw_network_indicator()
             draw_battery_indicator()
         else:
             scale = 16  # 8×16 = 128 — fills the LCD
@@ -2558,7 +2664,8 @@ def draw_display():
     # === BLE Connection Status Indicator (lower left) ===
     draw_connection_indicator(clear_area=False)  # Don't clear since we already cleared the whole screen
 
-    # === Battery Indicator (lower left, to the right of BLE icon) ===
+    # === Network and battery indicators (lower right) ===
+    draw_network_indicator()
     draw_battery_indicator()
 
     # Update display
@@ -2634,6 +2741,12 @@ init_ble_connection()
 
 try:
     while True:
+        # Redraw when the background network monitor detects a state change.
+        # Defer during an animation so the status redraw does not overwrite it.
+        if _network_indicator_dirty and not animation_running:
+            _network_indicator_dirty = False
+            draw_display()
+
         # === Read button states ===
         up_pressed = disp.digital_read(disp.GPIO_KEY_UP_PIN) == 0
         down_pressed = disp.digital_read(disp.GPIO_KEY_DOWN_PIN) == 0
