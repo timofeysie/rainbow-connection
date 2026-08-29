@@ -10,7 +10,7 @@ The 128×128 display:
 │                                 │
 │                                 │
 │          ┌─────────┐            │  y=72 ← main emoji starts
-│          │  main   │            │
+│[Wi-Fi]   │  main   │            │  y≈84 ← network indicator
 │          │  emoji  │         87%│  y≈108 ← % text (right-aligned)
 │          │  56×56  │    ▓▓▓░░░█ │  y=118 ← battery icon (right-aligned)
 │[BLE]     └─────────┘            │  y=126
@@ -19,5 +19,7 @@ The 128×128 display:
 
 - Percentage text — right-aligned at x≈104..126, y=108..116. Sits above the battery icon and clear of the emoji (emoji right edge is x=92).
 - Battery icon — body at x=104..124, nub at x=124..126, y=118..126. Flush to the right edge, 2 px margin.
-- Fill colour — green (>50 %), amber (20–50 %), red (<20 %).
+- Fill color — green (>50 %), amber (20–50 %), red (<20 %).
+- Wi-Fi indicator — centred at x=10, y=84..104, directly above the BLE indicator.
+- Wi-Fi color — green when a usable network route is available; red and crossed when disconnected.
 - BLE indicator stays undisturbed in the bottom-left (x=2..18, y=110..126).

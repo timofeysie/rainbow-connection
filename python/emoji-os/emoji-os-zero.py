@@ -2516,16 +2516,16 @@ def draw_battery_indicator():
 
 
 def draw_network_indicator():
-    """Draw Wi-Fi route status directly above the battery indicator.
+    """Draw Wi-Fi route status directly above the BLE indicator.
 
     Green Wi-Fi arcs mean the Zero has a usable network route. Red crossed
     arcs mean it does not. This reports LAN routing independently of BLE state
     and does not require the emoji server itself to be running.
     """
     color = (0, 200, 0) if _network_connected else (220, 40, 40)
-    center_x = disp.width - 13
+    center_x = 10
 
-    # Three compact Wi-Fi arcs, safely above the battery percentage row.
+    # Three compact Wi-Fi arcs aligned with the lower-left BLE indicator.
     draw.arc(
         [center_x - 10, 84, center_x + 10, 104],
         start=215,
@@ -2664,7 +2664,7 @@ def draw_display():
     # === BLE Connection Status Indicator (lower left) ===
     draw_connection_indicator(clear_area=False)  # Don't clear since we already cleared the whole screen
 
-    # === Network and battery indicators (lower right) ===
+    # === Network indicator (left) and battery indicator (right) ===
     draw_network_indicator()
     draw_battery_indicator()
 
