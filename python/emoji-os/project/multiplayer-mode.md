@@ -354,25 +354,27 @@ Do **not** press **Start Game** until the Bound pairs row shows `joined`.
 ## Platform icon / display reference
 
 The table below maps every game event or state to its intended visual on each
-of the three platforms. Step 8 rows (correct/wrong/winner/loser) are implemented.
+of the three platforms, and to its Pico buzzer sound snippet.
+Step 8 rows (correct/wrong/winner/loser) are implemented.
 
-| Event / state | State id | Pico badge (8×8 LED matrix) | Zero game controller (LCD) | Emoji-app (Lucide icon) |
-| --- | --- | --- | --- | --- |
-| **Game mode standby** | `mode` | Capital white `G` | Capital white `G` | *(n/a — referee uses game lifecycle)* |
-| **Lobby — not yet joined** | `lobby` | Yellow 4×4 + green/red corner choices | Yellow 4×4 + green/red corner choices | `door-open` |
-| **Lobby — joined, waiting** | `lobby_joined` | White 4×4 outline square (1 px border, black interior) | White 4×4 outline square (1 px border, black interior) | `hand-platter` |
-| **Game started / active** | `active` | Solid green 4×4 centre square | Solid green 4×4 centre square | `turntable` |
-| **Question open** | `question_open` | Question mark `?` glyph; NFC polling active | Question mark `?` glyph | `message-circle-question-mark` |
-| **Card scanned** (tap acknowledged) | `card_scanned` | Green 4×4 outline square (1 px border); Zero then sends correct/wrong command immediately | Blue circle outline (correct) or red X (wrong) — Zero knows answer from `NFC_CARD_MAP` | Blue `circle` or red `x` (correct/wrong) |
-| **Correct answer** | `correct` | Blue filled circle | Blue filled circle | `circle` (blue) |
-| **Wrong answer** | `wrong` | Red X | Red X | `x` (red) |
-| **Ready prompt** | `ready_prompt` | Green 2×2 top-right + red 2×2 bottom-right | White 2×2 + `KEY1 READY  KEY3 WAIT` | `circle-help` |
-| **Ready** | `ready` | Green 2×2 top-right | White 2×2 + `READY` | `circle-check` |
-| **Wait** | `wait` | Red 2×2 bottom-right | White 2×2 + `WAIT` | `circle-x` |
-| **All rounds complete** | `rounds_complete` | Solid yellow 4×4 centre without choice corners | Solid yellow 4×4 centre + `ROUNDS COMPLETE` | Player: `Game complete`; referee can end game |
-| **Game ended** | `game_ended` | Scrolls `DONE`, then goes dark | Text: `GAME OVER` (red) | `sparkles` |
-| **Game winner** | `winner` | Fireworks animation (animations menu — positive 1) | Fireworks animation (animations menu — positive 1) | `podium` *(app uses `Trophy` until Lucide ships `Podium`)* |
-| **Game loser** | `loser` | Rain animation (animations menu) | Rain animation (animations menu) | `eye-closed` |
+| # | Event / state | State id | Pico badge (8×8 LED matrix) | Zero game controller (LCD) | Emoji-app (Lucide icon) | Pico buzzer sound |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | **Game mode standby** | `mode` | Capital white `G` | Capital white `G` | *(n/a — referee uses game lifecycle)* | `sound_mode_standby` — single G3 pulse (196 Hz, 180 ms) |
+| 2 | **Lobby — not yet joined** | `lobby` | Yellow 4×4 + green/red corner choices | Yellow 4×4 + green/red corner choices | `door-open` | `sound_lobby` — rising G3→C4 two-note (196→262 Hz) |
+| 3 | **Lobby — joined, waiting** | `lobby_joined` | White 4×4 outline square (1 px border, black interior) | White 4×4 outline square (1 px border, black interior) | `hand-platter` | `sound_lobby_joined` — C5 confirmation ping (523 Hz, 200 ms) |
+| 4 | **Game started / active** | `active` | Solid green 4×4 centre square | Solid green 4×4 centre square | `turntable` | `sound_game_active` — three-note C4→E4→G4 fanfare (262→330→392 Hz) |
+| 5 | **Question open** | `question_open` | Question mark `?` glyph; NFC polling active | Question mark `?` glyph | `message-circle-question-mark` | `sound_question_beat` — looping 80s A-minor pentatonic synth beat (125 BPM, 16-step non-blocking sequencer) |
+| 6 | **Card scanned** (tap acknowledged) | `card_scanned` | Green 4×4 outline square (1 px border); Zero then sends correct/wrong command immediately | Blue circle outline (correct) or red X (wrong) — Zero knows answer from `NFC_CARD_MAP` | Blue `circle` or red `x` (correct/wrong) | `sound_card_scanned` — double short 600 Hz beep (2 × 80 ms); beat stops here |
+| 7 | **Correct answer** | `correct` | Blue filled circle | Blue filled circle | `circle` (blue) | `sound_correct` — rising C5→E5→G5→C6 xylophone jingle (523→659→784→1047 Hz) |
+| 8 | **Wrong answer** | `wrong` | Red X | Red X | `x` (red) | `sound_wrong` — descending E4→A3 two-note (330→220 Hz) |
+| 9 | **Question closed** | `question_closed` | Small white 2×2 centre dot | White 2×2 + `KEY1 READY  KEY3 WAIT` | `circle-help` | `sound_question_closed` — gentle C5 ping (523 Hz, 150 ms) |
+| 10 | **Ready prompt** | `ready_prompt` | Green 2×2 top-right + red 2×2 bottom-right | White 2×2 + `KEY1 READY  KEY3 WAIT` | `circle-help` | `sound_ready_prompt` — two-note G4→C5 alert (392→523 Hz) |
+| 11 | **Ready** | `ready` | Green 2×2 top-right | White 2×2 + `READY` | `circle-check` | `sound_ready` — single E5 positive beep (659 Hz, 200 ms) |
+| 12 | **Wait** | `wait` | Red 2×2 bottom-right | White 2×2 + `WAIT` | `circle-x` | `sound_wait` — single G3 low tone (196 Hz, 200 ms) |
+| 13 | **All rounds complete** | `rounds_complete` | Solid yellow 4×4 centre without choice corners | Solid yellow 4×4 centre + `ROUNDS COMPLETE` | Player: `Game complete`; referee can end game | `sound_rounds_complete` — four-note C4→E4→G4→C5 fanfare (262→330→392→523 Hz) |
+| 14 | **Game ended** | `game_ended` | Scrolls `DONE`, then goes dark | Text: `GAME OVER` (red) | `sparkles` | `sound_game_ended` — descending C5→G4→C4 (523→392→262 Hz) |
+| 15 | **Game winner** | `winner` | Fireworks animation (animations menu — positive 1) | Fireworks animation (animations menu — positive 1) | `podium` *(app uses `Trophy` until Lucide ships `Podium`)* | `sound_winner` — triumphant C5→E5→G5→C5→E6 fanfare (523→659→784→523→1319 Hz) |
+| 16 | **Game loser** | `loser` | Rain animation (animations menu) | Rain animation (animations menu) | `eye-closed` | `sound_loser` — sad A4→G4→E4→C4 descent (440→392→330→262 Hz) |
 
 ### Shared game-state logging
 

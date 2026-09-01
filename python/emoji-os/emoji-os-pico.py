@@ -1,5 +1,5 @@
 # emoji os pico - Startup/connection indicator; white 5s then blue; red on BLE error
-VERSION = "0.5.5"
+VERSION = "0.5.6"
 
 # === Multiplayer Pairing ===
 # PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
@@ -128,6 +128,17 @@ for _nfc_attempt in range(5):
 if rfid is None:
     print('RFID init failed after retries — NFC mode will be unavailable (check wiring/pull-ups)')
 
+# === PiicoDev Buzzer Setup ===
+# Optional — game tones are silently disabled if the module is not connected.
+# Daisy-chained on the same I2C0 bus via the RFID module's PiicoDev connector.
+_tone_buzz = None
+try:
+    from PiicoDev_Buzzer import PiicoDev_Buzzer as _PiicoBuzzerClass
+    _tone_buzz = _PiicoBuzzerClass(bus=0, sda=Pin(16), scl=Pin(17), freq=100_000, volume=2)
+    print('PiicoDev Buzzer ready — game tones enabled')
+except Exception as _buzz_init_err:
+    print('PiicoDev Buzzer not found ({}) — game tones disabled'.format(_buzz_init_err))
+
 # How long the NFC result (circle / cross) is held on the Pico matrix before
 # reverting to the question-mark waiting state.
 NFC_PICO_RESULT_DISPLAY_S = 5
@@ -192,6 +203,65 @@ def _log_game_state(state_id, detail=""):
         print("[GAME] pico | {} | {} | {}".format(state_id, label, detail))
     else:
         print("[GAME] pico | {} | {}".format(state_id, label))
+
+
+# ── Beat sequencer (question_open idle music) ────────────────────────────────
+# Non-blocking 80s A-minor pentatonic synth beat. 16 steps × 120 ms ≈ 125 BPM.
+# Runs only while _game_state == "question_open"; paused by all other states.
+_BEAT_STEP_MS = 120
+_BEAT = [
+    (220, 90), (440, 55), (330, 65), (  0,  0),   # bar 1
+    (220, 90), (  0,  0), (294, 65), (392, 65),   # bar 2
+    (220, 90), (440, 55), (330, 65), (262, 65),   # bar 3
+    (220, 90), (  0,  0), (392, 65), (440, 75),   # bar 4
+]
+
+_beat_step    = 0
+_beat_step_ts = 0
+_beat_note_on = False
+_beat_enabled = False
+
+
+def _beat_tick():
+    """Advance the beat sequencer. Call on every main-loop iteration."""
+    global _beat_step, _beat_step_ts, _beat_note_on
+    if not _beat_enabled or _tone_buzz is None:
+        return
+    now     = time.ticks_ms()
+    elapsed = time.ticks_diff(now, _beat_step_ts)
+    _freq, note_dur = _BEAT[_beat_step]
+    if _beat_note_on and elapsed >= note_dur:
+        _tone_buzz.noTone()
+        _beat_note_on = False
+    if elapsed >= _BEAT_STEP_MS:
+        _beat_step    = (_beat_step + 1) % len(_BEAT)
+        _beat_step_ts = now
+        freq, note_dur = _BEAT[_beat_step]
+        if freq > 0:
+            _tone_buzz.tone(freq)
+            _beat_note_on = True
+
+
+def _beat_pause():
+    """Stop the beat and silence the buzzer immediately."""
+    global _beat_enabled, _beat_note_on
+    _beat_enabled = False
+    if _tone_buzz is not None and _beat_note_on:
+        _tone_buzz.noTone()
+        _beat_note_on = False
+
+
+def _beat_start():
+    """Enable the beat from the current step position."""
+    global _beat_enabled, _beat_step_ts, _beat_note_on
+    if _tone_buzz is None:
+        return
+    _beat_enabled = True
+    _beat_step_ts = time.ticks_ms()
+    freq, note_dur = _BEAT[_beat_step]
+    if freq > 0:
+        _tone_buzz.tone(freq)
+        _beat_note_on = True
 
 
 def _show_game_mode():
@@ -344,64 +414,249 @@ def _handle_game_command(subcommand: str):
 
     if subcommand == "mode":
         _game_state = "mode"
+        _beat_pause()
         _show_game_mode()
+        _sound_mode_standby()
 
     elif subcommand == "lobby":
         _game_state = "lobby"
+        _beat_pause()
         _show_game_lobby()
+        _sound_lobby()
 
     elif subcommand == "lobby_joined":
         _game_state = "lobby_joined"
+        _beat_pause()
         _show_game_lobby_joined()
+        _sound_lobby_joined()
 
     elif subcommand == "active":
         _game_state = "active"
+        _beat_pause()
         _show_game_active()
+        _sound_game_active()
 
     elif subcommand == "question_open":
         _game_state = "question_open"
         _show_question_open()
+        _beat_start()
 
     elif subcommand == "correct":
         _game_state = "correct"
+        _beat_pause()
         _show_correct()
+        _sound_correct()
 
     elif subcommand == "wrong":
         _game_state = "wrong"
+        _beat_pause()
         _show_wrong()
+        _sound_wrong()
 
     elif subcommand == "question_close":
         _game_state = "question_close"
+        _beat_pause()
         _show_question_close()
+        _sound_question_closed()
 
     elif subcommand == "rounds_complete":
         _game_state = "rounds_complete"
+        _beat_pause()
         _show_rounds_complete()
+        _sound_rounds_complete()
 
     elif subcommand == "ready_prompt":
         _game_state = "ready_prompt"
         _show_ready_prompt()
+        _sound_ready_prompt()
 
     elif subcommand == "ready":
         _game_state = "ready"
         _show_ready_response(True)
+        _sound_ready()
 
     elif subcommand == "wait":
         _game_state = "wait"
         _show_ready_response(False)
+        _sound_wait()
 
     elif subcommand == "ended":
         _game_state = "ended"
+        _beat_pause()
         _show_game_ended()
+        _sound_game_ended()
 
     elif subcommand == "winner":
         _game_state = "winner"
+        _beat_pause()
         _show_winner()
+        _sound_winner()
 
     elif subcommand == "loser":
         _game_state = "loser"
+        _beat_pause()
         _show_loser()
+        _sound_loser()
 
+
+# ── Game sound snippets ──────────────────────────────────────────────────────
+# Each is a short blocking call (uses sleep_ms). All are no-ops when
+# _tone_buzz is None (buzzer not connected). Named by game state.
+# See multiplayer-mode.md Platform icon / display reference for the full map.
+
+def _sound_mode_standby():
+    """sound_mode_standby — single low G3 pulse (entering game mode)."""
+    if _tone_buzz is None:
+        return
+    _tone_buzz.tone(196)
+    sleep_ms(180)
+    _tone_buzz.noTone()
+
+
+def _sound_lobby():
+    """sound_lobby — rising G3→C4 two-note (lobby doors open)."""
+    if _tone_buzz is None:
+        return
+    for freq, dur in [(196, 130), (262, 200)]:
+        _tone_buzz.tone(freq)
+        sleep_ms(dur)
+        _tone_buzz.noTone()
+        sleep_ms(40)
+
+
+def _sound_lobby_joined():
+    """sound_lobby_joined — C5 confirmation ping (joined lobby)."""
+    if _tone_buzz is None:
+        return
+    _tone_buzz.tone(523)
+    sleep_ms(200)
+    _tone_buzz.noTone()
+
+
+def _sound_game_active():
+    """sound_game_active — three-note C4→E4→G4 fanfare (game on)."""
+    if _tone_buzz is None:
+        return
+    for freq, dur in [(262, 90), (330, 90), (392, 160)]:
+        _tone_buzz.tone(freq)
+        sleep_ms(dur)
+        _tone_buzz.noTone()
+        sleep_ms(30)
+
+
+def _sound_card_scanned():
+    """sound_card_scanned — double short 600 Hz beep (tap acknowledged)."""
+    if _tone_buzz is None:
+        return
+    for _ in range(2):
+        _tone_buzz.tone(600)
+        sleep_ms(80)
+        _tone_buzz.noTone()
+        sleep_ms(60)
+
+
+def _sound_correct():
+    """sound_correct — rising C5→E5→G5→C6 xylophone jingle (correct answer)."""
+    if _tone_buzz is None:
+        return
+    for freq, dur in [(523, 130), (659, 130), (784, 130), (1047, 320)]:
+        _tone_buzz.tone(freq)
+        sleep_ms(dur)
+        _tone_buzz.noTone()
+        sleep_ms(40)
+
+
+def _sound_wrong():
+    """sound_wrong — descending E4→A3 two-note (wrong answer)."""
+    if _tone_buzz is None:
+        return
+    for freq, dur in [(330, 200), (220, 350)]:
+        _tone_buzz.tone(freq)
+        sleep_ms(dur)
+        _tone_buzz.noTone()
+        sleep_ms(50)
+
+
+def _sound_question_closed():
+    """sound_question_closed — gentle C5 ping (between questions)."""
+    if _tone_buzz is None:
+        return
+    _tone_buzz.tone(523)
+    sleep_ms(150)
+    _tone_buzz.noTone()
+
+
+def _sound_rounds_complete():
+    """sound_rounds_complete — four-note C4→E4→G4→C5 fanfare."""
+    if _tone_buzz is None:
+        return
+    for freq, dur in [(262, 130), (330, 130), (392, 130), (523, 280)]:
+        _tone_buzz.tone(freq)
+        sleep_ms(dur)
+        _tone_buzz.noTone()
+        sleep_ms(35)
+
+
+def _sound_ready_prompt():
+    """sound_ready_prompt — two-note G4→C5 alert (choose ready/wait)."""
+    if _tone_buzz is None:
+        return
+    for freq, dur in [(392, 120), (523, 180)]:
+        _tone_buzz.tone(freq)
+        sleep_ms(dur)
+        _tone_buzz.noTone()
+        sleep_ms(40)
+
+
+def _sound_ready():
+    """sound_ready — single E5 positive beep (player ready)."""
+    if _tone_buzz is None:
+        return
+    _tone_buzz.tone(659)
+    sleep_ms(200)
+    _tone_buzz.noTone()
+
+
+def _sound_wait():
+    """sound_wait — single G3 low tone (player waiting)."""
+    if _tone_buzz is None:
+        return
+    _tone_buzz.tone(196)
+    sleep_ms(200)
+    _tone_buzz.noTone()
+
+
+def _sound_game_ended():
+    """sound_game_ended — descending C5→G4→C4 (game over)."""
+    if _tone_buzz is None:
+        return
+    for freq, dur in [(523, 180), (392, 180), (262, 350)]:
+        _tone_buzz.tone(freq)
+        sleep_ms(dur)
+        _tone_buzz.noTone()
+        sleep_ms(50)
+
+
+def _sound_winner():
+    """sound_winner — triumphant C5→E5→G5→C5→E6 fanfare."""
+    if _tone_buzz is None:
+        return
+    for freq, dur in [(523, 110), (659, 110), (784, 110), (523, 110), (1319, 400)]:
+        _tone_buzz.tone(freq)
+        sleep_ms(dur)
+        _tone_buzz.noTone()
+        sleep_ms(35)
+
+
+def _sound_loser():
+    """sound_loser — sad A4→G4→E4→C4 descent."""
+    if _tone_buzz is None:
+        return
+    for freq, dur in [(440, 200), (392, 200), (330, 200), (262, 400)]:
+        _tone_buzz.tone(freq)
+        sleep_ms(dur)
+        _tone_buzz.noTone()
+        sleep_ms(60)
 
 
 button1 = Pin(22, Pin.IN, Pin.PULL_DOWN)
@@ -1256,6 +1511,8 @@ while True:
                         )
                     # Green 4×4 outline = tap acknowledged; Zero follows with
                     # GAME:correct / GAME:wrong. Revert to ? if no follow-up.
+                    _beat_pause()
+                    _sound_card_scanned()
                     _show_tap_ack()
                     _game_nfc_display_until_ms = time.ticks_add(
                         time.ticks_ms(), NFC_PICO_RESULT_DISPLAY_S * 1000
@@ -1263,4 +1520,5 @@ while True:
             except Exception as _nfc_game_err:
                 print('NFC game poll error:', _nfc_game_err)
 
-    sleep_ms(100)
+    _beat_tick()
+    sleep_ms(10)
