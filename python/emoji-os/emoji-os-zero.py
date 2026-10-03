@@ -290,8 +290,10 @@ UART_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # Write characterist
 UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # Notify characteristic
 
 # === Multiplayer Pairing ===
-# PAIR_NAME identifies this controller/badge pair. The matching
-# emoji-os-pico-*.py running on the badge must use the same PAIR_NAME.
+# PAIR_NAME is this controller's station id (bind / join / score).
+# BADGE_NAMES is the roster of Pico PAIR_NAME values this Zero may connect to.
+# Each Pico keeps its own pair_config.py; that name must appear in BADGE_NAMES.
+# If BADGE_NAMES is omitted or empty, the roster is [PAIR_NAME] (Mode 1).
 #
 # pair_config.py must live in the directory ABOVE the repo root, e.g.
 #   /home/<user>/repos/pair_config.py
@@ -299,7 +301,8 @@ UART_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # Notify characteris
 #   /home/<user>/repos/rainbow-connection/python/emoji-os/emoji-os-zero.py
 # The path is resolved relative to this file so it is not tied to any
 # specific username. If the file is absent or unreadable, PAIR_NAME
-# falls back to "default". See python/emoji-os/project/multiplayer-mode.md.
+# falls back to "default". See python/emoji-os/project/multiplayer-mode.md
+# and emoji-app/docs/real-time-game/multi-badge-plan.md.
 import os as _os
 import importlib.util as _imp_util
 
@@ -308,6 +311,27 @@ _HERE = _os.path.dirname(_os.path.abspath(__file__))
 _PAIR_CONFIG_DIR = _os.path.normpath(_os.path.join(_HERE, "..", "..", ".."))
 _PAIR_CONFIG_PATH = _os.path.join(_PAIR_CONFIG_DIR, "pair_config.py")
 
+
+def _resolve_badge_names(raw, pair_name):
+    """Return an ordered, de-duplicated Pico roster from pair_config.BADGE_NAMES.
+
+    Missing, empty, or invalid values fall back to ``[pair_name]`` (Mode 1).
+    """
+    if not isinstance(raw, (list, tuple)):
+        return [pair_name]
+    names = []
+    seen = set()
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        name = item.strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        names.append(name)
+    return names if names else [pair_name]
+
+
 try:
     if not _os.path.isfile(_PAIR_CONFIG_PATH):
         raise FileNotFoundError(f"not found: {_PAIR_CONFIG_PATH}")
@@ -315,6 +339,7 @@ try:
     _pair_mod = _imp_util.module_from_spec(_spec)
     _spec.loader.exec_module(_pair_mod)
     PAIR_NAME = _pair_mod.PAIR_NAME
+    BADGE_NAMES = _resolve_badge_names(getattr(_pair_mod, "BADGE_NAMES", None), PAIR_NAME)
     if hasattr(_pair_mod, "NFC_CARD_MAP_LOCAL") and isinstance(_pair_mod.NFC_CARD_MAP_LOCAL, dict):
         NFC_CARD_MAP_FALLBACK = _pair_mod.NFC_CARD_MAP_LOCAL
         NFC_CARD_MAP = dict(NFC_CARD_MAP_FALLBACK)
@@ -322,14 +347,17 @@ try:
     _PAIR_CONFIG_SOURCE = _PAIR_CONFIG_PATH
 except Exception as _pair_exc:
     PAIR_NAME = "default"
+    BADGE_NAMES = [PAIR_NAME]
     _PAIR_CONFIG_SOURCE = f"fallback 'default' ({_pair_exc})"
 
 # Target BLE name advertised by the paired Pico (see emoji-os-pico-*.py).
+# Mode 1 scan still uses PAIR_NAME. Milestone 1 will scan every BADGE_NAMES entry.
 TARGET_DEVICE_NAME = f"Pico-Client-{PAIR_NAME}"
 PAIR_HANDSHAKE_TIMEOUT_S = 5.0
 
 print(f"[PAIR] config file : {_PAIR_CONFIG_SOURCE}", flush=True)
 print(f"[PAIR] PAIR_NAME   : '{PAIR_NAME}'", flush=True)
+print(f"[PAIR] BADGE_NAMES : {BADGE_NAMES}", flush=True)
 print(f"[PAIR] looking for : '{TARGET_DEVICE_NAME}'", flush=True)
 
 
@@ -2681,7 +2709,10 @@ except:
 draw_display()
 
 print("Emoji OS Zero " + VERSION + " started with BLE Controller functionality")
-print(f"[PAIR] strict pairing enabled — PAIR_NAME='{PAIR_NAME}', target='{TARGET_DEVICE_NAME}'")
+print(
+    f"[PAIR] strict pairing enabled — PAIR_NAME='{PAIR_NAME}', "
+    f"BADGE_NAMES={BADGE_NAMES}, target='{TARGET_DEVICE_NAME}'"
+)
 print("Joystick: Navigate menus")
 print("KEY1: Select positive; in game lobby press to join")
 print("KEY2: Navigate/confirm; exit game/fullscreen to menu select")

@@ -1,14 +1,28 @@
 # Raspberry Pi Pico Emoji Badge Setup
 
-A sample pair_config.py file can be found in the emoji-os directory:
+Copy a `pair_config.py` onto the Pico next to `emoji-os-pico.py`. A sample
+lives at `rainbow-connection/python/emoji-os/pair_config.py`. The Pico only
+reads `PAIR_NAME` — do not copy the controller's `BADGE_NAMES` onto the badge.
 
-rainbow-connection\python\emoji-os\pair_config.py
+Mode 1 — same name as the Zero:
 
-```py
+```python
 PAIR_NAME = "white"
 ```
 
-This name needs to match a name in the controller pair_config.py file.
+Mode 2 — unique name that appears in the Zero's `BADGE_NAMES` roster:
+
+```python
+PAIR_NAME = "white-2"
+```
+
+That Pico advertises as `Pico-Client-white-2` and expects `PAIR:white-2`.
+The controller `pair_config.py` must include this name:
+
+```python
+PAIR_NAME = "white"
+BADGE_NAMES = ["white", "white-2"]
+```
 
 ## Required files
 

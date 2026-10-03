@@ -2,8 +2,8 @@
 VERSION = "0.5.6"
 
 # === Multiplayer Pairing ===
-# PAIR_NAME identifies this controller/badge pair. The matching emoji-os-zero.py
-# must use the same PAIR_NAME or the badge will refuse its commands. Override by
+# PAIR_NAME is this badge's slot name. A Zero pairs only if this value appears
+# in its BADGE_NAMES roster (Mode 1: same as the Zero's PAIR_NAME). Override by
 # creating a small `pair_config.py` next to this file on the Pico containing
 # e.g. `PAIR_NAME = "living-room"`. See python/emoji-os/project/multiplayer-mode.md.
 try:

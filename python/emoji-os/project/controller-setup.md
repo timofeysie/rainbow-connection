@@ -307,13 +307,29 @@ sudo chmod +x /home/tim/repos/rainbow-connection/python/emoji-os/emoji-os-zero.p
 
 Then reboot.  If you have issues, check the log listed in the rc.local file (home/tim/rc.local.log).
 
-Copty the pair_config.py to the repose directory.
-This file can be found in the repos/rainbow-connection/python/emoji-os/pair_config.py file.
+Copy `pair_config.py` to the repos directory (one level above the cloned
+repo, so `git pull` does not overwrite it). A template lives at
+`rainbow-connection/python/emoji-os/pair_config.py`.
 
-Give the controller a name:
+`PAIR_NAME` is the controller / station id used by emoji-app (bind, join,
+scores). `BADGE_NAMES` is the list of Pico `PAIR_NAME` values this Zero may
+connect to.
 
-```sh
-PAIR_NAME = "my-name"
+Mode 1 — one controller, one badge (omit `BADGE_NAMES`, or list only the
+station name):
+
+```python
+PAIR_NAME = "white"
+BADGE_NAMES = ["white"]
 ```
 
-This should be the same as a pico badge so that they can pair together.
+Mode 2 — one controller, many badges (each Pico has its own
+`pair_config.py`; that name must appear in this list):
+
+```python
+PAIR_NAME = "white"
+BADGE_NAMES = ["white", "white-2", "white-3"]
+```
+
+If `BADGE_NAMES` is omitted or empty, the Zero uses `[PAIR_NAME]`. Names are
+case-sensitive and must match the Pico file exactly.

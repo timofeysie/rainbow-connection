@@ -41,20 +41,46 @@ is preserved for a single pair.
 - File location (Pico): `pair_config.py` on the Pico's filesystem (alongside
   `emoji-os-pico-*.py`). The Pico is updated by manually copying files, so the
   config can live next to the script without being clobbered by updates.
-- File contents (all locations):
+- File contents — Mode 1 (one controller, one badge). The Pico uses only
+  `PAIR_NAME`. The Zero may omit `BADGE_NAMES`; it then treats the roster as
+  `[PAIR_NAME]`.
 
 ```python
 PAIR_NAME = "living-room"
 ```
 
-The string can be anything you like (recommended: lowercase, no spaces, e.g.
-`living-room`, `kitchen`, `alpha`). Both halves of a pair must match exactly.
+- File contents — Mode 2 (one controller, many badges). Only the Zero file
+  has `BADGE_NAMES`. Each Pico file has its own `PAIR_NAME`, and that name
+  must appear in the Zero roster.
 
-The Zero logs which file it loaded `PAIR_NAME` from at startup, e.g.
+```python
+# Zero /home/<user>/repos/pair_config.py
+PAIR_NAME = "white"
+BADGE_NAMES = ["white", "white-2", "white-3"]
+```
+
+```python
+# Pico pair_config.py (one file per badge)
+PAIR_NAME = "white-2"
+```
+
+The string can be anything you like (recommended: lowercase, no spaces, e.g.
+`living-room`, `kitchen`, `alpha`). Names are case-sensitive. In Mode 1 both
+halves must match exactly. In Mode 2 the Pico name must appear in the Zero
+`BADGE_NAMES` list.
+
+The Zero logs which file it loaded and the resolved roster at startup, e.g.
 
 ```text
-[PAIR] PAIR_NAME='living-room' (loaded from /home/tim/repos/pair_config.py) — looking for 'Pico-Client-living-room'
+[PAIR] config file : /home/tim/repos/pair_config.py
+[PAIR] PAIR_NAME   : 'white'
+[PAIR] BADGE_NAMES : ['white', 'white-2', 'white-3']
+[PAIR] looking for : 'Pico-Client-white'
 ```
+
+`looking for` is still the Mode 1 scan target (`Pico-Client-<PAIR_NAME>`).
+Multi-connect to every roster name is Milestone 1 in
+`emoji-app/docs/real-time-game/multi-badge-plan.md`.
 
 ### Wire protocol
 

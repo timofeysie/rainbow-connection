@@ -1,5 +1,5 @@
 # Station identity sent to emoji-app (bind, join, guesses, scores).
-PAIR_NAME = "white"
+PAIR_NAME = "power-cable"
 
 # Pico PAIR_NAME values this Zero may connect to.
 # Order is the dashboard slot order. Duplicate names are ignored.
@@ -12,7 +12,7 @@ PAIR_NAME = "white"
 # Mode 2 (one controller, many badges) — each Pico has its own pair_config.py
 # whose PAIR_NAME appears in this list:
 #   BADGE_NAMES = ["white", "white-2", "white-3"]
-BADGE_NAMES = ["white"]
+BADGE_NAMES = ["power-cable", "black"]
 
 # Maps card UID → { name, display, slotLabel }
 # slotLabel matches the AnswerOption slot labels in the game (A, B, C, D, E).
