@@ -78,9 +78,9 @@ The Zero logs which file it loaded and the resolved roster at startup, e.g.
 [PAIR] looking for : 'Pico-Client-white'
 ```
 
-`looking for` is still the Mode 1 scan target (`Pico-Client-<PAIR_NAME>`).
-Multi-connect to every roster name is Milestone 1 in
-`emoji-app/docs/real-time-game/multi-badge-plan.md`.
+The Zero scans for every `Pico-Client-<name>` in `BADGE_NAMES` and connects
+those badges one at a time. A Pico whose name is not in the roster is ignored.
+See `emoji-app/docs/real-time-game/multi-badge-plan.md`.
 
 ### Wire protocol
 

@@ -1,11 +1,11 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.12"
+VERSION = " v0.7.13"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
-# Pico badge version learned from the PAIR_OK:<version> handshake reply.
-# Updated in _do_pair_handshake; "unknown" when the Pico replies a bare PAIR_OK
-# (pre-v0.3.2 firmware) or when no pairing has happened yet.
+# Pico badge version from the primary roster link's PAIR_OK:<version> reply.
+# Per-badge versions live on BadgeLink.pico_version. "unknown" when the Pico
+# replies a bare PAIR_OK (pre-v0.3.2) or when no pairing has happened yet.
 _pico_version = "unknown"
 # When stdout is redirected (e.g. rc.local >> log), Python buffers unless run with
 # `python -u` or PYTHONUNBUFFERED=1 — use flush=True on early prints so the log updates.
@@ -350,15 +350,19 @@ except Exception as _pair_exc:
     BADGE_NAMES = [PAIR_NAME]
     _PAIR_CONFIG_SOURCE = f"fallback 'default' ({_pair_exc})"
 
-# Target BLE name advertised by the paired Pico (see emoji-os-pico-*.py).
-# Mode 1 scan still uses PAIR_NAME. Milestone 1 will scan every BADGE_NAMES entry.
-TARGET_DEVICE_NAME = f"Pico-Client-{PAIR_NAME}"
+# Target BLE names advertised by roster Picos (see emoji-os-pico.py).
+# Mode 1 (BADGE_NAMES omitted) is still a single Pico-Client-<PAIR_NAME>.
+_PICO_ADV_PREFIX = "Pico-Client-"
+TARGET_DEVICE_NAMES = [f"{_PICO_ADV_PREFIX}{n}" for n in BADGE_NAMES]
+TARGET_DEVICE_NAME = f"{_PICO_ADV_PREFIX}{PAIR_NAME}"
 PAIR_HANDSHAKE_TIMEOUT_S = 5.0
+_ROSTER_RETRY_S = 8.0
+_ROSTER_IDLE_S = 20.0
 
 print(f"[PAIR] config file : {_PAIR_CONFIG_SOURCE}", flush=True)
 print(f"[PAIR] PAIR_NAME   : '{PAIR_NAME}'", flush=True)
 print(f"[PAIR] BADGE_NAMES : {BADGE_NAMES}", flush=True)
-print(f"[PAIR] looking for : '{TARGET_DEVICE_NAME}'", flush=True)
+print(f"[PAIR] looking for : {TARGET_DEVICE_NAMES}", flush=True)
 
 
 def _log_bt_adapter_info():
@@ -495,397 +499,416 @@ game_correct_matrix = [
     [' ', ' ', ' ', 'U', 'U', ' ', ' ', ' '],
 ]
 
-# BLE Controller class - from working controller-1.3.py
-class BLEController:
-    """BLE Central controller that connects to Pico and sends emoji commands
-    Enhanced with better device discovery using test write method
-    """
-    
-    def __init__(self):
+class BadgeLink:
+    """One BLE connection to a roster Pico, keyed by that Pico's PAIR_NAME."""
+
+    def __init__(self, badge_name):
+        self.badge_name = badge_name
         self.client = None
-        self.device_address = None
+        self.address = None
         self.connected = False
+        self.pico_version = "unknown"
+        self.intentional_disconnect = False
         self._pair_event = None
         self._pair_response = None
-        
-    async def scan_for_device(self, timeout=10):
-        """Scan for the target Pico device by name or service UUID"""
-        global ble_connection_status
-        ble_connection_status = "scanning"
-        # Update display to show scanning indicator
-        draw_connection_indicator()
-        disp.LCD_ShowImage(image,0,0)
-        print("[BLE] scanning — queueing POST /api/status", flush=True)
-        post_to_server("/api/status", _status_payload("scanning"))
 
-        print(f"Scanning for Pico device (target name: '{TARGET_DEVICE_NAME}')...")
-        print("Multiplayer pairing is strict: only the device advertising the")
-        print(f"name '{TARGET_DEVICE_NAME}' (PAIR_NAME='{PAIR_NAME}') will be selected.")
-        
-        # First, try scanning by service UUID, but only accept exact-name matches
-        # so multi-pair environments don't grab the wrong badge.
-        print(f"\nAttempting to scan by service UUID (filtered by name) — timeout={timeout}s ...", flush=True)
+    def is_up(self):
+        return bool(self.connected and self.client and self.client.is_connected)
+
+
+# BLE Central: one BleakClient per BADGE_NAMES entry.
+class BLEController:
+    """Connects to every Pico whose advertised name is in the roster."""
+
+    def __init__(self):
+        self.links = {name: BadgeLink(name) for name in BADGE_NAMES}
+        self._scan_lock = None
+
+    def _ensure_scan_lock(self):
+        if self._scan_lock is None:
+            self._scan_lock = asyncio.Lock()
+        return self._scan_lock
+
+    def unmatched_names(self):
+        return [name for name in BADGE_NAMES if not self.links[name].is_up()]
+
+    def connected_names(self):
+        return [name for name in BADGE_NAMES if self.links[name].is_up()]
+
+    def is_any_connected(self):
+        return bool(self.connected_names())
+
+    def primary_link(self):
+        """Mode 1 compatibility: first connected roster badge, else first slot."""
+        for name in BADGE_NAMES:
+            link = self.links.get(name)
+            if link and link.is_up():
+                return link
+        return self.links.get(BADGE_NAMES[0]) if BADGE_NAMES else None
+
+    @property
+    def client(self):
+        link = self.primary_link()
+        return link.client if link else None
+
+    @property
+    def device_address(self):
+        link = self.primary_link()
+        return link.address if link else None
+
+    @property
+    def connected(self):
+        return self.is_any_connected()
+
+    def _log_roster(self):
+        up = self.connected_names()
+        print(
+            f"[BLE] roster {len(up)}/{len(BADGE_NAMES)} connected: "
+            f"{', '.join(up) if up else '(none)'}",
+            flush=True,
+        )
+
+    def _collect_roster_matches(self, devices, unmatched, found):
+        wanted = set(unmatched)
+        for device in devices:
+            name = device.name or ""
+            if not name.startswith(_PICO_ADV_PREFIX):
+                continue
+            badge_name = name[len(_PICO_ADV_PREFIX):]
+            if badge_name not in wanted:
+                if badge_name and badge_name not in BADGE_NAMES:
+                    print(
+                        f"[BLE] ignoring '{name}' (not in BADGE_NAMES)",
+                        flush=True,
+                    )
+                continue
+            if badge_name in found:
+                continue
+            found[badge_name] = device
+            print(
+                f"✓ Selected {name} → badgeName='{badge_name}' at {device.address}",
+                flush=True,
+            )
+
+    async def _discover_roster(self, unmatched, timeout):
+        """One UUID scan plus one general scan. Returns badgeName → device."""
+        found = {}
+        print(
+            f"Scanning for roster badges: {unmatched} "
+            f"(advertised as {[ _PICO_ADV_PREFIX + n for n in unmatched ]})",
+            flush=True,
+        )
+
+        print(
+            f"\nAttempting to scan by service UUID (filtered by roster) — "
+            f"timeout={timeout}s ...",
+            flush=True,
+        )
         _t0 = time.monotonic()
         try:
             devices = await BleakScanner.discover(
                 timeout=timeout,
-                service_uuids=[UART_SERVICE_UUID]
+                service_uuids=[UART_SERVICE_UUID],
             )
-            print(f"[BLE] UUID scan returned {len(devices)} device(s) in {time.monotonic()-_t0:.1f}s", flush=True)
+            print(
+                f"[BLE] UUID scan returned {len(devices)} device(s) in "
+                f"{time.monotonic()-_t0:.1f}s",
+                flush=True,
+            )
             if devices:
-                print(f"✓ Found {len(devices)} device(s) advertising Nordic UART Service:")
+                print("✓ Found device(s) advertising Nordic UART Service:")
                 for device in devices:
-                    name = device.name or "(No Name)"
-                    print(f"  - {name:<24} | {device.address}")
-                for device in devices:
-                    if device.name == TARGET_DEVICE_NAME:
-                        self.device_address = device.address
-                        print(f"✓ Selected device by name: {device.name} at {self.device_address}")
-                        return True
-                print(f"  No advertisement matched '{TARGET_DEVICE_NAME}'; trying general scan.")
+                    print(f"  - {(device.name or '(No Name)'):<24} | {device.address}")
+                self._collect_roster_matches(devices, unmatched, found)
         except Exception as e:
-            print(f"[BLE] UUID scan failed after {time.monotonic()-_t0:.1f}s: {e}", flush=True)
+            print(
+                f"[BLE] UUID scan failed after {time.monotonic()-_t0:.1f}s: {e}",
+                flush=True,
+            )
 
-        # Fallback: General scan and check for name match or verify service
+        still_needed = [n for n in unmatched if n not in found]
+        if not still_needed:
+            return found
+
         print(f"\nPerforming general scan for {timeout} seconds...", flush=True)
         _t1 = time.monotonic()
         try:
             devices = await BleakScanner.discover(timeout=timeout)
         except Exception as e:
-            print(f"[BLE] General scan failed after {time.monotonic()-_t1:.1f}s: {e}", flush=True)
-            devices = []
-        print(f"[BLE] General scan returned {len(devices)} device(s) in {time.monotonic()-_t1:.1f}s", flush=True)
-
-        print(f"Found {len(devices)} BLE devices:")
-        print("-" * 50)
-        
-        # First, check for exact name match
-        for i, device in enumerate(devices, 1):
-            name = device.name or "(No Name)"
-            print(f"{i:2d}. {name:<20} | {device.address}")
-            
-            if device.name == TARGET_DEVICE_NAME:
-                print(f"    *** FOUND TARGET DEVICE BY NAME! ***")
-                self.device_address = device.address
-                print("-" * 50)
-                print(f"✓ Found {TARGET_DEVICE_NAME} at address: {self.device_address}")
-                return True
-        
-        print("-" * 50)
-        
-        # If no name match, try to find by service UUID by connecting to candidates
-        # whose name matches TARGET_DEVICE_NAME. Strict pairing means we never
-        # select a device with a different advertised name.
-        print("\nNo exact name match yet. Checking name-matched UART candidates...")
-        candidate_devices = []
-        for device in devices:
-            if device.name != TARGET_DEVICE_NAME:
-                continue
-            adv_uuids = _scan_device_service_uuids(device)
-            if UART_SERVICE_UUID.lower() in [s.lower() for s in adv_uuids]:
-                candidate_devices.append(device)
-                print(f"  Candidate: {device.name} ({device.address}) - UART service in advertisement")
-        
-        if candidate_devices:
-            device = candidate_devices[0]
-            self.device_address = device.address
-            print(f"✓ Selected candidate device: {device.name} at {self.device_address}")
-            return True
-        
-        # Last resort: try connecting to devices and test write (avoids service discovery issues)
-        print("\nTesting devices by attempting connection and test write...")
-        print("(This may take a moment - checking up to 15 devices)...")
-        
-        # Known Pico MAC addresses from previous successful connections (for priority)
-        known_pico_addresses = ["28:CD:C1:05:AB:A4", "28:CD:C1:07:2C:E8", "2C:CF:67:05:A4:F4"]
-        
-        # First, check known addresses (faster)
-        for known_addr in known_pico_addresses:
-            for device in devices:
-                if device.address.upper() == known_addr.upper():
-                    name = device.name or "(No Name)"
-                    print(f"\n  Testing known address: {name} ({device.address})...", end=" ")
-                    if await self._test_device_connection(device.address):
-                        self.device_address = device.address
-                        print(f"✓ FOUND!")
-                        print(f"\n✓ Found Pico device (known address):")
-                        print(f"  Name: {name}")
-                        print(f"  Address: {self.device_address}")
-                        return True
-                    break
-        
-        # Then test all other devices
-        for device in devices[:15]:  # Check up to 15 devices
-            # Skip if we already checked this as a known address
-            if device.address.upper() in [a.upper() for a in known_pico_addresses]:
-                continue
-                
-            name = device.name or "(No Name)"
-            print(f"  Testing {name} ({device.address})...", end=" ")
-            if await self._test_device_connection(device.address):
-                self.device_address = device.address
-                print(f"✓ FOUND!")
-                print(f"\n✓ Found Pico device with Nordic UART Service:")
-                print(f"  Name: {name}")
-                print(f"  Address: {self.device_address}")
-                return True
-        
-        print(f"\n✗ Could not find Pico device matching '{TARGET_DEVICE_NAME}'")
-        print("\nTroubleshooting tips:")
-        print(f"1. Confirm the badge is running emoji-os-pico-*.py with PAIR_NAME='{PAIR_NAME}'")
-        print("2. Check that the Pico console prints 'Starting advertising...'")
-        print(f"3. Confirm the Pico's advertised name is exactly '{TARGET_DEVICE_NAME}'")
-        print("4. Try moving devices closer together")
-        print("5. Restart both devices")
-        ble_connection_status = "disconnected"
-        draw_connection_indicator()
-        disp.LCD_ShowImage(image,0,0)
-        post_to_server("/api/status", _status_payload("disconnected"))
-        return False
-    
-    async def _test_device_connection(self, address):
-        """Test if a device has the Nordic UART Service by attempting a test write"""
-        test_client = None
-        try:
-            test_client = BleakClient(address)
-            await test_client.connect(timeout=3.0)
-            
-            # Try to write a test command directly to the RX characteristic
-            # If this succeeds, we know the device has the UART service
-            test_command = b"STATUS"  # Non-destructive test command
-            try:
-                await test_client.write_gatt_char(UART_RX_CHAR_UUID, test_command)
-                # If write succeeded, this is likely our device
-                await test_client.disconnect()
-                return True
-            except Exception as write_error:
-                # Write failed - not the right device or characteristic doesn't exist
-                await test_client.disconnect()
-                return False
-                
-        except asyncio.TimeoutError:
-            if test_client:
-                try:
-                    await test_client.disconnect()
-                except:
-                    pass
-            return False
-        except Exception as e:
-            # Connection failed or other error
-            if test_client:
-                try:
-                    await test_client.disconnect()
-                except:
-                    pass
-            return False
-    
-    async def connect_to_device(self):
-        """Connect to the discovered Pico device"""
-        global ble_connection_status
-        if not self.device_address:
-            print("No device address available. Run scan_for_device() first.")
-            ble_connection_status = "disconnected"
-            draw_connection_indicator()
-            disp.LCD_ShowImage(image,0,0)
-            return False
-            
-        try:
-            print(f"Connecting to {self.device_address}...")
-            ble_connection_status = "connecting"
-            draw_connection_indicator()
-            disp.LCD_ShowImage(image,0,0)
-            print("[BLE] connecting — queueing POST /api/status", flush=True)
-            post_to_server("/api/status", _status_payload("connecting"))
-
-            self.client = BleakClient(
-                self.device_address,
-                disconnected_callback=_on_pico_disconnect,
+            print(
+                f"[BLE] General scan failed after {time.monotonic()-_t1:.1f}s: {e}",
+                flush=True,
             )
-            await self.client.connect(timeout=10.0)
-            
-            if self.client.is_connected:
-                print("✓ Successfully connected at BLE layer — running pair handshake")
-                # Verify the service exists before running the handshake
-                try:
-                    uart_found = False
-                    for service in self.client.services:
-                        if service.uuid.lower() == UART_SERVICE_UUID.lower():
-                            uart_found = True
-                            print(f"✓ Verified Nordic UART Service is available")
-                            break
-                    if not uart_found:
-                        print("⚠ Warning: Connected but Nordic UART Service not found!")
-                        print("  This might not be the correct device.")
-                except Exception as e:
-                    print(f"⚠ Warning: Could not verify services: {e}")
-                # Strict multiplayer pairing: only mark connected after PAIR_OK
-                if not await self._do_pair_handshake():
-                    print("✗ Pair handshake failed — disconnecting", flush=True)
-                    self.connected = False
-                    try:
-                        # Bleak's disconnected_callback (_on_pico_disconnect)
-                        # schedules _reconnect for us, so we deliberately do
-                        # NOT create another _reconnect task here. Otherwise
-                        # two BlueZ scans race and the second one fails with
-                        # "Operation already in progress".
-                        await self.client.disconnect()
-                    except Exception:
-                        pass
-                    ble_connection_status = "disconnected"
-                    draw_connection_indicator()
-                    disp.LCD_ShowImage(image, 0, 0)
-                    post_to_server("/api/status", _status_payload("disconnected"))
-                    return False
-                self.connected = True
-                ble_connection_status = "connected"
-                draw_connection_indicator()
-                disp.LCD_ShowImage(image,0,0)
-                print("[BLE] connected — queueing POST /api/status", flush=True)
-                post_to_server("/api/status", _status_payload("connected"))
-                # Set up persistent TX notification handler so the Pico can
-                # push async messages (e.g. NFC card IDs) to the Zero.
-                try:
-                    await self.client.start_notify(UART_TX_CHAR_UUID, _on_pico_tx_notify)
-                    print("[BLE] TX notifications enabled — Pico→Zero channel active", flush=True)
-                except Exception as _ne:
-                    print(f"[BLE] warning: could not enable TX notifications: {_ne}", flush=True)
-                # Cancel any previous heartbeat and start a fresh one
-                global _heartbeat_task, _last_status_liveness_post
-                if _heartbeat_task and not _heartbeat_task.done():
-                    _heartbeat_task.cancel()
-                _last_status_liveness_post = time.monotonic()
-                _heartbeat_task = asyncio.create_task(_heartbeat_loop())
+            devices = []
+        print(
+            f"[BLE] General scan returned {len(devices)} device(s) in "
+            f"{time.monotonic()-_t1:.1f}s",
+            flush=True,
+        )
+        print("Found BLE devices:")
+        print("-" * 50)
+        for i, device in enumerate(devices, 1):
+            print(f"{i:2d}. {(device.name or '(No Name)'):<20} | {device.address}")
+        print("-" * 50)
+        self._collect_roster_matches(devices, still_needed, found)
+        return found
+
+    async def scan_and_connect_roster(self, timeout=10):
+        """Scan once, then connect unmatched roster badges one at a time.
+
+        Returns True if at least one roster badge is connected when finished.
+        Overlapping callers wait on a single BlueZ scan lock.
+        """
+        lock = self._ensure_scan_lock()
+        async with lock:
+            unmatched = self.unmatched_names()
+            if not unmatched:
+                print("[BLE] roster complete — skip scan", flush=True)
                 return True
-            else:
-                print("✗ Failed to connect (not connected after connect() call)")
-                ble_connection_status = "disconnected"
-                draw_connection_indicator()
-                disp.LCD_ShowImage(image,0,0)
+
+            print("[BLE] scanning unmatched roster — " + ", ".join(unmatched), flush=True)
+            _refresh_ble_status("scanning", post=not self.is_any_connected())
+
+            found = await self._discover_roster(unmatched, timeout)
+            if not found:
+                print(
+                    f"\n✗ No roster Pico found. Looking for: {unmatched}",
+                    flush=True,
+                )
+                print("Troubleshooting tips:", flush=True)
+                print(
+                    "1. Each badge needs emoji-os-pico.py with PAIR_NAME in BADGE_NAMES",
+                    flush=True,
+                )
+                print("2. Check the Pico console prints 'Starting advertising...'", flush=True)
+                print(
+                    f"3. Advertised names must be exactly {TARGET_DEVICE_NAMES}",
+                    flush=True,
+                )
+                print("4. Try moving devices closer together", flush=True)
+                _refresh_ble_status(post=not self.is_any_connected())
+                self._log_roster()
                 return False
-                
+
+            for name in unmatched:
+                device = found.get(name)
+                if device is None:
+                    print(f"[BLE] '{name}' not seen this scan — will retry", flush=True)
+                    continue
+                await self._connect_named(name, device.address)
+
+            self._log_roster()
+            _refresh_ble_status(post=False)
+            return self.is_any_connected()
+
+    async def _connect_named(self, badge_name, address):
+        """Connect + PAIR:<badge_name> for one roster slot. Serial callers only."""
+        link = self.links[badge_name]
+        if link.is_up():
+            return True
+
+        print(f"[BLE] connecting badgeName='{badge_name}' at {address}...", flush=True)
+        _refresh_ble_status("connecting", post=not self.is_any_connected())
+        link.address = address
+        link.intentional_disconnect = False
+        try:
+            link.client = BleakClient(
+                address,
+                disconnected_callback=lambda client, n=badge_name: _on_pico_disconnect(client, n),
+            )
+            await link.client.connect(timeout=10.0)
+            if not link.client.is_connected:
+                print(f"✗ '{badge_name}' failed to connect (not connected after connect())", flush=True)
+                link.client = None
+                _refresh_ble_status()
+                return False
+
+            print(f"✓ '{badge_name}' connected at BLE layer — running pair handshake", flush=True)
+            try:
+                uart_found = False
+                for service in link.client.services:
+                    if service.uuid.lower() == UART_SERVICE_UUID.lower():
+                        uart_found = True
+                        print(f"✓ '{badge_name}' Nordic UART Service is available", flush=True)
+                        break
+                if not uart_found:
+                    print(f"⚠ '{badge_name}' connected but Nordic UART Service not found", flush=True)
+            except Exception as e:
+                print(f"⚠ '{badge_name}' could not verify services: {e}", flush=True)
+
+            if not await self._do_pair_handshake(link):
+                print(f"✗ Pair handshake failed for '{badge_name}' — disconnecting", flush=True)
+                link.intentional_disconnect = True
+                link.connected = False
+                try:
+                    await link.client.disconnect()
+                except Exception:
+                    pass
+                link.client = None
+                _refresh_ble_status()
+                return False
+
+            link.connected = True
+            _sync_primary_pico_version()
+            _refresh_ble_status()
+            print(
+                f"[BLE] connected badgeName='{badge_name}' picoVersion='{link.pico_version}' "
+                f"— queueing POST /api/status",
+                flush=True,
+            )
+            post_to_server("/api/status", _status_payload("connected"))
+            try:
+                await link.client.start_notify(
+                    UART_TX_CHAR_UUID,
+                    lambda sender, data, n=badge_name: _on_pico_tx_notify(sender, data, n),
+                )
+                print(f"[BLE] TX notifications enabled for '{badge_name}'", flush=True)
+            except Exception as _ne:
+                print(
+                    f"[BLE] warning: could not enable TX notifications for '{badge_name}': {_ne}",
+                    flush=True,
+                )
+            return True
+
         except asyncio.TimeoutError:
-            print(f"✗ Connection timeout - device may not be in range or not advertising")
-            ble_connection_status = "disconnected"
-            draw_connection_indicator()
-            disp.LCD_ShowImage(image,0,0)
+            print(f"✗ '{badge_name}' connection timeout — may be out of range", flush=True)
+            link.client = None
+            _refresh_ble_status()
             return False
         except Exception as e:
             error_msg = str(e)
-            print(f"✗ Connection error: {error_msg}")
+            print(f"✗ '{badge_name}' connection error: {error_msg}", flush=True)
             if "not found" in error_msg.lower() or "not available" in error_msg.lower():
-                print("  → Device may not be advertising or is out of range")
+                print("  → Device may not be advertising or is out of range", flush=True)
             elif "timeout" in error_msg.lower():
-                print("  → Connection timed out - device may be busy or not responding")
-            ble_connection_status = "disconnected"
-            draw_connection_indicator()
-            disp.LCD_ShowImage(image,0,0)
+                print("  → Connection timed out — device may be busy", flush=True)
+            link.client = None
+            _refresh_ble_status()
             return False
-    
-    async def _do_pair_handshake(self):
-        """Send 'PAIR:<PAIR_NAME>' and wait for 'PAIR_OK' over TX notify.
 
-        Returns True on PAIR_OK, False on PAIR_FAIL / timeout / error. The
-        connection is left open on success and closed by the caller on failure.
-        """
-        self._pair_response = None
-        self._pair_event = asyncio.Event()
+    async def _do_pair_handshake(self, link):
+        """Send PAIR:<badgeName> and wait for PAIR_OK on that link."""
+        link._pair_response = None
+        link._pair_event = asyncio.Event()
 
         def _on_notify(_sender: BleakGATTCharacteristic, data: bytearray):
             try:
                 text = bytes(data).decode("utf-8", "ignore").strip()
             except Exception:
                 text = ""
-            print(f"[PAIR] notify from Pico: {text!r}", flush=True)
-            self._pair_response = text
-            if self._pair_event:
-                self._pair_event.set()
+            print(
+                f"[PAIR] notify from '{link.badge_name}': {text!r}",
+                flush=True,
+            )
+            link._pair_response = text
+            if link._pair_event:
+                link._pair_event.set()
 
         try:
-            await self.client.start_notify(UART_TX_CHAR_UUID, _on_notify)
+            await link.client.start_notify(UART_TX_CHAR_UUID, _on_notify)
         except Exception as e:
-            print(f"[PAIR] start_notify failed: {e}", flush=True)
+            print(f"[PAIR] '{link.badge_name}' start_notify failed: {e}", flush=True)
             return False
 
-        pair_msg = f"PAIR:{PAIR_NAME}".encode("utf-8")
+        pair_msg = f"PAIR:{link.badge_name}".encode("utf-8")
         try:
-            await self.client.write_gatt_char(UART_RX_CHAR_UUID, pair_msg)
-            print(f"[PAIR] sent {pair_msg!r}", flush=True)
+            await link.client.write_gatt_char(UART_RX_CHAR_UUID, pair_msg)
+            print(f"[PAIR] sent {pair_msg!r} to '{link.badge_name}'", flush=True)
         except Exception as e:
-            print(f"[PAIR] write failed: {e}", flush=True)
+            print(f"[PAIR] '{link.badge_name}' write failed: {e}", flush=True)
             try:
-                await self.client.stop_notify(UART_TX_CHAR_UUID)
+                await link.client.stop_notify(UART_TX_CHAR_UUID)
             except Exception:
                 pass
             return False
 
         try:
-            await asyncio.wait_for(self._pair_event.wait(), timeout=PAIR_HANDSHAKE_TIMEOUT_S)
+            await asyncio.wait_for(link._pair_event.wait(), timeout=PAIR_HANDSHAKE_TIMEOUT_S)
         except asyncio.TimeoutError:
-            print(f"[PAIR] handshake timed out after {PAIR_HANDSHAKE_TIMEOUT_S}s", flush=True)
+            print(
+                f"[PAIR] '{link.badge_name}' handshake timed out after "
+                f"{PAIR_HANDSHAKE_TIMEOUT_S}s",
+                flush=True,
+            )
             try:
-                await self.client.stop_notify(UART_TX_CHAR_UUID)
+                await link.client.stop_notify(UART_TX_CHAR_UUID)
             except Exception:
                 pass
             return False
 
         try:
-            await self.client.stop_notify(UART_TX_CHAR_UUID)
+            await link.client.stop_notify(UART_TX_CHAR_UUID)
         except Exception:
             pass
 
-        resp = self._pair_response or ""
+        resp = link._pair_response or ""
         if resp == "PAIR_OK" or resp.startswith("PAIR_OK:"):
-            global _pico_version
             if ":" in resp:
-                _pico_version = resp.split(":", 1)[1].strip() or "unknown"
+                link.pico_version = resp.split(":", 1)[1].strip() or "unknown"
             else:
-                # Bare PAIR_OK — pre-v0.3.2 firmware; version unknown.
-                _pico_version = "unknown"
-            print(f"[PAIR] OK — paired with PAIR_NAME='{PAIR_NAME}' picoVersion='{_pico_version}'", flush=True)
+                link.pico_version = "unknown"
+            print(
+                f"[PAIR] OK — paired badgeName='{link.badge_name}' "
+                f"picoVersion='{link.pico_version}'",
+                flush=True,
+            )
             return True
-        print(f"[PAIR] handshake rejected by Pico: {self._pair_response!r}", flush=True)
+        print(
+            f"[PAIR] '{link.badge_name}' handshake rejected: {link._pair_response!r}",
+            flush=True,
+        )
         return False
 
     async def send_emoji_command(self, menu, pos, neg):
-        """Send emoji selection command to the connected Pico"""
-        if not self.client or not self.client.is_connected:
+        """Send emoji selection to the primary connected Pico (fan-out is Milestone 2)."""
+        link = self.primary_link()
+        if not link or not link.is_up():
             print("Not connected to any device — skipping BLE write and /api/emoji", flush=True)
             return False
 
         command = f"{menu}:{pos}:{neg}"
         try:
-            await self.client.write_gatt_char(UART_RX_CHAR_UUID, command.encode("utf-8"))
-            print(f"✓ Sent emoji command: '{command}'", flush=True)
+            await link.client.write_gatt_char(UART_RX_CHAR_UUID, command.encode("utf-8"))
+            print(
+                f"✓ Sent emoji command '{command}' to '{link.badge_name}'",
+                flush=True,
+            )
             print("[BLE] queueing POST /api/emoji", flush=True)
             post_to_server("/api/emoji", _emoji_payload(menu, pos, neg))
             return True
-
         except Exception as e:
-            print(f"✗ Send failed for '{command}': {e} — marking as disconnected", flush=True)
-            self.connected = False
-            global ble_connection_status
-            ble_connection_status = "disconnected"
-            draw_connection_indicator()
-            disp.LCD_ShowImage(image, 0, 0)
-            post_to_server("/api/status", _status_payload("disconnected"))
+            print(
+                f"✗ Send failed for '{command}' on '{link.badge_name}': {e}",
+                flush=True,
+            )
+            link.connected = False
+            _refresh_ble_status()
+            if not self.is_any_connected():
+                post_to_server("/api/status", _status_payload("disconnected"))
             if ble_event_loop and ble_event_loop.is_running():
                 asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
             return False
-    
+
     async def disconnect(self):
-        """Disconnect from the device"""
-        global ble_connection_status, _heartbeat_task
+        """Disconnect every roster link (shutdown)."""
+        global _heartbeat_task
         if _heartbeat_task and not _heartbeat_task.done():
             _heartbeat_task.cancel()
             _heartbeat_task = None
-        if self.client and self.client.is_connected:
-            await self.client.disconnect()
-            print("Disconnected from Pico")
-            self.connected = False
-            ble_connection_status = "disconnected"
-            draw_connection_indicator()
-            disp.LCD_ShowImage(image,0,0)
-            post_to_server("/api/status", _status_payload("disconnected"))
+        for name, link in self.links.items():
+            if not link.client:
+                continue
+            link.intentional_disconnect = True
+            link.connected = False
+            if link.client.is_connected:
+                try:
+                    await link.client.disconnect()
+                    print(f"Disconnected '{name}'", flush=True)
+                except Exception:
+                    pass
+            link.client = None
+        _refresh_ble_status()
+        post_to_server("/api/status", _status_payload("disconnected"))
 
 # Global BLE controller instance
 ble_controller = BLEController()
@@ -895,8 +918,39 @@ ble_event_loop = None
 # Connection status state: "idle", "connecting", "connected", "disconnected"
 ble_connection_status = "idle"
 
-# Heartbeat asyncio task — cancelled and replaced on each reconnect
+# Heartbeat asyncio task — started once on the BLE loop
 _heartbeat_task = None
+
+
+def _sync_primary_pico_version():
+    """Keep the station-level _pico_version aligned with the primary badge."""
+    global _pico_version
+    link = ble_controller.primary_link()
+    if link and link.is_up():
+        _pico_version = link.pico_version
+
+
+def _refresh_ble_status(phase=None, *, post=False):
+    """Set the LCD BLE indicator from roster state.
+
+    If any badge is connected the indicator stays connected, even while a
+    background scan fills empty slots. ``phase`` is used only when nothing
+    is connected yet (scanning / connecting).
+    """
+    global ble_connection_status
+    if ble_controller.is_any_connected():
+        new_status = "connected"
+    elif phase in ("scanning", "connecting"):
+        new_status = phase
+    else:
+        new_status = "disconnected"
+    if ble_connection_status == new_status:
+        return
+    ble_connection_status = new_status
+    draw_connection_indicator()
+    disp.LCD_ShowImage(image, 0, 0)
+    if post:
+        post_to_server("/api/status", _status_payload(new_status))
 
 
 def _utc_iso_timestamp():
@@ -1113,15 +1167,26 @@ def load_nfc_card_map():
         print("[NFC] server returned no usable cards; using built-in map", flush=True)
 
 
-def _on_pico_disconnect(client: BleakClient):
-    """Bleak calls this (sync) when the BLE connection is lost unexpectedly."""
-    global ble_connection_status
-    print("⚠ Pico disconnected unexpectedly")
-    ble_controller.connected = False
-    ble_connection_status = "disconnected"
-    draw_connection_indicator()
-    disp.LCD_ShowImage(image, 0, 0)
-    post_to_server("/api/status", _status_payload("disconnected"))
+def _on_pico_disconnect(client: BleakClient, badge_name=None):
+    """Bleak calls this (sync) when one roster BLE link is lost."""
+    name = badge_name or "?"
+    link = ble_controller.links.get(badge_name) if badge_name else None
+    if link and link.intentional_disconnect:
+        link.intentional_disconnect = False
+        link.connected = False
+        print(f"[BLE] '{name}' disconnected (intentional)", flush=True)
+        _sync_primary_pico_version()
+        _refresh_ble_status()
+        return
+    print(f"⚠ Pico '{name}' disconnected unexpectedly", flush=True)
+    if link:
+        link.connected = False
+    _sync_primary_pico_version()
+    still_up = ble_controller.is_any_connected()
+    _refresh_ble_status()
+    if not still_up:
+        post_to_server("/api/status", _status_payload("disconnected"))
+    ble_controller._log_roster()
     if ble_event_loop and ble_event_loop.is_running():
         asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
 
@@ -1236,7 +1301,7 @@ def _relay_nfc_tag(card_uid: str):
     threading.Thread(target=_post_guess_and_apply, daemon=True).start()
 
 
-def _on_pico_tx_notify(_sender: BleakGATTCharacteristic, data: bytearray):
+def _on_pico_tx_notify(_sender: BleakGATTCharacteristic, data: bytearray, badge_name=None):
     """Persistent TX notification handler — receives async messages from the Pico.
 
     Handles two prefixes:
@@ -1247,7 +1312,8 @@ def _on_pico_tx_notify(_sender: BleakGATTCharacteristic, data: bytearray):
     """
     try:
         text = bytes(data).decode("utf-8", "ignore").strip()
-        print(f"[PICO→ZERO] {text!r}", flush=True)
+        src = f" badge={badge_name}" if badge_name else ""
+        print(f"[PICO→ZERO]{src} {text!r}", flush=True)
         if text.startswith("TAG:"):
             card_uid = text[4:]
             _relay_nfc_tag(card_uid)
@@ -1317,10 +1383,22 @@ def _handle_nfc_card(card_id: str):
 
 
 async def _reconnect():
-    """Scan and reconnect after an unexpected BLE drop."""
-    await asyncio.sleep(2)  # brief back-off before scanning
-    if await ble_controller.scan_for_device(timeout=10):
-        await ble_controller.connect_to_device()
+    """Fill unmatched roster slots after a drop or a missed first scan."""
+    await asyncio.sleep(2)
+    await ble_controller.scan_and_connect_roster(timeout=10)
+
+
+async def _roster_maintain_loop():
+    """Periodically rescan empty roster slots without overlapping BlueZ scans."""
+    while True:
+        unmatched = ble_controller.unmatched_names()
+        await asyncio.sleep(_ROSTER_RETRY_S if unmatched else _ROSTER_IDLE_S)
+        if ble_controller.unmatched_names():
+            print(
+                f"[BLE] roster maintain — unmatched={ble_controller.unmatched_names()}",
+                flush=True,
+            )
+            await ble_controller.scan_and_connect_roster(timeout=10)
 
 
 # === WebSocket client ===
@@ -1848,13 +1926,16 @@ async def _heartbeat_loop(interval_s: float = 5.0):
     global _last_status_liveness_post, _last_ws_fallback_poll
     while True:
         await asyncio.sleep(interval_s)
-        if ble_controller.client and ble_controller.client.is_connected:
+        for name, link in ble_controller.links.items():
+            if not link.is_up():
+                continue
             try:
-                await ble_controller.client.write_gatt_char(UART_RX_CHAR_UUID, b"STATUS")
+                await link.client.write_gatt_char(UART_RX_CHAR_UUID, b"STATUS")
             except Exception:
                 # The disconnected_callback will handle the clean-up;
                 # swallow the exception here to keep the loop alive.
-                pass
+                print(f"[BLE] heartbeat write failed for '{name}'", flush=True)
+        if ble_controller.is_any_connected():
             nowm = time.monotonic()
             if nowm - _last_status_liveness_post >= STATUS_LIVENESS_POST_S:
                 _last_status_liveness_post = nowm
@@ -2711,7 +2792,7 @@ draw_display()
 print("Emoji OS Zero " + VERSION + " started with BLE Controller functionality")
 print(
     f"[PAIR] strict pairing enabled — PAIR_NAME='{PAIR_NAME}', "
-    f"BADGE_NAMES={BADGE_NAMES}, target='{TARGET_DEVICE_NAME}'"
+    f"BADGE_NAMES={BADGE_NAMES}, targets={TARGET_DEVICE_NAMES}"
 )
 print("Joystick: Navigate menus")
 print("KEY1: Select positive; in game lobby press to join")
@@ -2747,12 +2828,11 @@ def init_ble_connection():
             load_nfc_card_map()
 
             async def _initial_connect():
-                if await ble_controller.scan_for_device(timeout=5):
-                    await ble_controller.connect_to_device()
-                else:
-                    # No matching badge yet; keep trying so a late-booting Pico
-                    # is still picked up automatically.
-                    asyncio.create_task(_reconnect())
+                global _heartbeat_task
+                await ble_controller.scan_and_connect_roster(timeout=5)
+                if _heartbeat_task is None or _heartbeat_task.done():
+                    _heartbeat_task = asyncio.create_task(_heartbeat_loop())
+                asyncio.create_task(_roster_maintain_loop())
 
             ble_event_loop.run_until_complete(_initial_connect())
 
