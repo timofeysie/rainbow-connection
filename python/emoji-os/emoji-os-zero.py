@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.14"
+VERSION = " v0.7.15"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version from the primary roster link's PAIR_OK:<version> reply.
@@ -667,7 +667,7 @@ class BLEController:
                 return True
 
             print("[BLE] scanning unmatched roster — " + ", ".join(unmatched), flush=True)
-            _refresh_ble_status("scanning", post=not self.is_any_connected())
+            _refresh_ble_status("scanning")
 
             found = await self._discover_roster(unmatched, timeout)
             if not found:
@@ -686,7 +686,7 @@ class BLEController:
                     flush=True,
                 )
                 print("4. Try moving devices closer together", flush=True)
-                _refresh_ble_status(post=not self.is_any_connected())
+                _refresh_ble_status()
                 self._log_roster()
                 return False
 
@@ -698,7 +698,7 @@ class BLEController:
                 await self._connect_named(name, device.address)
 
             self._log_roster()
-            _refresh_ble_status(post=False)
+            _refresh_ble_status()
             return self.is_any_connected()
 
     async def _connect_named(self, badge_name, address):
@@ -708,7 +708,8 @@ class BLEController:
             return True
 
         print(f"[BLE] connecting badgeName='{badge_name}' at {address}...", flush=True)
-        _refresh_ble_status("connecting", post=not self.is_any_connected())
+        _refresh_ble_status("connecting")
+        _post_slot_status(badge_name, "connecting")
         link.address = address
         link.intentional_disconnect = False
         try:
@@ -721,6 +722,7 @@ class BLEController:
                 print(f"✗ '{badge_name}' failed to connect (not connected after connect())", flush=True)
                 link.client = None
                 _refresh_ble_status()
+                _post_slot_status(badge_name, "disconnected")
                 return False
 
             print(f"✓ '{badge_name}' connected at BLE layer — running pair handshake", flush=True)
@@ -746,6 +748,7 @@ class BLEController:
                     pass
                 link.client = None
                 _refresh_ble_status()
+                _post_slot_status(badge_name, "disconnected")
                 return False
 
             link.connected = True
@@ -756,7 +759,7 @@ class BLEController:
                 f"— queueing POST /api/status",
                 flush=True,
             )
-            post_to_server("/api/status", _status_payload("connected"))
+            _post_slot_status(badge_name, "connected")
             try:
                 await link.client.start_notify(
                     UART_TX_CHAR_UUID,
@@ -775,6 +778,7 @@ class BLEController:
             print(f"✗ '{badge_name}' connection timeout — may be out of range", flush=True)
             link.client = None
             _refresh_ble_status()
+            _post_slot_status(badge_name, "disconnected")
             return False
         except Exception as e:
             error_msg = str(e)
@@ -785,6 +789,7 @@ class BLEController:
                 print("  → Connection timed out — device may be busy", flush=True)
             link.client = None
             _refresh_ble_status()
+            _post_slot_status(badge_name, "disconnected")
             return False
 
     async def _do_pair_handshake(self, link):
@@ -865,8 +870,7 @@ class BLEController:
         print(f"✗ '{link.badge_name}' write failed: {reason}", flush=True)
         link.connected = False
         _refresh_ble_status()
-        if not self.is_any_connected():
-            post_to_server("/api/status", _status_payload("disconnected"))
+        _post_slot_status(link.badge_name, "disconnected")
         if ble_event_loop and ble_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
 
@@ -940,7 +944,7 @@ class BLEController:
                     pass
             link.client = None
         _refresh_ble_status()
-        post_to_server("/api/status", _status_payload("disconnected"))
+        _post_roster_status("disconnected")
 
 # Global BLE controller instance
 ble_controller = BLEController()
@@ -962,12 +966,13 @@ def _sync_primary_pico_version():
         _pico_version = link.pico_version
 
 
-def _refresh_ble_status(phase=None, *, post=False):
+def _refresh_ble_status(phase=None):
     """Set the LCD BLE indicator from roster state.
 
     If any badge is connected the indicator stays connected, even while a
     background scan fills empty slots. ``phase`` is used only when nothing
-    is connected yet (scanning / connecting).
+    is connected yet (scanning / connecting). Per-slot HTTP status is
+    posted separately via ``_post_slot_status`` / ``_post_roster_status``.
     """
     global ble_connection_status
     if ble_controller.is_any_connected():
@@ -981,13 +986,18 @@ def _refresh_ble_status(phase=None, *, post=False):
     ble_connection_status = new_status
     draw_connection_indicator()
     disp.LCD_ShowImage(image, 0, 0)
-    if post:
-        post_to_server("/api/status", _status_payload(new_status))
 
 
 def _utc_iso_timestamp():
     # Hint for APIs only — Pi RTC/NTP may be wrong; emoji-app should use server time.
     return datetime.now(timezone.utc).isoformat()
+
+
+def _canonical_slot_name(badge_name=None):
+    """Return a roster slot name, defaulting to the first BADGE_NAMES entry."""
+    if isinstance(badge_name, str) and badge_name in ble_controller.links:
+        return badge_name
+    return BADGE_NAMES[0] if BADGE_NAMES else PAIR_NAME
 
 
 def _resolve_badge_id():
@@ -997,6 +1007,25 @@ def _resolve_badge_id():
     if addr:
         slug = addr.lower().replace(":", "-")
         return f"badge-{slug}"
+    return "unknown"
+
+
+def _resolve_slot_badge_id(badge_name):
+    """MAC-derived badgeId for a slot; ``unknown`` until that Pico has connected."""
+    if BADGE_ID and BADGE_ID.strip() and len(BADGE_NAMES) <= 1:
+        return BADGE_ID.strip()
+    link = ble_controller.links.get(badge_name)
+    addr = link.address if link else None
+    if addr:
+        slug = addr.lower().replace(":", "-")
+        return f"badge-{slug}"
+    return "unknown"
+
+
+def _slot_pico_version(badge_name):
+    link = ble_controller.links.get(badge_name)
+    if link:
+        return link.pico_version
     return "unknown"
 
 
@@ -1065,20 +1094,47 @@ def _emoji_label(menu, pos, neg):
     return f"m{menu}-{pos}-{neg}"
 
 
-def _status_payload(ble_status: str):
+def _status_payload(ble_status: str, badge_name=None):
     # API: startup | scanning | connecting | connected | disconnected (see server statusBodySchema).
+    # pairName is the station id. badgeName is this roster slot. badgeNames is
+    # the full roster on every post so the server can create empty slots.
+    name = _canonical_slot_name(badge_name)
     payload: dict = {
         "controllerId": CONTROLLER_ID,
-        "badgeId": _resolve_badge_id(),
+        "badgeId": _resolve_slot_badge_id(name),
         "bleStatus": ble_status,
         "timestamp": _utc_iso_timestamp(),
         "pairName": PAIR_NAME,
+        "badgeName": name,
+        "badgeNames": list(BADGE_NAMES),
         "controllerVersion": _CONTROLLER_VERSION,
-        "picoVersion": _pico_version,
+        "picoVersion": _slot_pico_version(name),
     }
     if _battery_percent is not None:
         payload["batteryLevel"] = _battery_percent
     return payload
+
+
+def _post_slot_status(badge_name, ble_status):
+    """POST /api/status for one roster slot (connect / drop / liveness)."""
+    name = _canonical_slot_name(badge_name)
+    print(
+        f"[STATUS] badgeName='{name}' bleStatus={ble_status} "
+        f"badgeId={_resolve_slot_badge_id(name)} "
+        f"picoVersion={_slot_pico_version(name)}",
+        flush=True,
+    )
+    post_to_server("/api/status", _status_payload(ble_status, badge_name=name))
+
+
+def _post_roster_status(ble_status):
+    """POST one status identity per configured badge name (boot / shutdown)."""
+    print(
+        f"[STATUS] roster POST bleStatus={ble_status} names={list(BADGE_NAMES)}",
+        flush=True,
+    )
+    for name in BADGE_NAMES:
+        _post_slot_status(name, ble_status)
 
 
 def _emoji_payload(menu, pos, neg):
@@ -1091,6 +1147,7 @@ def _emoji_payload(menu, pos, neg):
         "label": _emoji_label(menu, pos, neg),
         "timestamp": _utc_iso_timestamp(),
         "pairName": PAIR_NAME,
+        "badgeName": PAIR_NAME,
     }
 
 
@@ -1117,12 +1174,17 @@ def post_to_server(path: str, payload: dict):
     def _post():
         cid = payload.get("controllerId", "?")
         bid = payload.get("badgeId", "?")
+        slot = payload.get("badgeName", "")
         url = f"{SERVER_URL}{path}"
         try:
             kw = {"json": payload, "timeout": 3}
             if API_HEADERS:
                 kw["headers"] = API_HEADERS
-            print(f"[API] POST {path} controller={cid} badge={bid}", flush=True)
+            slot_bit = f" badgeName={slot}" if slot else ""
+            print(
+                f"[API] POST {path} controller={cid} badge={bid}{slot_bit}",
+                flush=True,
+            )
             r = requests.post(url, **kw)
             snippet = (r.text or "").replace("\n", " ").strip()
             if len(snippet) > 100:
@@ -1214,10 +1276,9 @@ def _on_pico_disconnect(client: BleakClient, badge_name=None):
     if link:
         link.connected = False
     _sync_primary_pico_version()
-    still_up = ble_controller.is_any_connected()
     _refresh_ble_status()
-    if not still_up:
-        post_to_server("/api/status", _status_payload("disconnected"))
+    if badge_name:
+        _post_slot_status(badge_name, "disconnected")
     ble_controller._log_roster()
     if ble_event_loop and ble_event_loop.is_running():
         asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
@@ -1471,7 +1532,12 @@ def _current_game_cmd():
 
 
 async def _sync_badge_game_state(badge_name):
-    """Push the current GAME:* command to one newly connected badge."""
+    """Push the current GAME:* command to one newly connected badge.
+
+    Buttonless badges do not POST join. After the Zero joins once, a later
+    roster connect receives the same command the rest of the station already
+    has (GAME:lobby_joined, GAME:question_open, …).
+    """
     cmd = _current_game_cmd()
     if not cmd:
         print(f"[BLE] '{badge_name}' late-join: no GAME:* to sync", flush=True)
@@ -1483,6 +1549,9 @@ async def _sync_badge_game_state(badge_name):
 async def _ble_write_game_cmd(cmd: str, *, force: bool = False, badge_name=None):
     """Write a GAME:* command to every connected Pico, or one badge.
 
+    Game follow (Milestone 3): ``game.opened`` → GAME:lobby; KEY1 join →
+    GAME:lobby_joined; question / result / end events → matching GAME:*.
+    A late-connecting badge is synced by ``_sync_badge_game_state``.
     Always forwarded while connected. The badge must receive ``GAME:question_open``
     to arm NFC even if the Zero LCD has left game mode to browse emojis.
     ``force`` is kept for call-site compatibility (ignored).
@@ -1903,6 +1972,7 @@ async def _ws_connect_loop():
                     "controllerId":      CONTROLLER_ID,
                     "controllerVersion": _CONTROLLER_VERSION,
                     "picoVersion":       _pico_version,
+                    "badgeNames":        list(BADGE_NAMES),
                     "token":             None,
                 }
                 await ws.send(json.dumps(hello))
@@ -1982,12 +2052,18 @@ async def _heartbeat_loop(interval_s: float = 5.0):
                 # The disconnected_callback will handle the clean-up;
                 # swallow the exception here to keep the loop alive.
                 print(f"[BLE] heartbeat write failed for '{name}'", flush=True)
-        if ble_controller.is_any_connected():
+        connected = ble_controller.connected_names()
+        if connected:
             nowm = time.monotonic()
             if nowm - _last_status_liveness_post >= STATUS_LIVENESS_POST_S:
                 _last_status_liveness_post = nowm
-                print("[BLE] liveness — queueing POST /api/status connected", flush=True)
-                post_to_server("/api/status", _status_payload("connected"))
+                print(
+                    f"[BLE] liveness — queueing POST /api/status connected "
+                    f"for {connected}",
+                    flush=True,
+                )
+                for name in connected:
+                    _post_slot_status(name, "connected")
         # HTTP fallback: poll pair binding when WS is not connected.
         if not _ws_connected:
             nowm = time.monotonic()
@@ -2866,8 +2942,8 @@ def init_ble_connection():
             # Start WebSocket client alongside BLE — both share this event loop.
             ble_event_loop.create_task(_ws_connect_loop())
 
-            print("[BLE] startup — queueing POST /api/status", flush=True)
-            post_to_server("/api/status", _status_payload("startup"))
+            print("[BLE] startup — queueing per-slot POST /api/status", flush=True)
+            _post_roster_status("scanning")
 
             # Load the NFC card mapping from the server (falls back to the
             # built-in map if unreachable). Done here on the BLE thread so the
