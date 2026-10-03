@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.13"
+VERSION = " v0.7.14"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version from the primary roster link's PAIR_OK:<version> reply.
@@ -768,6 +768,7 @@ class BLEController:
                     f"[BLE] warning: could not enable TX notifications for '{badge_name}': {_ne}",
                     flush=True,
                 )
+            await _sync_badge_game_state(badge_name)
             return True
 
         except asyncio.TimeoutError:
@@ -859,35 +860,66 @@ class BLEController:
         )
         return False
 
-    async def send_emoji_command(self, menu, pos, neg):
-        """Send emoji selection to the primary connected Pico (fan-out is Milestone 2)."""
-        link = self.primary_link()
+    def _mark_link_down(self, link, reason):
+        """Mark one roster slot down without touching the others."""
+        print(f"✗ '{link.badge_name}' write failed: {reason}", flush=True)
+        link.connected = False
+        _refresh_ble_status()
+        if not self.is_any_connected():
+            post_to_server("/api/status", _status_payload("disconnected"))
+        if ble_event_loop and ble_event_loop.is_running():
+            asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
+
+    async def write_link(self, link, data, *, label=""):
+        """Write to one link. A failure drops only that slot. Returns True on success."""
         if not link or not link.is_up():
-            print("Not connected to any device — skipping BLE write and /api/emoji", flush=True)
+            return False
+        try:
+            await link.client.write_gatt_char(UART_RX_CHAR_UUID, data)
+            return True
+        except Exception as exc:
+            self._mark_link_down(link, f"{label or data!r}: {exc}")
             return False
 
+    async def write_roster(self, data, *, label="", badge_name=None):
+        """Write to every connected badge, or only ``badge_name`` if given.
+
+        Returns the number of successful writes. One failed badge does not
+        abort the rest of the roster.
+        """
+        if badge_name:
+            targets = []
+            link = self.links.get(badge_name)
+            if link:
+                targets.append(link)
+            elif badge_name:
+                print(f"[BLE] skip write {label!r} — unknown badgeName='{badge_name}'", flush=True)
+        else:
+            targets = [self.links[name] for name in BADGE_NAMES]
+
+        ok = 0
+        skipped = 0
+        for link in targets:
+            if not link.is_up():
+                skipped += 1
+                print(f"[BLE] skip '{link.badge_name}' for {label!r} (not connected)", flush=True)
+                continue
+            if await self.write_link(link, data, label=label):
+                print(f"✓ Wrote {label!r} to '{link.badge_name}'", flush=True)
+                ok += 1
+        if ok == 0 and skipped == len(targets):
+            print(f"Not connected to any device — skipping {label!r}", flush=True)
+        return ok
+
+    async def send_emoji_command(self, menu, pos, neg):
+        """Fan-out emoji selection to every connected Pico. One station API post."""
         command = f"{menu}:{pos}:{neg}"
-        try:
-            await link.client.write_gatt_char(UART_RX_CHAR_UUID, command.encode("utf-8"))
-            print(
-                f"✓ Sent emoji command '{command}' to '{link.badge_name}'",
-                flush=True,
-            )
+        n = await self.write_roster(command.encode("utf-8"), label=command)
+        if n:
             print("[BLE] queueing POST /api/emoji", flush=True)
             post_to_server("/api/emoji", _emoji_payload(menu, pos, neg))
             return True
-        except Exception as e:
-            print(
-                f"✗ Send failed for '{command}' on '{link.badge_name}': {e}",
-                flush=True,
-            )
-            link.connected = False
-            _refresh_ble_status()
-            if not self.is_any_connected():
-                post_to_server("/api/status", _status_payload("disconnected"))
-            if ble_event_loop and ble_event_loop.is_running():
-                asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
-            return False
+        return False
 
     async def disconnect(self):
         """Disconnect every roster link (shutdown)."""
@@ -1201,7 +1233,7 @@ def _schedule_pair_answer(is_correct: bool, detail: str):
     )
 
 
-def _relay_nfc_tag(card_uid: str):
+def _relay_nfc_tag(card_uid: str, badge_name=None):
     """Relay a TAG:<cardUid> notification from the Pico as POST /api/guesses.
 
     Card → slot map (demo):
@@ -1209,10 +1241,12 @@ def _relay_nfc_tag(card_uid: str):
       W3 Clown   ``DB:93:B7:08`` → slot **B**
     Server compares slot to the open question's correct option → blue circle /
     red X. Unknown cards (no slotLabel) are treated as wrong (red X).
+    ``badgeName`` is logged now; it is added to the guess payload in Milestone 6.
     """
+    src = f" badgeName={badge_name}" if badge_name else ""
     if not _ws_game_id or not _ws_question_id:
         print(
-            f"[NFC] TAG {card_uid!r} ignored — no active game/question "
+            f"[NFC] TAG {card_uid!r}{src} ignored — no active game/question "
             f"(gameId={_ws_game_id} questionId={_ws_question_id})",
             flush=True,
         )
@@ -1221,7 +1255,7 @@ def _relay_nfc_tag(card_uid: str):
     slot_label = card_info.get("slotLabel")
     _log_game_state(
         "card_scanned",
-        f"TAG={card_uid!r} slotLabel={slot_label!r} → POST /api/guesses",
+        f"TAG={card_uid!r}{src} slotLabel={slot_label!r} → POST /api/guesses",
     )
 
     # Unknown / unmapped card → wrong (red X). Do not send invalid badgeId.
@@ -1316,37 +1350,38 @@ def _on_pico_tx_notify(_sender: BleakGATTCharacteristic, data: bytearray, badge_
         print(f"[PICO→ZERO]{src} {text!r}", flush=True)
         if text.startswith("TAG:"):
             card_uid = text[4:]
-            _relay_nfc_tag(card_uid)
+            _relay_nfc_tag(card_uid, badge_name)
         elif text.startswith("NFC:"):
             card_id = text[4:]
-            _handle_nfc_card(card_id)
+            _handle_nfc_card(card_id, badge_name)
     except Exception as e:
         print(f"[BLE] error in TX notify handler: {e}", flush=True)
 
 
-def _handle_nfc_card(card_id: str):
+def _handle_nfc_card(card_id: str, badge_name=None):
     """Process an NFC card ID received from the Pico.
 
     Looks up the card in NFC_CARD_MAP, updates the Zero display, sends
-    the result back to the Pico so its matrix shows the same response,
+    the result back to every connected Pico so their matrices match,
     and POSTs the result to /api/emoji so the dashboard reflects the scan.
     The result is cleared after NFC_RESULT_DISPLAY_S seconds.
     """
     global nfc_last_result, nfc_last_card_name
+    src = f" badgeName={badge_name}" if badge_name else ""
 
     if not nfc_mode_active:
-        print(f"[NFC] card read ignored (not in NFC mode): {card_id}", flush=True)
+        print(f"[NFC] card read ignored (not in NFC mode): {card_id}{src}", flush=True)
         return
 
     card = NFC_CARD_MAP.get(card_id)
     if card:
         nfc_last_card_name = card["name"]
         nfc_last_result = card["display"]
-        print(f"[NFC] known card: {card['name']} → {card['display']}", flush=True)
+        print(f"[NFC] known card{src}: {card['name']} → {card['display']}", flush=True)
     else:
         nfc_last_card_name = f"Unknown ({card_id})"
         nfc_last_result = "unknown"
-        print(f"[NFC] unknown card: {card_id}", flush=True)
+        print(f"[NFC] unknown card{src}: {card_id}", flush=True)
 
     draw_display()
 
@@ -1358,16 +1393,15 @@ def _handle_nfc_card(card_id: str):
     else:
         post_to_server("/api/emoji", _emoji_payload(3, 0, 4))
 
-    # Send result to Pico so its matrix mirrors the Zero's response
+    # Fan-out so every connected badge mirrors the Zero's NFC response
     result_symbol = "circle" if nfc_last_result == "circle" else "x"
     nfc_result_cmd = f"NFC_RESULT:{result_symbol}".encode("utf-8")
-    if ble_event_loop and ble_controller.client and ble_controller.client.is_connected:
+    if ble_event_loop:
         async def _send_nfc_result():
-            try:
-                await ble_controller.client.write_gatt_char(UART_RX_CHAR_UUID, nfc_result_cmd)
-                print(f"[NFC] sent to Pico: {nfc_result_cmd!r}", flush=True)
-            except Exception as exc:
-                print(f"[NFC] send to Pico failed: {exc}", flush=True)
+            await ble_controller.write_roster(
+                nfc_result_cmd,
+                label=f"NFC_RESULT:{result_symbol}",
+            )
         asyncio.run_coroutine_threadsafe(_send_nfc_result(), ble_event_loop)
 
     # After the display hold period, revert to the waiting question mark
@@ -1403,8 +1437,51 @@ async def _roster_maintain_loop():
 
 # === WebSocket client ===
 
-async def _ble_write_game_cmd(cmd: str, *, force: bool = False):
-    """Write a GAME:* command to the Pico over BLE. No-op if not connected.
+def _current_game_cmd():
+    """GAME:* command that matches the current station snapshot, or None."""
+    if _ws_game_state == "completed" and _game_end_outcome == "winner":
+        return "GAME:winner"
+    if _ws_game_state == "completed" and _game_end_outcome == "loser":
+        return "GAME:loser"
+    if _ws_game_state == "completed":
+        return "GAME:ended"
+    if _game_pair_result == "correct":
+        return "GAME:correct"
+    if _game_pair_result == "wrong":
+        return "GAME:wrong"
+    if _ws_game_state == "lobby" and not _ws_joined:
+        return "GAME:lobby"
+    if _ws_game_state == "lobby" and _ws_joined:
+        return "GAME:lobby_joined"
+    if _ws_game_state == "active" and _ws_question_id:
+        return "GAME:question_open"
+    if _ws_game_state == "active" and _ws_question_phase == "complete":
+        return "GAME:rounds_complete"
+    if _ws_game_state == "active" and _ws_question_phase == "closed":
+        if _next_question_ready is True:
+            return "GAME:ready"
+        if _next_question_ready is False:
+            return "GAME:wait"
+        return "GAME:ready_prompt"
+    if _ws_game_state == "active":
+        return "GAME:active"
+    if game_mode_active:
+        return "GAME:mode"
+    return None
+
+
+async def _sync_badge_game_state(badge_name):
+    """Push the current GAME:* command to one newly connected badge."""
+    cmd = _current_game_cmd()
+    if not cmd:
+        print(f"[BLE] '{badge_name}' late-join: no GAME:* to sync", flush=True)
+        return
+    print(f"[BLE] '{badge_name}' late-join sync {cmd}", flush=True)
+    await _ble_write_game_cmd(cmd, badge_name=badge_name)
+
+
+async def _ble_write_game_cmd(cmd: str, *, force: bool = False, badge_name=None):
+    """Write a GAME:* command to every connected Pico, or one badge.
 
     Always forwarded while connected. The badge must receive ``GAME:question_open``
     to arm NFC even if the Zero LCD has left game mode to browse emojis.
@@ -1412,25 +1489,22 @@ async def _ble_write_game_cmd(cmd: str, *, force: bool = False):
     """
     del force  # API compat; game BLE is never deferred
     state_id = _GAME_CMD_TO_STATE.get(cmd)
-    if not (ble_controller.client and ble_controller.client.is_connected):
+    n = await ble_controller.write_roster(
+        cmd.encode("utf-8"),
+        label=cmd,
+        badge_name=badge_name,
+    )
+    if n == 0:
         if state_id:
             _log_game_state(state_id, f"BLE not connected — skipping {cmd}")
         else:
             print(f"[WS] BLE not connected — skipping {cmd}", flush=True)
         return
-    try:
-        await ble_controller.client.write_gatt_char(
-            UART_RX_CHAR_UUID, cmd.encode("utf-8")
-        )
-        if state_id:
-            _log_game_state(state_id, f"BLE→{cmd}")
-        else:
-            print(f"[BLE] wrote {cmd!r}", flush=True)
-    except Exception as exc:
-        if state_id:
-            _log_game_state(state_id, f"BLE→{cmd} failed: {exc}")
-        else:
-            print(f"[BLE] write {cmd!r} failed: {exc}", flush=True)
+    target = badge_name or f"{n} badge(s)"
+    if state_id:
+        _log_game_state(state_id, f"BLE→{cmd} ({target})")
+    else:
+        print(f"[BLE] wrote {cmd!r} to {target}", flush=True)
 
 
 async def _apply_pair_answer(is_correct: bool, detail: str, *, force: bool = False):
@@ -1552,39 +1626,12 @@ async def _apply_game_state_to_display():
         pass  # keep None → green active until first question
     if game_mode_active:
         draw_display()
-    # Sync Pico with the current known game state so a reconnect or late
-    # game-mode entry picks up the right display without waiting for the next
-    # server event. End outcomes only while completed — never after ready.
-    if _ws_game_state == "completed" and _game_end_outcome == "winner":
-        await _ble_write_game_cmd("GAME:winner")
-    elif _ws_game_state == "completed" and _game_end_outcome == "loser":
-        await _ble_write_game_cmd("GAME:loser")
-    elif _ws_game_state == "completed":
-        await _ble_write_game_cmd("GAME:ended")
-    elif _game_pair_result == "correct":
-        await _ble_write_game_cmd("GAME:correct")
-    elif _game_pair_result == "wrong":
-        await _ble_write_game_cmd("GAME:wrong")
-    elif _ws_game_state == "lobby" and not _ws_joined:
-        await _ble_write_game_cmd("GAME:lobby")
-    elif _ws_game_state == "lobby" and _ws_joined:
-        await _ble_write_game_cmd("GAME:lobby_joined")
-    elif _ws_game_state == "active" and _ws_question_id:
-        await _ble_write_game_cmd("GAME:question_open")
-    elif _ws_game_state == "active" and _ws_question_phase == "complete":
-        await _ble_write_game_cmd("GAME:rounds_complete")
-    elif _ws_game_state == "active" and _ws_question_phase == "closed":
-        if _next_question_ready is True:
-            await _ble_write_game_cmd("GAME:ready")
-        elif _next_question_ready is False:
-            await _ble_write_game_cmd("GAME:wait")
-        else:
-            await _ble_write_game_cmd("GAME:ready_prompt")
-    elif _ws_game_state == "active":
-        await _ble_write_game_cmd("GAME:active")
-    elif game_mode_active:
-        # ready / None / unknown — standby 'G' only when Zero is in game mode
-        await _ble_write_game_cmd("GAME:mode")
+    # Sync every connected Pico with the current known game state so a
+    # reconnect or late game-mode entry picks up the right display without
+    # waiting for the next server event.
+    cmd = _current_game_cmd()
+    if cmd:
+        await _ble_write_game_cmd(cmd)
 
 
 def _exit_game_mode_to_menu():
