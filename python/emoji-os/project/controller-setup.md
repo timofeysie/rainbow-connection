@@ -332,4 +332,30 @@ BADGE_NAMES = ["white", "white-2", "white-3"]
 ```
 
 If `BADGE_NAMES` is omitted or empty, the Zero uses `[PAIR_NAME]`. Names are
-case-sensitive and must match the Pico file exactly.
+case-sensitive and must match the Pico file exactly. Duplicate names are
+ignored; list order is the dashboard slot order.
+
+Each Pico in the roster needs its own `pair_config.py` with that name (see
+`badge-setup.md`).
+
+At boot the Zero logs the resolved roster:
+
+```text
+[PAIR] config file : /home/tim/repos/pair_config.py
+[PAIR] PAIR_NAME   : 'white'
+[PAIR] BADGE_NAMES : ['white', 'white-2', 'white-3']
+[PAIR] looking for : ['Pico-Client-white', 'Pico-Client-white-2', 'Pico-Client-white-3']
+```
+
+Then it scans for unconnected roster names one scan at a time
+(`[BLE] scanning unmatched roster — …`) and connects matches serially. Once
+every name is connected it logs `[BLE] roster complete — skip scan`.
+
+Multi-badge notes:
+
+- Plan for 2–4 badges per Zero. If a connect fails past the Pi Zero's BLE
+  connection budget, that slot stays **not connected**.
+- The station is one player in emoji-app. The referee binds `PAIR_NAME`
+  once; `KEY1` joins once for every badge.
+- Emoji and game commands are written to every connected badge. A failed
+  write to one badge does not drop the others.

@@ -24,6 +24,43 @@ PAIR_NAME = "white"
 BADGE_NAMES = ["white", "white-2"]
 ```
 
+Name rules:
+
+- Names are case-sensitive and must match the Zero roster exactly.
+- Keep names short. Long `Pico-Client-<PAIR_NAME>` advertising names are
+  truncated and the Zero will not find the badge.
+- A Pico whose name is not in any Zero's `BADGE_NAMES` is never connected.
+
+## Buttonless badges
+
+A Mode 2 badge does not need buttons. The Zero is the only input device:
+
+- The Zero connects to the badge on its own (no badge key press).
+- Emoji chosen on the Zero appear on every connected badge.
+- The player joins once from the Zero (`KEY1`); every badge shows the lobby,
+  question, and result states.
+- A badge powered on mid-game is synced to the current state (e.g. `?` while
+  a question is open).
+- Any connected badge can scan an NFC card. The first scan of a question is
+  the station's answer; later scans from sibling badges in the same question
+  are rejected and do not change it.
+
+The badge firmware is the same `emoji-os-pico.py` for Mode 1 and Mode 2.
+
+## Check the badge connected
+
+On the Zero log, look for the badge's name:
+
+```text
+[BLE] connecting badgeName='white-2' at 28:CD:C1:...
+[PAIR] sent 'PAIR:white-2' to 'white-2'
+[PAIR] OK — paired badgeName='white-2' picoVersion='0.4.0'
+```
+
+In emoji-app **Badges**, the station card shows a `white-2` slot as
+`connected` with the Pico version. A roster name with no powered badge reads
+**not connected**.
+
 ## Required files
 
 rainbow-connection\python\emoji-os\emoji-os-pico.py

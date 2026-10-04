@@ -1,18 +1,20 @@
 # Multiplayer Mode
 
-The current state of this project is fixed for only one controller script running on one Raspberry Pi Zero and one emoji badge running on one Raspberry Pi Pico 2 W.
+Multiple controllers (Raspberry Pi Zero) and emoji badges (Raspberry Pi
+Pico 2 W) can share a room. Two station shapes are supported:
+
+1. **Mode 1** — one controller and one emoji badge.
+2. **Mode 2** — one controller and several named emoji badges (the station
+   still plays as one player).
 
 The two scripts are:
 
-- `python\emoji-os\emoji-os-pico-0.2.4.py`
+- `python\emoji-os\emoji-os-pico.py`
 - `python\emoji-os\emoji-os-zero.py`
 
-We want to be able to have multiple controllers and multiple emoji badges.  There are two scenarios that we want to support:
-
-1. One controller and one emoji badge.
-2. One controller and multiple emoji badges.
-
-First, lets implement the first scenario.
+Both modes use the same scripts; Mode 2 only adds `BADGE_NAMES` to the
+Zero's `pair_config.py`. Design and as-built notes:
+`emoji-app/docs/real-time-game/multi-badge-plan.md`.
 
 ## One controller and one emoji badge
 
@@ -75,7 +77,7 @@ The Zero logs which file it loaded and the resolved roster at startup, e.g.
 [PAIR] config file : /home/tim/repos/pair_config.py
 [PAIR] PAIR_NAME   : 'white'
 [PAIR] BADGE_NAMES : ['white', 'white-2', 'white-3']
-[PAIR] looking for : 'Pico-Client-white'
+[PAIR] looking for : ['Pico-Client-white', 'Pico-Client-white-2', 'Pico-Client-white-3']
 ```
 
 The Zero scans for every `Pico-Client-<name>` in `BADGE_NAMES` and connects
@@ -100,8 +102,11 @@ The pairing layer reuses the existing Nordic UART Service. Two changes are made:
 
    ```text
    Zero -> Pico  (write to UART RX):    PAIR:<PAIR_NAME>
-   Pico -> Zero  (notify on UART TX):   PAIR_OK   or   PAIR_FAIL
+   Pico -> Zero  (notify on UART TX):   PAIR_OK:<VERSION>   or   PAIR_FAIL
    ```
+
+   `<PAIR_NAME>` is the **Pico's** name. In Mode 2 the Zero sends each badge
+   its own roster name (`PAIR:white-2`), not the controller `PAIR_NAME`.
 
    - The Pico drops/ignores every other command until it has seen a matching
      `PAIR:` message on that connection.
@@ -134,8 +139,11 @@ flowchart TD
   disconnects.
 - Matching `PAIR_NAME`: full connectivity restored on reconnect / power cycle
   without manual steps.
-- Multiple pairs in the same room: each Zero scans for its specific
-  `Pico-Client-<PAIR_NAME>` name, so they connect only to their partner badge.
+- Multiple pairs in the same room: each Zero scans only for the
+  `Pico-Client-<name>` names in its own roster, so it connects only to its
+  own badges.
+- Mode 2 drops: losing one badge reconnects only that slot; the others stay
+  connected.
 - Legacy single-pair setup: leaving `pair_config.py` off both devices uses
   `PAIR_NAME = "default"` on each, which still pairs correctly.
 
@@ -159,6 +167,30 @@ exposed through the GAP service after connect, instead of the firmware default
 
 - `python/emoji-os/emoji-os-pico-0.2.4.py` (now `VERSION = "0.3.1"`)
 - `python/emoji-os/emoji-os-zero.py` (now `VERSION = " v0.5.2"`)
+
+---
+
+## One controller and multiple emoji badges
+
+A Mode 2 station is one player with several badges. Badges may be
+buttonless; the Zero is the only input device. Configure it as in
+[Configuration](#configuration) (Mode 2), with one `pair_config.py` per
+Pico.
+
+| Action | Where it happens | Effect on badges |
+| --- | --- | --- |
+| Connect | Zero, automatically | Each roster badge is connected and paired with `PAIR:<badgeName>` |
+| Choose emoji | Zero | Written to every connected badge |
+| Join a game | Zero `KEY1`, once | Every badge shows the joined / question / result states |
+| Late power-on | Badge | Zero syncs it to the current `GAME:*` state |
+| Answer | Any badge's NFC reader | First scan per question is the station's guess (`badgeName` records which badge) |
+| Drop | Badge | Only that slot reconnects; other badges stay connected |
+
+The referee binds the Zero's `PAIR_NAME` once. Scores and results have one
+row for the station. The emoji-app Badges view shows one station card with a
+slot per roster name; the referee panel shows `n/m badges` connected.
+
+Zero `v0.7.16` or later is required for `badgeName` on guesses.
 
 ---
 
@@ -268,8 +300,10 @@ question answer:
 
 7. Zero receives TAG: notification
 8. Zero looks up UID in NFC_CARD_MAP → resolves slotLabel (A/B/C/D/E)
-9. Zero POSTs { gameId, questionId, pairName, cardUid, slotLabel } to /api/guesses
-10. Server records guess
+9. Zero POSTs { gameId, questionId, pairName, badgeName, cardUid, slotLabel }
+   to /api/guesses (badgeName = the badge that scanned)
+10. Server records one guess per pairName per question (a sibling badge's
+    later scan is rejected)
 
 --- question remains open for other pairs to answer ---
 
@@ -326,8 +360,9 @@ panel and joining from the Zero so both Zero and Pico show the lobby states.
    this name; a mismatch means the controller never receives `game.opened`
    and KEY1 join does nothing useful.
 2. **BLE link up** — Zero connected to `Pico-Client-<PAIR_NAME>` (Badges UI
-   shows connected). Sync a normal emoji first (menu 0 / pos 1) to confirm
-   the pipe works.
+   shows connected). In Mode 2, at least one roster badge must be connected;
+   the others can join later. Sync a normal emoji first (menu 0 / pos 1) to
+   confirm the pipe works.
 3. **WebSocket** — Zero connected to the emoji-app server (`[WS] connected`
    in the Zero log). After hello it polls `GET /api/pairs/<PAIR_NAME>`.
 4. **Versions** — Controller ≈ `0.7.5`, Pico ≈ `0.5.2` (see server
@@ -374,6 +409,19 @@ Do **not** press **Start Game** until the Bound pairs row shows `joined`.
 4. In referee: bind the Zero’s `PAIR_NAME`, **Play Again** if needed, **Open for Joining**.
 5. Both devices switch to yellow lobby; press KEY1 — both show white outline; UI shows `joined`.
 6. **Start Game** — both briefly show green active, then `?` (question auto-opens); tap an NFC card.
+
+Mode 2 additions (Zero roster of two, e.g. `white` and `white-2`):
+
+1. Both Pico slots read `connected` in the Badges station card; the header
+   shows `2/2 badges`.
+2. An emoji chosen on the Zero appears on both matrices.
+3. After one `KEY1` join, both badges show the joined and question states
+   with no badge key press.
+4. Power on `white-2` after the question opens — it shows `?`.
+5. Tap a card on `white-2` — the station scores once and the `white-2`
+   slot shows a `white-2 · <slot>` chip. A second tap on `white` in the same
+   question does not change the answer.
+6. Power off `white` — `white-2` stays connected; the `white` slot drops.
 
 ---
 
