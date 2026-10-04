@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.15"
+VERSION = " v0.7.16"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version from the primary roster link's PAIR_OK:<version> reply.
@@ -1302,7 +1302,9 @@ def _relay_nfc_tag(card_uid: str, badge_name=None):
       W3 Clown   ``DB:93:B7:08`` → slot **B**
     Server compares slot to the open question's correct option → blue circle /
     red X. Unknown cards (no slotLabel) are treated as wrong (red X).
-    ``badgeName`` is logged now; it is added to the guess payload in Milestone 6.
+    The guess belongs to the station ``pairName``; ``badgeName`` only says which
+    roster badge scanned. The server keeps one guess per pairName per question,
+    so a sibling badge scanning the same question is rejected.
     """
     src = f" badgeName={badge_name}" if badge_name else ""
     if not _ws_game_id or not _ws_question_id:
@@ -1334,9 +1336,11 @@ def _relay_nfc_tag(card_uid: str, badge_name=None):
         "cardUid":    card_uid,
         "slotLabel":  slot_label,
     }
+    if badge_name:
+        payload["badgeName"] = badge_name
     # Guess API only accepts 24-char hex ObjectIds for badgeId; BLE slug
     # (badge-88-…) must be omitted or the whole guess 400s with no feedback.
-    bid = _resolve_badge_id()
+    bid = _resolve_slot_badge_id(badge_name) if badge_name else _resolve_badge_id()
     if isinstance(bid, str) and len(bid) == 24 and all(
         c in "0123456789abcdefABCDEF" for c in bid
     ):
