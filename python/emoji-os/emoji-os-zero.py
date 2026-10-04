@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.7.16"
+VERSION = " v0.8.0"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version from the primary roster link's PAIR_OK:<version> reply.
@@ -186,23 +186,29 @@ else:
 _ws_game_id       = None   # str | None — current bound game
 _ws_game_state    = None   # "ready"|"lobby"|"active"|"completed"|None
 _ws_question_id   = None   # str | None — currently open question
-_ws_joined        = False  # True once join POST has been sent this session
+_ws_joined        = False  # True once the station has joined (KEY1 or snapshot)
+# Each roster badge is its own player. Badges the server has marked joined
+# (KEY1 joins every connected badge; later badges auto-join on connect).
+_joined_badges    = set()
 _join_pending     = False  # True after game.opened arrives; cleared by KEY1 join
 _ws_connected     = False  # True while the WS socket is open
 # Question phase within an active game (drives Platform icon glyphs).
 # None = game active before round 1; "open" / "closed" between rounds;
 # "complete" after the final round closes but before the referee ends the game.
 _ws_question_phase = None  # None | "open" | "closed" | "complete"
-# Per-question answer shown until question_closed (immediate guess feedback).
-_game_pair_result = None   # None | "correct" | "wrong"
-# True once this pair has shown correct/wrong for the open question (scan or
+# Per-badge answer shown until question_closed (immediate guess feedback).
+_badge_results = {}        # badgeName -> "correct" | "wrong"
+# Badges that have shown correct/wrong for the open question (scan or
 # question.result). Survives question.closed so a late question.result does not
 # re-animate over the white 2×2 "Question closed" glyph.
-_game_answered_this_question = False
-# Player response while between questions: None = prompt, True = ready,
-# False = needs more time.
+_badges_answered = set()
+# Station response while between questions (only the Zero has buttons; the
+# readiness POST applies it to every joined badge): None = prompt, True =
+# ready, False = needs more time.
 _next_question_ready = None
-# End-of-game outcome for LCD (winner/loser animations + glyph).
+# End-of-game outcome per badge (Pico glyph) and for the station LCD: winner
+# when any badge won, loser otherwise, ended without enrichment.
+_badge_end_outcomes = {}   # badgeName -> "winner" | "loser"
 _game_end_outcome = None   # None | "winner" | "loser" | "ended"
 
 # Reconnect backoff bounds (seconds)
@@ -1284,12 +1290,12 @@ def _on_pico_disconnect(client: BleakClient, badge_name=None):
         asyncio.run_coroutine_threadsafe(_reconnect(), ble_event_loop)
 
 
-def _schedule_pair_answer(is_correct: bool, detail: str):
-    """Apply correct/wrong on Zero + Pico from any thread."""
+def _schedule_pair_answer(badge_name: str, is_correct: bool, detail: str):
+    """Apply correct/wrong for one badge from any thread."""
     if ble_event_loop is None:
         return
     asyncio.run_coroutine_threadsafe(
-        _apply_pair_answer(is_correct, detail),
+        _apply_pair_answer(badge_name, is_correct, detail),
         ble_event_loop,
     )
 
@@ -1302,15 +1308,23 @@ def _relay_nfc_tag(card_uid: str, badge_name=None):
       W3 Clown   ``DB:93:B7:08`` → slot **B**
     Server compares slot to the open question's correct option → blue circle /
     red X. Unknown cards (no slotLabel) are treated as wrong (red X).
-    The guess belongs to the station ``pairName``; ``badgeName`` only says which
-    roster badge scanned. The server keeps one guess per pairName per question,
-    so a sibling badge scanning the same question is rejected.
+    Each badge is its own player: the guess belongs to ``badgeName`` (Mode 1:
+    ``PAIR_NAME``) and ``pairName`` is this station. A sibling badge's scan is
+    a separate guess; a second scan from the same badge is ignored here.
     """
-    src = f" badgeName={badge_name}" if badge_name else ""
+    player = badge_name or PAIR_NAME
+    src = f" badgeName={player}"
     if not _ws_game_id or not _ws_question_id:
         print(
             f"[NFC] TAG {card_uid!r}{src} ignored — no active game/question "
             f"(gameId={_ws_game_id} questionId={_ws_question_id})",
+            flush=True,
+        )
+        return
+    if player in _badges_answered:
+        print(
+            f"[NFC] TAG {card_uid!r}{src} ignored — badge already answered "
+            f"questionId={_ws_question_id}",
             flush=True,
         )
         return
@@ -1324,8 +1338,9 @@ def _relay_nfc_tag(card_uid: str, badge_name=None):
     # Unknown / unmapped card → wrong (red X). Do not send invalid badgeId.
     if not slot_label:
         _schedule_pair_answer(
+            player,
             False,
-            f"unknown TAG={card_uid!r} — no slotLabel; treat as wrong",
+            f"unknown TAG={card_uid!r}{src} — no slotLabel; treat as wrong",
         )
         return
 
@@ -1333,11 +1348,10 @@ def _relay_nfc_tag(card_uid: str, badge_name=None):
         "gameId":     _ws_game_id,
         "questionId": _ws_question_id,
         "pairName":   PAIR_NAME,
+        "badgeName":  player,
         "cardUid":    card_uid,
         "slotLabel":  slot_label,
     }
-    if badge_name:
-        payload["badgeName"] = badge_name
     # Guess API only accepts 24-char hex ObjectIds for badgeId; BLE slug
     # (badge-88-…) must be omitted or the whole guess 400s with no feedback.
     bid = _resolve_slot_badge_id(badge_name) if badge_name else _resolve_badge_id()
@@ -1385,8 +1399,10 @@ def _relay_nfc_tag(card_uid: str, badge_name=None):
                 )
                 return
             _schedule_pair_answer(
+                player,
                 bool(is_correct),
-                f"POST /api/guesses isCorrect={is_correct} slotLabel={data.get('slotLabel')!r}",
+                f"POST /api/guesses{src} isCorrect={is_correct} "
+                f"slotLabel={data.get('slotLabel')!r}",
             )
         except Exception as exc:
             print(f"[API] request failed /api/guesses: {exc}", flush=True)
@@ -1502,21 +1518,37 @@ async def _roster_maintain_loop():
 
 # === WebSocket client ===
 
-def _current_game_cmd():
-    """GAME:* command that matches the current station snapshot, or None."""
-    if _ws_game_state == "completed" and _game_end_outcome == "winner":
-        return "GAME:winner"
-    if _ws_game_state == "completed" and _game_end_outcome == "loser":
-        return "GAME:loser"
+def _player_badges():
+    """Joined roster badges in roster order (the players this station answers for)."""
+    return [name for name in BADGE_NAMES if name in _joined_badges]
+
+
+def _station_result():
+    """Correct/wrong for the Zero LCD: Mode 1 mirrors its badge; Mode 2 shows none."""
+    if len(BADGE_NAMES) == 1:
+        return _badge_results.get(BADGE_NAMES[0])
+    return None
+
+
+def _current_game_cmd(badge_name=None):
+    """GAME:* command for one badge (or the station when ``badge_name`` is None)."""
     if _ws_game_state == "completed":
+        outcome = _badge_end_outcomes.get(badge_name) if badge_name else None
+        outcome = outcome or _game_end_outcome
+        if outcome == "winner":
+            return "GAME:winner"
+        if outcome == "loser":
+            return "GAME:loser"
         return "GAME:ended"
-    if _game_pair_result == "correct":
+    result = _badge_results.get(badge_name) if badge_name else _station_result()
+    if result == "correct":
         return "GAME:correct"
-    if _game_pair_result == "wrong":
+    if result == "wrong":
         return "GAME:wrong"
-    if _ws_game_state == "lobby" and not _ws_joined:
+    joined = (badge_name in _joined_badges) if badge_name else _ws_joined
+    if _ws_game_state == "lobby" and not joined:
         return "GAME:lobby"
-    if _ws_game_state == "lobby" and _ws_joined:
+    if _ws_game_state == "lobby" and joined:
         return "GAME:lobby_joined"
     if _ws_game_state == "active" and _ws_question_id:
         return "GAME:question_open"
@@ -1535,14 +1567,48 @@ def _current_game_cmd():
     return None
 
 
+def _post_join(badge_names, reason: str):
+    """POST join for these roster badges (each one is a player) and mark them joined."""
+    if not _ws_game_id or not badge_names:
+        return
+    _joined_badges.update(badge_names)
+    post_to_server(
+        f"/api/games/{_ws_game_id}/join",
+        {
+            "pairName": PAIR_NAME,
+            "controllerId": CONTROLLER_ID,
+            "badgeNames": list(badge_names),
+        },
+    )
+    _log_game_state(
+        "lobby_joined",
+        f"{reason} join POST gameId={_ws_game_id} pair={PAIR_NAME} "
+        f"badges={list(badge_names)}",
+    )
+
+
+def _key1_join_badges():
+    """Badges joined by KEY1: Mode 1 always its badge; Mode 2 the connected ones."""
+    if len(BADGE_NAMES) == 1:
+        return list(BADGE_NAMES)
+    return ble_controller.connected_names()
+
+
 async def _sync_badge_game_state(badge_name):
     """Push the current GAME:* command to one newly connected badge.
 
-    Buttonless badges do not POST join. After the Zero joins once, a later
-    roster connect receives the same command the rest of the station already
-    has (GAME:lobby_joined, GAME:question_open, …).
+    Buttonless badges cannot press KEY1. Once the station has joined, a badge
+    that connects later while the game is in the lobby or active auto-joins as
+    its own player, then gets its own state (GAME:lobby_joined,
+    GAME:question_open, …).
     """
-    cmd = _current_game_cmd()
+    if (
+        _ws_joined
+        and _ws_game_state in ("lobby", "active")
+        and badge_name not in _joined_badges
+    ):
+        _post_join([badge_name], f"late badge '{badge_name}'")
+    cmd = _current_game_cmd(badge_name)
     if not cmd:
         print(f"[BLE] '{badge_name}' late-join: no GAME:* to sync", flush=True)
         return
@@ -1580,11 +1646,17 @@ async def _ble_write_game_cmd(cmd: str, *, force: bool = False, badge_name=None)
         print(f"[BLE] wrote {cmd!r} to {target}", flush=True)
 
 
-async def _apply_pair_answer(is_correct: bool, detail: str, *, force: bool = False):
-    """Show correct/wrong on Zero LCD and Pico; hold until question_closed."""
-    global _game_pair_result, _game_answered_this_question
+async def _apply_pair_answer(
+    badge_name: str, is_correct: bool, detail: str, *, force: bool = False
+):
+    """Show correct/wrong on one badge (and the Mode 1 LCD); hold until question_closed.
+
+    Sibling badges keep their own state — they stay on GAME:question_open
+    until they scan.
+    """
     state_id = "correct" if is_correct else "wrong"
-    if _game_answered_this_question and not force:
+    detail = f"badge={badge_name} {detail}"
+    if badge_name in _badges_answered and not force:
         print(
             f"[GAME] zero | {state_id} | {_GAME_STATE_LABELS[state_id]} | "
             f"skip re-animate (already answered); {detail}",
@@ -1599,14 +1671,23 @@ async def _apply_pair_answer(is_correct: bool, detail: str, *, force: bool = Fal
             f"skip — question already closed; {detail}",
             flush=True,
         )
-        _game_answered_this_question = True
+        _badges_answered.add(badge_name)
         return
-    _game_pair_result = state_id
-    _game_answered_this_question = True
+    _badge_results[badge_name] = state_id
+    _badges_answered.add(badge_name)
     _log_game_state(state_id, detail)
     if game_mode_active:
         draw_display()
-    await _ble_write_game_cmd("GAME:correct" if is_correct else "GAME:wrong")
+    await _ble_write_game_cmd(
+        "GAME:correct" if is_correct else "GAME:wrong",
+        badge_name=badge_name,
+    )
+
+
+def _reset_badge_answers():
+    """Clear per-badge correct/wrong and the answered guard (new question / game)."""
+    _badge_results.clear()
+    _badges_answered.clear()
 
 
 def _start_game_outcome_animation(is_winner: bool):
@@ -1657,9 +1738,10 @@ def _game_mode_display_matrix():
         if _game_end_outcome == "ended":
             return game_question_closed_matrix
         return game_question_closed_matrix
-    if _game_pair_result == "correct":
+    station_result = _station_result()
+    if station_result == "correct":
         return game_correct_matrix
-    if _game_pair_result == "wrong":
+    if station_result == "wrong":
         return others_x_matrix
     if _ws_game_state == "lobby" and not _ws_joined:
         return game_lobby_matrix
@@ -1681,6 +1763,7 @@ def _clear_game_end_ui():
     """Stop outcome animation and clear winner/loser sticky state."""
     global _game_end_outcome, stop_animation
     _game_end_outcome = None
+    _badge_end_outcomes.clear()
     if animation_running:
         stop_animation = True
 
@@ -1699,12 +1782,13 @@ async def _apply_game_state_to_display():
         pass  # keep None → green active until first question
     if game_mode_active:
         draw_display()
-    # Sync every connected Pico with the current known game state so a
-    # reconnect or late game-mode entry picks up the right display without
-    # waiting for the next server event.
-    cmd = _current_game_cmd()
-    if cmd:
-        await _ble_write_game_cmd(cmd)
+    # Sync every connected Pico with its own known game state so a reconnect
+    # or late game-mode entry picks up the right display without waiting for
+    # the next server event.
+    for badge_name in ble_controller.connected_names():
+        cmd = _current_game_cmd(badge_name)
+        if cmd:
+            await _ble_write_game_cmd(cmd, badge_name=badge_name)
 
 
 def _exit_game_mode_to_menu():
@@ -1746,12 +1830,14 @@ def _respond_to_ready_prompt(ready: bool) -> bool:
         return False
 
     _next_question_ready = ready
+    badge_names = _player_badges() or list(BADGE_NAMES[:1])
     post_to_server(
         f"/api/games/{_ws_game_id}/readiness",
         {
             "pairName": PAIR_NAME,
             "controllerId": CONTROLLER_ID,
             "ready": ready,
+            "badgeNames": badge_names,
         },
     )
     draw_display()
@@ -1759,7 +1845,7 @@ def _respond_to_ready_prompt(ready: bool) -> bool:
     _log_game_state(
         state_id,
         f"{'KEY1 ready' if ready else 'KEY3 wait'} POST "
-        f"gameId={_ws_game_id} pair={PAIR_NAME}",
+        f"gameId={_ws_game_id} pair={PAIR_NAME} badges={badge_names}",
     )
     if ble_event_loop is not None:
         asyncio.run_coroutine_threadsafe(
@@ -1772,7 +1858,7 @@ def _respond_to_ready_prompt(ready: bool) -> bool:
 async def _ws_handle_event(event: dict):
     """Dispatch a single WebSocket event from the server."""
     global _ws_game_id, _ws_game_state, _ws_question_id, _ws_joined, _join_pending
-    global _ws_question_phase, _game_pair_result, _game_answered_this_question
+    global _ws_question_phase
     global _next_question_ready
     global _game_end_outcome
 
@@ -1798,8 +1884,22 @@ async def _ws_handle_event(event: dict):
         _join_pending = bool(
             _ws_game_state == "lobby" and not _ws_joined and _ws_game_id
         )
-        _game_pair_result = None
-        _game_answered_this_question = False
+        _reset_badge_answers()
+        # Per-badge join / guess state; older servers send no players[].
+        _joined_badges.clear()
+        players = event.get("players")
+        if isinstance(players, list):
+            for player in players:
+                name = player.get("badgeName") if isinstance(player, dict) else None
+                if name not in BADGE_NAMES:
+                    continue
+                if player.get("joined"):
+                    _joined_badges.add(name)
+                if player.get("guessed") and _ws_question_id:
+                    _badges_answered.add(name)
+                    _badge_results[name] = "correct" if player.get("isCorrect") else "wrong"
+        elif _ws_joined:
+            _joined_badges.update(BADGE_NAMES)
         # Snapshot welcome has no winner enrichment — clear sticky end UI so a
         # reconnect or re-entry after Play Again does not re-show fireworks.
         _clear_game_end_ui()
@@ -1813,7 +1913,8 @@ async def _ws_handle_event(event: dict):
             _ws_question_phase = None
         print(
             f"[WS] welcome: game={_ws_game_id} state={_ws_game_state} "
-            f"joined={_ws_joined} join_pending={_join_pending}",
+            f"joined={_ws_joined} badges={_player_badges()} "
+            f"join_pending={_join_pending}",
             flush=True,
         )
         await _apply_game_state_to_display()
@@ -1824,9 +1925,9 @@ async def _ws_handle_event(event: dict):
         _ws_question_id = None
         _ws_question_phase = None
         _ws_joined = False
+        _joined_badges.clear()
         _join_pending = False
-        _game_pair_result = None
-        _game_answered_this_question = False
+        _reset_badge_answers()
         _next_question_ready = None
         _clear_game_end_ui()
         _log_game_state("mode", "WS game.ready — standby G")
@@ -1838,10 +1939,10 @@ async def _ws_handle_event(event: dict):
         _ws_game_id    = event.get("gameId")
         _ws_game_state = "lobby"
         _ws_joined     = False
+        _joined_badges.clear()
         _join_pending  = True
         _ws_question_phase = None
-        _game_pair_result = None
-        _game_answered_this_question = False
+        _reset_badge_answers()
         _next_question_ready = None
         _clear_game_end_ui()
         _log_game_state("lobby", f"WS game.opened gameId={_ws_game_id}")
@@ -1852,8 +1953,7 @@ async def _ws_handle_event(event: dict):
     elif etype == "game.started":
         _ws_game_state = "active"
         _ws_question_phase = None
-        _game_pair_result = None
-        _game_answered_this_question = False
+        _reset_badge_answers()
         _next_question_ready = None
         _clear_game_end_ui()
         _log_game_state("active", "WS game.started")
@@ -1864,8 +1964,7 @@ async def _ws_handle_event(event: dict):
     elif etype == "question.opened":
         _ws_question_id = event.get("questionId")
         _ws_question_phase = "open"
-        _game_pair_result = None
-        _game_answered_this_question = False
+        _reset_badge_answers()
         _next_question_ready = None
         _log_game_state(
             "question_open",
@@ -1880,7 +1979,7 @@ async def _ws_handle_event(event: dict):
         _ws_question_phase = (
             "complete" if event.get("isFinalRound") else "closed"
         )
-        _game_pair_result = None  # LCD → white 2×2; answered flag kept for skip
+        _badge_results.clear()  # LCD / badges → white 2×2; answered set kept for skip
         _next_question_ready = None
         _log_game_state("question_closed", "WS question.closed")
         if game_mode_active:
@@ -1892,33 +1991,42 @@ async def _ws_handle_event(event: dict):
             await _ble_write_game_cmd("GAME:ready_prompt")
 
     elif etype == "game.ended":
+        # The server sends one enriched game.ended per badge (player). Only the
+        # first one of a game resets the round state.
+        if _ws_game_state != "completed":
+            _reset_badge_answers()
         _ws_game_state  = "completed"
         _ws_question_id = None
         _ws_question_phase = None
-        _game_pair_result = None
-        _game_answered_this_question = False
         # Prefer winner/loser when enriched fields arrive (Step 8); else generic end.
         if "isWinner" in event:
-            if event.get("isWinner"):
-                _game_end_outcome = "winner"
-                _log_game_state(
-                    "winner",
-                    f"WS game.ended rank={event.get('rank')} score={event.get('score')}",
-                )
-                if game_mode_active:
-                    draw_display()
-                await _ble_write_game_cmd("GAME:winner")
-                _start_game_outcome_animation(True)
-            else:
-                _game_end_outcome = "loser"
-                _log_game_state(
-                    "loser",
-                    f"WS game.ended rank={event.get('rank')} score={event.get('score')}",
-                )
-                if game_mode_active:
-                    draw_display()
-                await _ble_write_game_cmd("GAME:loser")
-                _start_game_outcome_animation(False)
+            badge_name = event.get("badgeName")
+            if badge_name and badge_name not in BADGE_NAMES:
+                print(f"[WS] game.ended for unknown badge '{badge_name}' — ignored", flush=True)
+                return
+            outcome = "winner" if event.get("isWinner") else "loser"
+            # Older servers send one station-level event without badgeName.
+            targets = [badge_name] if badge_name else list(BADGE_NAMES)
+            for name in targets:
+                _badge_end_outcomes[name] = outcome
+            station_outcome = (
+                "winner" if "winner" in _badge_end_outcomes.values() else "loser"
+            )
+            station_changed = station_outcome != _game_end_outcome
+            _game_end_outcome = station_outcome
+            _log_game_state(
+                outcome,
+                f"WS game.ended badge={badge_name or 'all'} rank={event.get('rank')} "
+                f"score={event.get('score')}",
+            )
+            if game_mode_active:
+                draw_display()
+            await _ble_write_game_cmd(
+                "GAME:winner" if outcome == "winner" else "GAME:loser",
+                badge_name=badge_name,
+            )
+            if station_changed:
+                _start_game_outcome_animation(station_outcome == "winner")
         else:
             _game_end_outcome = "ended"
             _log_game_state("game_ended", "WS game.ended")
@@ -1928,16 +2036,22 @@ async def _ws_handle_event(event: dict):
 
     elif etype == "question.result":
         results = event.get("results") or []
-        pair_result = next(
-            (r for r in results if r.get("pairName") == PAIR_NAME),
-            None,
-        )
-        is_correct = bool(pair_result and pair_result.get("isCorrect"))
-        slot = pair_result.get("slotLabel") if pair_result else None
-        await _apply_pair_answer(
-            is_correct,
-            f"WS question.result slotLabel={slot!r}",
-        )
+        by_badge = {}
+        for row in results:
+            key = row.get("badgeName") or row.get("pairName")
+            if key:
+                by_badge[key] = row
+        # Mode 1 always answers for its badge; Mode 2 for the joined badges.
+        targets = _player_badges() or (list(BADGE_NAMES) if len(BADGE_NAMES) == 1 else [])
+        for name in targets:
+            row = by_badge.get(name)
+            is_correct = bool(row and row.get("isCorrect"))
+            slot = row.get("slotLabel") if row else None
+            await _apply_pair_answer(
+                name,
+                is_correct,
+                f"WS question.result slotLabel={slot!r}",
+            )
 
 
 async def _ws_connect_loop():
@@ -2019,12 +2133,16 @@ def _poll_pair_binding():
         if not isinstance(data, dict):
             return
         synthetic_event = {
-            "type":           "controller.welcome",
-            "gameId":         data.get("gameId"),
-            "state":          data.get("state"),
-            "joined":         data.get("joined", False),
-            "openQuestionId": data.get("openQuestionId"),
+            "type":                 "controller.welcome",
+            "gameId":               data.get("gameId"),
+            "state":                data.get("state"),
+            "joined":               data.get("joined", False),
+            "openQuestionId":       data.get("openQuestionId"),
+            "readyForNextQuestion": data.get("readyForNextQuestion"),
+            "roundsComplete":       data.get("roundsComplete", False),
         }
+        if isinstance(data.get("players"), list):
+            synthetic_event["players"] = data["players"]
         if ble_event_loop and ble_event_loop.is_running():
             asyncio.run_coroutine_threadsafe(
                 _ws_handle_event(synthetic_event), ble_event_loop
@@ -2803,6 +2921,10 @@ def _game_status_label():
         return None, None
     if _ws_game_state == "lobby" and not _ws_joined:
         return "KEY1 JOIN  KEY3 NO", "yellow"
+    if _ws_game_state == "active" and _ws_question_phase == "open" and len(BADGE_NAMES) > 1:
+        players = _player_badges()
+        answered = sum(1 for name in players if name in _badges_answered)
+        return f"ANSWERED {answered}/{len(players)}", "yellow"
     if _ws_game_state == "active" and _ws_question_phase == "closed":
         if _next_question_ready is True:
             return "READY", (0, 200, 0)
@@ -3091,15 +3213,10 @@ try:
                 elif _join_pending and _ws_game_id:
                     _join_pending = False
                     _ws_joined    = True
-                    post_to_server(
-                        f"/api/games/{_ws_game_id}/join",
-                        {"pairName": PAIR_NAME, "controllerId": CONTROLLER_ID},
-                    )
+                    # Each connected badge joins as its own player; badges that
+                    # connect later auto-join in _sync_badge_game_state.
+                    _post_join(_key1_join_badges(), "KEY1")
                     draw_display()
-                    _log_game_state(
-                        "lobby_joined",
-                        f"KEY1 join POST gameId={_ws_game_id} pair={PAIR_NAME}",
-                    )
                     if ble_event_loop is not None:
                         asyncio.run_coroutine_threadsafe(
                             _ble_write_game_cmd("GAME:lobby_joined"),
