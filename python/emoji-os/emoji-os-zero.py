@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 # Emoji OS Zero
-VERSION = " v0.8.0"
+VERSION = " v0.8.1"
 # Normalized version string sent to the server (strip leading space / 'v').
 _CONTROLLER_VERSION = VERSION.strip().lstrip("v")
 # Pico badge version from the primary roster link's PAIR_OK:<version> reply.
@@ -1209,8 +1209,18 @@ def fetch_from_server(path: str):
     fall back to local defaults. Unlike post_to_server this is synchronous,
     because callers (e.g. startup config loads) need the result.
     """
+    status, data = fetch_with_status(path)
+    return data if status == 200 else None
+
+
+def fetch_with_status(path: str):
+    """Blocking HTTP GET; returns (status_code, parsed JSON or None).
+
+    status_code is None when SERVER_URL is empty or the request fails, so a
+    caller can tell "server said 404" apart from "server unreachable".
+    """
     if not SERVER_URL:
-        return None
+        return None, None
     url = f"{SERVER_URL}{path}"
     try:
         kw = {"timeout": 3}
@@ -1220,10 +1230,11 @@ def fetch_from_server(path: str):
         r = requests.get(url, **kw)
         print(f"[API] response {path} -> HTTP {r.status_code}", flush=True)
         if r.status_code == 200:
-            return r.json()
+            return 200, r.json()
+        return r.status_code, None
     except Exception as e:
         print(f"[API] request failed {path}: {e}", flush=True)
-    return None
+    return None, None
 
 
 def load_nfc_card_map():
@@ -1935,6 +1946,28 @@ async def _ws_handle_event(event: dict):
             draw_display()
         await _ble_write_game_cmd("GAME:mode")
 
+    elif etype == "pair.unbound":
+        # Referee removed this station, or Play Again cleared bindings.
+        if event.get("pairName") not in (None, PAIR_NAME):
+            return
+        had_game = _ws_game_id is not None or _ws_game_state is not None
+        _ws_game_id = None
+        _ws_game_state = None
+        _ws_question_id = None
+        _ws_question_phase = None
+        _ws_joined = False
+        _joined_badges.clear()
+        _join_pending = False
+        _reset_badge_answers()
+        _next_question_ready = None
+        _clear_game_end_ui()
+        if not had_game:
+            return
+        _log_game_state("mode", "WS pair.unbound — standby G")
+        if game_mode_active:
+            draw_display()
+        await _ble_write_game_cmd("GAME:mode")
+
     elif etype == "game.opened":
         _ws_game_id    = event.get("gameId")
         _ws_game_state = "lobby"
@@ -2128,8 +2161,15 @@ def _poll_pair_binding():
     blocks the asyncio loop; the event is dispatched back via run_coroutine_threadsafe.
     """
     def _fetch():
-        import json as _json
-        data = fetch_from_server(f"/api/pairs/{PAIR_NAME}")
+        status, data = fetch_with_status(f"/api/pairs/{PAIR_NAME}")
+        if status == 404:
+            # Not bound to any game (removed by the referee, or Play Again).
+            if ble_event_loop and ble_event_loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    _ws_handle_event({"type": "pair.unbound", "pairName": PAIR_NAME}),
+                    ble_event_loop,
+                )
+            return
         if not isinstance(data, dict):
             return
         synthetic_event = {

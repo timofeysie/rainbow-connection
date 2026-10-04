@@ -37,13 +37,18 @@ A Mode 2 badge does not need buttons. The Zero is the only input device:
 
 - The Zero connects to the badge on its own (no badge key press).
 - Emoji chosen on the Zero appear on every connected badge.
-- The player joins once from the Zero (`KEY1`); every badge shows the lobby,
-  question, and result states.
+- Each badge is a **separate player** in emoji-app, keyed by its
+  `PAIR_NAME`. It has its own guess, score, and winner / loser outcome.
+- One `KEY1` press on the Zero joins every connected badge; each shows the
+  lobby and question states.
 - A badge powered on mid-game is synced to the current state (e.g. `?` while
-  a question is open).
-- Any connected badge can scan an NFC card. The first scan of a question is
-  the station's answer; later scans from sibling badges in the same question
-  are rejected and do not change it.
+  a question is open). If the station has already joined, the Zero joins
+  that badge too.
+- Each badge scans its own NFC card, once per question. A second scan on the
+  same badge is ignored. The badge shows its own correct / wrong and, at the
+  end, its own winner / loser.
+- Badge names must be unique across every controller, because the server
+  scores by badge name.
 
 The badge firmware is the same `emoji-os-pico.py` for Mode 1 and Mode 2.
 

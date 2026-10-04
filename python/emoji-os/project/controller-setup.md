@@ -355,7 +355,12 @@ Multi-badge notes:
 
 - Plan for 2–4 badges per Zero. If a connect fails past the Pi Zero's BLE
   connection budget, that slot stays **not connected**.
-- The station is one player in emoji-app. The referee binds `PAIR_NAME`
-  once; `KEY1` joins once for every badge.
+- Each badge is a separate player in emoji-app, keyed by its `badgeName`.
+  The referee binds `PAIR_NAME` once and the server creates a player for
+  every roster badge. One `KEY1` joins every connected badge; a badge that
+  connects later while the station is joined is auto-joined.
+- The LCD shows the station: an `ANSWERED n/m` caption while a question is
+  open, and fireworks at game end if any of its badges won.
+- Zero `v0.8.0` or later is required for per-badge players.
 - Emoji and game commands are written to every connected badge. A failed
   write to one badge does not drop the others.

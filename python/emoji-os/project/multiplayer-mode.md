@@ -4,8 +4,8 @@ Multiple controllers (Raspberry Pi Zero) and emoji badges (Raspberry Pi
 Pico 2 W) can share a room. Two station shapes are supported:
 
 1. **Mode 1** — one controller and one emoji badge.
-2. **Mode 2** — one controller and several named emoji badges (the station
-   still plays as one player).
+2. **Mode 2** — one controller and several named emoji badges (each badge is
+   a separate player).
 
 The two scripts are:
 
@@ -172,8 +172,9 @@ exposed through the GAP service after connect, instead of the firmware default
 
 ## One controller and multiple emoji badges
 
-A Mode 2 station is one player with several badges. Badges may be
-buttonless; the Zero is the only input device. Configure it as in
+A Mode 2 station is one controller with several badges, and **each badge is
+a separate player** keyed by its `badgeName`. This is not a team mode.
+Badges may be buttonless; the Zero is the only input device. Configure it as in
 [Configuration](#configuration) (Mode 2), with one `pair_config.py` per
 Pico.
 
@@ -181,16 +182,22 @@ Pico.
 | --- | --- | --- |
 | Connect | Zero, automatically | Each roster badge is connected and paired with `PAIR:<badgeName>` |
 | Choose emoji | Zero | Written to every connected badge |
-| Join a game | Zero `KEY1`, once | Every badge shows the joined / question / result states |
-| Late power-on | Badge | Zero syncs it to the current `GAME:*` state |
-| Answer | Any badge's NFC reader | First scan per question is the station's guess (`badgeName` records which badge) |
+| Join a game | Zero `KEY1`, once | Every connected badge joins as a player and shows the joined state |
+| Late power-on | Badge | Zero syncs it to the current `GAME:*` state, and joins it if the station already joined |
+| Answer | Each badge's NFC reader | One guess per badge per question; a repeat scan on the same badge is ignored |
+| Result | Server `question.result` | Each badge shows its own correct / wrong |
+| Game end | Server `game.ended` | Each badge shows its own winner / loser |
 | Drop | Badge | Only that slot reconnects; other badges stay connected |
 
-The referee binds the Zero's `PAIR_NAME` once. Scores and results have one
-row for the station. The emoji-app Badges view shows one station card with a
-slot per roster name; the referee panel shows `n/m badges` connected.
+The referee binds the Zero's `PAIR_NAME` once; the server expands it to one
+player per roster badge. Scores and results have one row per badge. The
+question auto-closes once every joined badge has answered. The emoji-app
+Badges view shows one station card with a slot per roster name (each with
+its own join, NFC, and result); the referee panel groups the bound badges
+under their station and shows `n/m badges` connected. Zero LCD shows an
+`ANSWERED n/m` caption while a question is open.
 
-Zero `v0.7.16` or later is required for `badgeName` on guesses.
+Zero `v0.8.0` or later is required for per-badge players.
 
 ---
 
@@ -302,10 +309,11 @@ question answer:
 8. Zero looks up UID in NFC_CARD_MAP → resolves slotLabel (A/B/C/D/E)
 9. Zero POSTs { gameId, questionId, pairName, badgeName, cardUid, slotLabel }
    to /api/guesses (badgeName = the badge that scanned)
-10. Server records one guess per pairName per question (a sibling badge's
-    later scan is rejected)
+10. Server records one guess per badge per question (in Mode 2 each badge
+    is its own player; a repeat scan from the same badge is rejected)
 
---- question remains open for other pairs to answer ---
+--- question remains open for other players to answer; it auto-closes once
+    every joined player has guessed ---
 
 11. Referee closes the question → server clears readiness, then emits
     question.closed and question.result
@@ -416,12 +424,17 @@ Mode 2 additions (Zero roster of two, e.g. `white` and `white-2`):
    shows `2/2 badges`.
 2. An emoji chosen on the Zero appears on both matrices.
 3. After one `KEY1` join, both badges show the joined and question states
-   with no badge key press.
+   with no badge key press, and the referee panel shows both badges joined
+   under the `white` station.
 4. Power on `white-2` after the question opens — it shows `?`.
-5. Tap a card on `white-2` — the station scores once and the `white-2`
-   slot shows a `white-2 · <slot>` chip. A second tap on `white` in the same
-   question does not change the answer.
-6. Power off `white` — `white-2` stays connected; the `white` slot drops.
+5. Tap a card on `white` — only `white` shows correct / wrong; `white-2`
+   stays on `?`. The `white` slot shows an `NFC · <slot>` chip.
+6. Tap a card on `white-2` — it records its own guess, and the question
+   auto-closes once both badges have answered. A second tap on the same
+   badge is ignored.
+7. At game end the leaderboard has one row per badge, and each badge shows
+   its own winner / loser.
+8. Power off `white` — `white-2` stays connected; the `white` slot drops.
 
 ---
 
