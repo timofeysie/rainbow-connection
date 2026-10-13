@@ -281,8 +281,8 @@ def _log_game_state(state_id: str, detail: str = "") -> None:
 # built-in copy used when SERVER_URL is empty or the server is unreachable, so
 # the badge still works offline.
 NFC_CARD_MAP_FALLBACK = {
-    "5B:6F:B8:08": {"name": "R12 - Monkey", "display": "circle", "slotLabel": "A"},
-    "DB:93:B7:08": {"name": "W3 - Clown",   "display": "x",      "slotLabel": "B"},
+    "5B:6F:B8:08": {"name": "R12 - Monkey", "display": "circle"},
+    "DB:93:B7:08": {"name": "W3 - Clown",   "display": "x"},
 }
 # Populated from the server at startup; starts as a copy of the fallback.
 NFC_CARD_MAP = dict(NFC_CARD_MAP_FALLBACK)
@@ -1314,9 +1314,8 @@ def _schedule_pair_answer(badge_name: str, is_correct: bool, detail: str):
 def _relay_nfc_tag(card_uid: str, badge_name=None):
     """Relay a TAG:<cardUid> notification from the Pico as POST /api/guesses.
 
-    Card → slot map (demo):
-      R12 Monkey ``5B:6F:B8:08`` → slot **A**
-      W3 Clown   ``DB:93:B7:08`` → slot **B**
+    Card → slot map: ``slotLabel`` in NFC_CARD_MAP (server seed or
+    pair_config.py). Quiz cards map to A–D; Monkey/Clown have no slot.
     Server compares slot to the open question's correct option → blue circle /
     red X. Unknown cards (no slotLabel) are treated as wrong (red X).
     Each badge is its own player: the guess belongs to ``badgeName`` (Mode 1:

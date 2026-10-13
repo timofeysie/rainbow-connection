@@ -7,6 +7,18 @@ Pico 2 W) can share a room. Two station shapes are supported:
 2. **Mode 2** — one controller and several named emoji badges (each badge is
    a separate player).
 
+> **Planned change (decided 2026-10-09; deferred until the prototype is funded):** the
+> station endpoints move under **`/api/device/*`** and require a
+> per-device credential:
+> - `POST /api/guesses` → `/api/device/guesses`, and likewise `status`,
+>   `emoji`, `games/:id/join`, `games/:id/readiness`, `pairs/:pairName`
+>   and `nfc-cards`
+> - `/ws` → `/ws/device`, with the credential sent in `controller.hello`
+>
+> `emoji-os-zero.py` must be updated at the same time as the server. See
+> `emoji-app/docs/xAPI/security.md` → Route prefixes, and Step 0 of
+> `emoji-app/docs/xAPI/xapi-export-plan.md`.
+
 The two scripts are:
 
 - `python\emoji-os\emoji-os-pico.py`

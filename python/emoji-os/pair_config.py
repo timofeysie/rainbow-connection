@@ -19,11 +19,11 @@ BADGE_NAMES = ["power-cable", "black"]
 # This local map is used as the offline fallback when the server is unreachable.
 # The server-fetched map (GET /api/nfc-cards) takes precedence when available.
 NFC_CARD_MAP_LOCAL = {
-    "5B:6F:B8:08": {"name": "R12 - Monkey", "display": "circle", "slotLabel": "A"},
-    "DB:93:B7:08": {"name": "W3 - Clown",   "display": "x",      "slotLabel": "B"},
-    "2B:73:B8:08": {"name": "12",    "display": "A", "slotLabel": "1"},
-    "4B:71:B8:08": {"name": "11",   "display": "B",   "slotLabel": "2"},
-    "DB:69:B8:08": {"name": "10",    "display": "C",  "slotLabel": "3"},
-    "1B:5D:B8:08": {"name": "D", "display": "D",     "slotLabel": "4"},
+    "5B:6F:B8:08": {"name": "R12 - Monkey", "display": "circle"},
+    "DB:93:B7:08": {"name": "W3 - Clown",   "display": "x"},
+    "2B:73:B8:08": {"name": "12",    "display": "A", "slotLabel": "A"},
+    "4B:71:B8:08": {"name": "11",   "display": "B",   "slotLabel": "B"},
+    "DB:69:B8:08": {"name": "10",    "display": "C",  "slotLabel": "C"},
+    "1B:5D:B8:08": {"name": "D", "display": "D",     "slotLabel": "D"},
     "CB:61:B8:08": {"name": "9",     "display": "E",     "slotLabel": "5"},
 }
